@@ -1,0 +1,39 @@
+version: 1
+disable_existing_loggers: False
+
+formatters:
+  access:
+    format: '{"timestamp": "%(asctime)s.%(msecs)03dZ", "level": "%(levelname)s", "message": "%(message)s"}'
+    datefmt: "%Y-%m-%dT%H:%M:%S"
+  default:
+    format: '{"timestamp": "%(asctime)s.%(msecs)03dZ", "level": "%(levelname)s", "message": "%(message)s"}'
+    datefmt: "%Y-%m-%dT%H:%M:%S"
+
+
+
+handlers:
+  uvicorn.access:
+    class: logging.StreamHandler
+    formatter: access
+    level: INFO
+    stream: ext://sys.stdout
+  uvicorn.error:
+    class: logging.StreamHandler
+    formatter: default
+    level: INFO
+    stream: ext://sys.stderr
+
+loggers:
+  uvicorn:
+    access:
+      handlers: [uvicorn.access]
+      level: INFO
+      propagate: false
+    error:
+      handlers: [uvicorn.error]
+      level: INFO
+      propagate: true
+
+root:
+  level: INFO
+  handlers: [uvicorn.access]

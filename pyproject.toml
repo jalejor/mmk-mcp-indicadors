@@ -1,0 +1,36 @@
+
+[project]
+authors = [
+  {name = "paintoxic", email = "andres.lopez@y.uno"},
+]
+dependencies = [
+  "fastapi==0.115.14",
+  "uvicorn==0.35.0",
+  "yunopyutils==1.0.0a2",
+  "pyyaml==6.0.2",
+  "fastapi-mcp @ git+ssh://git@github.com/am1ter/fastapi_mcp.git",
+  "devops-py-utils @ git+ssh://git@github.com/yuno-payments/devops-py-utils.git",
+  "ccxt==4.2.97",
+  "pandas==2.2.2",
+  "pandas-ta==0.3.14b0",
+  "numpy<2.0.0",
+]
+description = ""
+license = {text = "MIT"}
+name = "api-template"
+requires-python = ">=3.10"
+version = "1.0.0"
+
+[tool.pdm.scripts]
+_.env_file = ".env"
+dev = {cmd = "pdm run src/main.py", help = "Run the development server"}
+export = {cmd = "pdm export -f requirements -o requirements.txt --without-hashes --prod", help = "Generate requirements file"}
+renew-lock = {shell = "rm pdm.lock >> /dev/null 2>&1"}
+update = {cmd = "pdm update -u --update-all --save-exact", help = "Update dependencies"}
+update-all = {composite = ["renew-lock", "update", "export"]}
+
+[dependency-groups]
+dev = [
+  "autopep8==2.3.2",
+  "pytest==8.2.0",
+]

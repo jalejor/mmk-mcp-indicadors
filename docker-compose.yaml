@@ -1,0 +1,15 @@
+version: "3.4"
+
+services:
+  app:
+    image: app:local
+    build:
+      context: .
+      target: debugger
+    environment:
+      PY_ENV: ${PY_ENV:-development}
+      PORT: ${PORT:-8000}
+      HOST: ${HOST:-0.0.0.0}
+    ports:
+      - 8000:8000
+      - 5678:5678
