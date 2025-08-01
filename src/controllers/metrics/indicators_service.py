@@ -25,6 +25,8 @@ class IndicatorsService:
         self._calc_ao(result)
         self._calc_moving_averages(result)
         self._calc_konkorde(result)
+        self._calc_momentum_indicators(result)
+        self._calc_volatility_indicators(result)
 
         return result
 
@@ -79,3 +81,31 @@ class IndicatorsService:
 
         result["konkorde_value"] = float(self.df["konkorde_val"].iloc[-1])
         result["konkorde_signal"] = "bullish" if result["konkorde_value"] > 0 else "bearish"
+
+    def _calc_momentum_indicators(self, result: Dict[str, Any]):
+        """Indicadores de momentum adicionales para mejorar las señales."""
+        # MACD
+        macd = ta.macd(self.df["close"])
+        self.df["macd"] = macd["MACD_12_26_9"]
+        self.df["macd_signal"] = macd["MACDs_12_26_9"]
+        self.df["macd_histogram"] = macd["MACDh_12_26_9"]
+        
+        result["macd"] = float(self.df["macd"].iloc[-1]) if not self.df["macd"].isna().iloc[-1] else 0.0
+        result["macd_signal"] = float(self.df["macd_signal"].iloc[-1]) if not self.df["macd_signal"].isna().iloc[-1] else 0.0
+        result["macd_histogram"] = float(self.df["macd_histogram"].iloc[-1]) if not self.df["macd_histogram"].isna().iloc[-1] else 0.0
+        
+        # Stochastic RSI
+        stoch_rsi = ta.stochrsi(self.df["close"], length=14)
+        result["stoch_rsi_k"] = float(stoch_rsi["STOCHRSIk_14_14_3_3"].iloc[-1]) if "STOCHRSIk_14_14_3_3" in stoch_rsi.columns else 0.0
+        result["stoch_rsi_d"] = float(stoch_rsi["STOCHRSId_14_14_3_3"].iloc[-1]) if "STOCHRSId_14_14_3_3" in stoch_rsi.columns else 0.0
+
+    def _calc_volatility_indicators(self, result: Dict[str, Any]):
+        """Indicadores de volatilidad para complementar BBWP."""
+        # Average True Range (ATR)
+        atr = ta.atr(self.df["high"], self.df["low"], self.df["close"], length=14)
+        result["atr"] = float(atr.iloc[-1]) if not atr.isna().iloc[-1] else 0.0
+        
+        # Volatilidad realizada (desviación estándar de returns)
+        returns = self.df["close"].pct_change()
+        volatility = returns.rolling(20).std() * 100  # En porcentaje
+        result["volatility_20"] = float(volatility.iloc[-1]) if not volatility.isna().iloc[-1] else 0.0

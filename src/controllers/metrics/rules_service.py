@@ -106,13 +106,41 @@ class RulesService:
             elif ema50 < sma50:
                 exit_support.append("ema50_lt_sma50")
 
-        # Decisión final basada en mayoría (>=4 votos) y diferencia significativa
+        # MACD signals
+        macd = indicators.get("macd")
+        macd_signal = indicators.get("macd_signal")
+        if macd is not None and macd_signal is not None:
+            if macd > macd_signal and macd > 0:
+                entry_support.append("macd_bullish")
+            elif macd < macd_signal and macd < 0:
+                exit_support.append("macd_bearish")
+
+        # Stochastic RSI
+        stoch_k = indicators.get("stoch_rsi_k")
+        stoch_d = indicators.get("stoch_rsi_d")
+        if stoch_k is not None and stoch_d is not None:
+            if stoch_k < 20 and stoch_k > stoch_d:
+                entry_support.append("stoch_rsi_oversold")
+            elif stoch_k > 80 and stoch_k < stoch_d:
+                exit_support.append("stoch_rsi_overbought")
+
+        # ATR para volatilidad
+        atr = indicators.get("atr")
+        volatility = indicators.get("volatility_20")
+        if volatility is not None and volatility < 1.5:  # Baja volatilidad
+            entry_support.append("low_volatility")
+
+        # Decisión final basada en mayoría (>=3 votos) y diferencia significativa
         entry_votes = len(entry_support)
         exit_votes = len(exit_support)
         signal = "neutral"
-        if entry_votes >= 4 and entry_votes > exit_votes:
+        
+        # Umbral dinámico: mínimo 3 votos o 60% de consenso
+        min_votes = max(3, int(0.6 * (entry_votes + exit_votes)))
+        
+        if entry_votes >= min_votes and entry_votes > exit_votes:
             signal = "entry"
-        elif exit_votes >= 4 and exit_votes > entry_votes:
+        elif exit_votes >= min_votes and exit_votes > entry_votes:
             signal = "exit"
 
         explanations = {
@@ -127,6 +155,11 @@ class RulesService:
             "ao_negative": "Awesome Oscillator negativo, impulso bajista",
             "ema50_gt_sma50": "EMA50 sobre SMA50, sesgo alcista de corto plazo",
             "ema50_lt_sma50": "EMA50 bajo SMA50, sesgo bajista de corto plazo",
+            "macd_bullish": "MACD por encima de su señal en territorio positivo",
+            "macd_bearish": "MACD por debajo de su señal en territorio negativo",
+            "stoch_rsi_oversold": "Stoch RSI en sobreventa con divergencia alcista",
+            "stoch_rsi_overbought": "Stoch RSI en sobrecompra con divergencia bajista",
+            "low_volatility": "Baja volatilidad, ambiente propicio para breakouts",
         }
 
         def explain(codes: list[str]):

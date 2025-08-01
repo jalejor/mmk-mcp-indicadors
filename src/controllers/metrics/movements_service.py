@@ -27,9 +27,9 @@ class MovementsService:
 
     RISK_PROFILES: Dict[RiskProfile, Tuple[float, float]] = {
         # (target_pct, stop_pct)
-        "low": (2.0, 1.0),
-        "medium": (4.0, 2.0),
-        "high": (8.0, 4.0),
+        "low": (2.5, 1.5),      # Más conservador
+        "medium": (5.0, 3.0),   # Equilibrado
+        "high": (10.0, 5.0),    # Más agresivo
     }
 
     def __init__(
@@ -86,11 +86,14 @@ class MovementsService:
         exit_votes = rules.get("exit_votes", 0)
         confidence = self._confidence(entry_votes, exit_votes)
         reasons = rules.get("explain_entry", [])
+        target_price = round(price * (1 + target_pct / 100.0), 2)
         return {
             "entry": round(price, 2),
+            "target_price": target_price,
             "target_pct": target_pct,
             "stop_loss": round(price * (1 - stop_pct / 100.0), 2),
             "confidence": confidence,
+            "risk_reward_ratio": round(target_pct / stop_pct, 2),
             "reasons": reasons,
         }
 
@@ -99,11 +102,14 @@ class MovementsService:
         exit_votes = rules.get("entry_votes", 0)
         confidence = self._confidence(entry_votes, exit_votes)
         reasons = rules.get("explain_exit", [])
+        target_price = round(price * (1 - target_pct / 100.0), 2)
         return {
             "entry": round(price, 2),
+            "target_price": target_price,
             "target_pct": target_pct,
             "stop_loss": round(price * (1 + stop_pct / 100.0), 2),
             "confidence": confidence,
+            "risk_reward_ratio": round(target_pct / stop_pct, 2),
             "reasons": reasons,
         }
 

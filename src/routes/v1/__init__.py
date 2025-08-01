@@ -16,3 +16,7 @@ api_v1.include_router(prefix="/averages", router=averages_router)
 # Recomendaciones de movimientos
 from .movements_routing import movements_router  # noqa: E402
 api_v1.include_router(prefix="/movements", router=movements_router)
+
+# Datos para gráficos
+from .chart_routing import chart_router  # noqa: E402
+api_v1.include_router(prefix="/charts", router=chart_router)
