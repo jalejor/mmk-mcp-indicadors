@@ -98,7 +98,9 @@ class MovementsService:
         }
 
     def _build_short(self, price: float, target_pct: float, stop_pct: float, rules: Dict[str, Any]) -> Dict[str, Any]:
-        entry_votes = rules.get("exit_votes", 0)  # Enfoque inverso para cortos
+        # Para shorts se invierte la lógica: las señales de exit (sobrecompra)
+        # son señales de entrada al short, y viceversa.
+        entry_votes = rules.get("exit_votes", 0)
         exit_votes = rules.get("entry_votes", 0)
         confidence = self._confidence(entry_votes, exit_votes)
         reasons = rules.get("explain_exit", [])

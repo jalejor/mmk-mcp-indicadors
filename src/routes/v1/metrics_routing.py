@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Query
-from devops_py_utils.web.middlewares import has_errors
+from middlewares import has_errors
 from controllers.metrics.metrics_controller import MetricsController
 
 metrics_router = APIRouter()

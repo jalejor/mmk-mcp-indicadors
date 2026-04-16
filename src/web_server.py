@@ -13,8 +13,8 @@ from pathlib import Path
 _DEFAULT_LOG_CONF = (Path(__file__).parent / 'log_conf.yaml').as_posix()
 _LOG_CONFIG_PATH = getenv('LOG_CONFIG_PATH', _DEFAULT_LOG_CONF)
 
-_API_VERSION = getenv('DD_VERSION', '1.0.0')
-_SVC = getenv("DD_SERVICE", "fastapi")
+_API_VERSION = getenv('APP_VERSION', '1.0.0')
+_SVC = getenv("APP_ID", "mmk-mcp-indicadors")
 _PREFIX_PATH = getenv("PREFIX_PATH", "/v1").split("#", 1)[0].strip()
 # Asegura que comience con "/"
 if _PREFIX_PATH and not _PREFIX_PATH.startswith("/"):
@@ -58,9 +58,10 @@ def start_fastapi():
         openapi_url=_OPENAPI_URL,
     )
 
+    _ALLOWED_ORIGINS = getenv("CORS_ORIGINS", "*").split(",")
     app.add_middleware(
         CORSMiddleware,
-        allow_origins="*",
+        allow_origins=_ALLOWED_ORIGINS,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

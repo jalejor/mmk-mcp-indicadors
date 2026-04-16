@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import List
 
 from fastapi import APIRouter, Query
-from devops_py_utils.web.middlewares import has_errors
+from middlewares import has_errors
 
 from controllers.metrics.averages_service import AveragesService
 

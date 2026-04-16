@@ -6,10 +6,8 @@ authors = [
 dependencies = [
   "fastapi==0.115.14",
   "uvicorn==0.35.0",
-  "yunopyutils==1.0.0a2",
   "pyyaml==6.0.2",
   "fastapi-mcp @ git+ssh://git@github.com/am1ter/fastapi_mcp.git",
-  "devops-py-utils @ git+ssh://git@github.com/yuno-payments/devops-py-utils.git",
   "ccxt==4.2.97",
   "pandas==2.2.2",
   "pandas-ta==0.3.14b0",

@@ -1,11 +1,8 @@
-class HealthyController(object):
-    def __init__(self, getenv):
-        _SVC = getenv("APP_ID", "fastapi")
-        _ENV = getenv("PYTHON_ENV", "development")
-
+class HealthyController:
+    def __init__(self, app_id: str, environment: str):
         self._app_status = {
-            "message": f"{_SVC} OK 👽",
-            "environment": _ENV,
+            "message": f"{app_id} OK",
+            "environment": environment,
         }
 
     def root(self):

@@ -1,6 +1,7 @@
-from yunopyutils import build_logger
+import logging
 
-_LOGGER = build_logger(__file__)
+logging.basicConfig(level=logging.INFO)
+_LOGGER = logging.getLogger(__name__)
 
 
 def main():

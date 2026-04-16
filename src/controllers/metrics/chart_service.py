@@ -200,11 +200,16 @@ class ChartService:
         if df.empty:
             return {}
         
+        low_min = float(df["low"].min())
+        high_max = float(df["high"].max())
+        start_price = float(df["close"].iloc[0])
+        end_price = float(df["close"].iloc[-1])
+
         return {
             "price_range": {
-                "highest": float(df["high"].max()),
-                "lowest": float(df["low"].min()),
-                "range_pct": round(((df["high"].max() - df["low"].min()) / df["low"].min()) * 100, 2)
+                "highest": high_max,
+                "lowest": low_min,
+                "range_pct": round(((high_max - low_min) / low_min) * 100, 2) if low_min > 0 else 0.0,
             },
             "volume": {
                 "total": float(df["volume"].sum()),
@@ -212,13 +217,13 @@ class ChartService:
                 "max": float(df["volume"].max())
             },
             "price_change": {
-                "start_price": float(df["close"].iloc[0]),
-                "end_price": float(df["close"].iloc[-1]),
-                "change_pct": round(((df["close"].iloc[-1] - df["close"].iloc[0]) / df["close"].iloc[0]) * 100, 2)
+                "start_price": start_price,
+                "end_price": end_price,
+                "change_pct": round(((end_price - start_price) / start_price) * 100, 2) if start_price > 0 else 0.0,
             },
             "volatility": {
                 "daily_returns_std": round(df["close"].pct_change().std() * 100, 3),
-                "price_volatility": round(((df["high"] - df["low"]) / df["close"]).mean() * 100, 2)
+                "price_volatility": round(((df["high"] - df["low"]) / df["close"].replace(0, float("nan"))).mean() * 100, 2)
             }
         }
 

@@ -13,6 +13,14 @@ class IndicatorsService:
         # Se trabaja sobre una copia para no modificar el DataFrame original
         self.df = df.copy()
 
+    @staticmethod
+    def _safe_last(series: pd.Series, default: float = 0.0) -> float:
+        """Extrae el último valor no-NaN de una serie, o default si no hay."""
+        valid = series.dropna()
+        if valid.empty:
+            return default
+        return float(valid.iloc[-1])
+
     # ---------------------------------------------------------------------
     # Cálculo principal
     # ---------------------------------------------------------------------
@@ -35,12 +43,12 @@ class IndicatorsService:
     # ------------------------------------------------------------------
     def _calc_rsi(self, result: Dict[str, Any]):
         self.df["rsi14"] = ta.rsi(self.df["close"], length=14)
-        result["rsi14"] = float(self.df["rsi14"].iloc[-1])
+        result["rsi14"] = self._safe_last(self.df["rsi14"])
 
     def _calc_adx(self, result: Dict[str, Any]):
         adx = ta.adx(self.df["high"], self.df["low"], self.df["close"], length=14)
         self.df["adx14"] = adx["ADX_14"]
-        result["adx14"] = float(self.df["adx14"].iloc[-1])
+        result["adx14"] = self._safe_last(self.df["adx14"])
 
     def _calc_bbwp(self, result: Dict[str, Any]):
         """BBWP → Bollinger Band Width Percentage.
@@ -52,8 +60,8 @@ class IndicatorsService:
         self.df["bbwp"] = width
         self.df["bbwp_ma4"] = width.rolling(4).mean()
 
-        result["bbwp"] = float(width.iloc[-1])
-        result["bbwp_ma4"] = float(self.df["bbwp_ma4"].iloc[-1])
+        result["bbwp"] = self._safe_last(width)
+        result["bbwp_ma4"] = self._safe_last(self.df["bbwp_ma4"])
 
     def _calc_ao(self, result: Dict[str, Any]):
         self.df["ao"] = ta.ao(self.df["high"], self.df["low"])
@@ -79,7 +87,7 @@ class IndicatorsService:
         self.df["obv_ema20"] = ta.ema(self.df["obv"], length=20)
         self.df["konkorde_val"] = self.df["obv"] - self.df["obv_ema20"]
 
-        result["konkorde_value"] = float(self.df["konkorde_val"].iloc[-1])
+        result["konkorde_value"] = self._safe_last(self.df["konkorde_val"])
         result["konkorde_signal"] = "bullish" if result["konkorde_value"] > 0 else "bearish"
 
     def _calc_momentum_indicators(self, result: Dict[str, Any]):
@@ -90,22 +98,22 @@ class IndicatorsService:
         self.df["macd_signal"] = macd["MACDs_12_26_9"]
         self.df["macd_histogram"] = macd["MACDh_12_26_9"]
         
-        result["macd"] = float(self.df["macd"].iloc[-1]) if not self.df["macd"].isna().iloc[-1] else 0.0
-        result["macd_signal"] = float(self.df["macd_signal"].iloc[-1]) if not self.df["macd_signal"].isna().iloc[-1] else 0.0
-        result["macd_histogram"] = float(self.df["macd_histogram"].iloc[-1]) if not self.df["macd_histogram"].isna().iloc[-1] else 0.0
-        
+        result["macd"] = self._safe_last(self.df["macd"])
+        result["macd_signal"] = self._safe_last(self.df["macd_signal"])
+        result["macd_histogram"] = self._safe_last(self.df["macd_histogram"])
+
         # Stochastic RSI
         stoch_rsi = ta.stochrsi(self.df["close"], length=14)
-        result["stoch_rsi_k"] = float(stoch_rsi["STOCHRSIk_14_14_3_3"].iloc[-1]) if "STOCHRSIk_14_14_3_3" in stoch_rsi.columns else 0.0
-        result["stoch_rsi_d"] = float(stoch_rsi["STOCHRSId_14_14_3_3"].iloc[-1]) if "STOCHRSId_14_14_3_3" in stoch_rsi.columns else 0.0
+        result["stoch_rsi_k"] = self._safe_last(stoch_rsi["STOCHRSIk_14_14_3_3"]) if "STOCHRSIk_14_14_3_3" in stoch_rsi.columns else 0.0
+        result["stoch_rsi_d"] = self._safe_last(stoch_rsi["STOCHRSId_14_14_3_3"]) if "STOCHRSId_14_14_3_3" in stoch_rsi.columns else 0.0
 
     def _calc_volatility_indicators(self, result: Dict[str, Any]):
         """Indicadores de volatilidad para complementar BBWP."""
         # Average True Range (ATR)
         atr = ta.atr(self.df["high"], self.df["low"], self.df["close"], length=14)
-        result["atr"] = float(atr.iloc[-1]) if not atr.isna().iloc[-1] else 0.0
-        
+        result["atr"] = self._safe_last(atr)
+
         # Volatilidad realizada (desviación estándar de returns)
         returns = self.df["close"].pct_change()
         volatility = returns.rolling(20).std() * 100  # En porcentaje
-        result["volatility_20"] = float(volatility.iloc[-1]) if not volatility.isna().iloc[-1] else 0.0
+        result["volatility_20"] = self._safe_last(volatility)
