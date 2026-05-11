@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Any, Dict, List
 from os import getenv
 
 
@@ -10,18 +10,64 @@ class RulesService:
     2. Global env vars, e.g. RSI_OVERBOUGHT.
     3. Per-symbol env vars, e.g. BTC_USDT_RSI_OVERSOLD.
     4. The `thresholds` constructor argument.
+
+    Phase 4 additions:
+    * Weighted voting per indicator family.  See `DEFAULT_WEIGHTS`.
+    * Market-regime detection (compression / exhaustion / trending /
+      ranging / transitional) that biases the weights and can suppress
+      signals when the regime is too dangerous to act on.
     """
 
     DEFAULT_THRESHOLDS: Dict[str, float] = {
         "rsi_overbought": 70.0,
         "rsi_oversold": 30.0,
         "adx_trend": 25.0,
-        # BBWP is now a 0-100 percentile (see IndicatorsService._calc_bbwp).
-        "bbwp_high": 80.0,  # high volatility (top 20% historical)
-        "bbwp_low": 20.0,   # compression (bottom 20% historical)
+        "bbwp_high": 80.0,
+        "bbwp_low": 20.0,
     }
 
-    def __init__(self, *, symbol: str, thresholds: Dict[str, float] | None = None):
+    DEFAULT_WEIGHTS: Dict[str, float] = {
+        "konkorde": 3.0,
+        "ao": 2.0,
+        "adx": 2.0,
+        "macd": 1.5,
+        "rsi": 1.0,
+        "bbwp": 1.0,
+        "stoch_rsi": 1.0,
+        "ma_cross": 1.0,
+        "volatility": 0.5,
+    }
+
+    # Maps every signal code emitted in `support_entry` / `support_exit` to
+    # the indicator family used to look up its weight.
+    _SIGNAL_FAMILY: Dict[str, str] = {
+        "rsi_oversold": "rsi",
+        "rsi_overbought": "rsi",
+        "vol_low": "bbwp",
+        "vol_high": "bbwp",
+        "adx_trend": "adx",
+        "adx_trend_bullish": "adx",
+        "adx_trend_bearish": "adx",
+        "konkorde_buy": "konkorde",
+        "konkorde_sell": "konkorde",
+        "ao_positive": "ao",
+        "ao_negative": "ao",
+        "ema50_gt_sma50": "ma_cross",
+        "ema50_lt_sma50": "ma_cross",
+        "macd_bullish": "macd",
+        "macd_bearish": "macd",
+        "stoch_rsi_oversold": "stoch_rsi",
+        "stoch_rsi_overbought": "stoch_rsi",
+        "low_volatility": "volatility",
+    }
+
+    def __init__(
+        self,
+        *,
+        symbol: str,
+        thresholds: Dict[str, float] | None = None,
+        weights: Dict[str, float] | None = None,
+    ):
         """`symbol` is expected as "BTC/USDT" so per-asset env overrides apply."""
         self.symbol = symbol.upper().replace("/", "_")
 
@@ -47,24 +93,43 @@ class RulesService:
 
         self.thresholds = th
 
+        # Weights: defaults -> env override (e.g. KONKORDE_WEIGHT=4.0) ->
+        # explicit constructor override.
+        w = self.DEFAULT_WEIGHTS.copy()
+        for key in list(w.keys()):
+            env_val = getenv(f"{key.upper()}_WEIGHT")
+            if env_val is not None:
+                w[key] = float(env_val)
+        if weights:
+            w.update(weights)
+        self.weights = w
+
+    # ------------------------------------------------------------
+    # Regime detection
+    # ------------------------------------------------------------
+    def _detect_regime(self, indicators: Dict[str, Any]) -> str:
+        bbwp = indicators.get("bbwp")
+        adx = indicators.get("adx14")
+        if bbwp is not None:
+            if bbwp < self.thresholds["bbwp_low"]:
+                return "compression"
+            if bbwp > self.thresholds["bbwp_high"]:
+                return "exhaustion"
+        if adx is not None:
+            if adx > self.thresholds["adx_trend"]:
+                return "trending"
+            if adx < 20.0:
+                return "ranging"
+        return "transitional"
+
     # ------------------------------------------------------------
     # Signal evaluation
     # ------------------------------------------------------------
     def evaluate(self, indicators: Dict[str, Any]) -> Dict[str, Any]:
-        """Evaluate multiple indicators.
-
-        Returns:
-        {
-            signal: entry | exit | neutral,
-            entry_votes: 5,
-            exit_votes: 1,
-            support_entry: ["rsi", "konkorde", ...],
-            support_exit: []
-        }
-        """
+        """Evaluate multiple indicators and return a structured trade plan."""
         th = self.thresholds
-        entry_support: list[str] = []
-        exit_support: list[str] = []
+        entry_support: List[str] = []
+        exit_support: List[str] = []
 
         rsi = indicators.get("rsi14")
         if rsi is not None:
@@ -80,8 +145,6 @@ class RulesService:
             elif bbwp > th["bbwp_high"]:
                 exit_support.append("vol_high")
 
-        # ADX with directional indicators: an ADX > 25 reading is only useful
-        # combined with +DI/-DI to know whether the trend is bullish or bearish.
         adx = indicators.get("adx14")
         plus_di = indicators.get("plus_di")
         minus_di = indicators.get("minus_di")
@@ -91,10 +154,7 @@ class RulesService:
                     entry_support.append("adx_trend_bullish")
                 elif minus_di > plus_di:
                     exit_support.append("adx_trend_bearish")
-            # adx < 20 -> ranging market, skip directional vote.
         elif adx is not None and adx >= th["adx_trend"]:
-            # Backwards compat: if no DI info available fall back to the
-            # legacy direction-agnostic vote.
             entry_support.append("adx_trend")
 
         konkorde_val = indicators.get("konkorde_value")
@@ -111,7 +171,6 @@ class RulesService:
             elif ao < 0:
                 exit_support.append("ao_negative")
 
-        # EMA vs SMA 50 short-term bias.
         sma50 = indicators.get("sma50")
         ema50 = indicators.get("ema50")
         if sma50 is not None and ema50 is not None:
@@ -120,7 +179,6 @@ class RulesService:
             elif ema50 < sma50:
                 exit_support.append("ema50_lt_sma50")
 
-        # MACD signals
         macd = indicators.get("macd")
         macd_signal = indicators.get("macd_signal")
         if macd is not None and macd_signal is not None:
@@ -129,7 +187,6 @@ class RulesService:
             elif macd < macd_signal and macd < 0:
                 exit_support.append("macd_bearish")
 
-        # Stochastic RSI
         stoch_k = indicators.get("stoch_rsi_k")
         stoch_d = indicators.get("stoch_rsi_d")
         if stoch_k is not None and stoch_d is not None:
@@ -138,25 +195,72 @@ class RulesService:
             elif stoch_k > 80 and stoch_k < stoch_d:
                 exit_support.append("stoch_rsi_overbought")
 
-        # Realised volatility (low vol favours breakouts).
         volatility = indicators.get("volatility_20")
         if volatility is not None and volatility < 1.5:
             entry_support.append("low_volatility")
 
-        # Final decision.
+        # ----------------------------------------------------------
+        # Weighted scoring + regime adjustments
+        # ----------------------------------------------------------
+        regime = self._detect_regime(indicators)
+        weights, regime_adjustments = self._weights_for_regime(regime)
+
+        entry_score = sum(weights.get(self._SIGNAL_FAMILY.get(s, ""), 1.0) for s in entry_support)
+        exit_score = sum(weights.get(self._SIGNAL_FAMILY.get(s, ""), 1.0) for s in exit_support)
+
         entry_votes = len(entry_support)
         exit_votes = len(exit_support)
+
         signal = "neutral"
+        # Compression precedes breakouts where direction is unknown — skip.
+        if regime != "compression":
+            min_score = max(4.0, 0.6 * (entry_score + exit_score))
+            if entry_score >= min_score and entry_score > exit_score:
+                signal = "entry"
+            elif exit_score >= min_score and exit_score > entry_score:
+                signal = "exit"
+        else:
+            regime_adjustments.append("compression_blocks_signal")
 
-        # Dynamic threshold: at least 3 votes or 60% consensus.
-        min_votes = max(3, int(0.6 * (entry_votes + exit_votes)))
+        explanations = self._explanations()
 
-        if entry_votes >= min_votes and entry_votes > exit_votes:
-            signal = "entry"
-        elif exit_votes >= min_votes and exit_votes > entry_votes:
-            signal = "exit"
+        def explain(codes: List[str]) -> List[str]:
+            return [explanations.get(c, c) for c in codes]
 
-        explanations = {
+        return {
+            "signal": signal,
+            "regime": regime,
+            "regime_adjustments": regime_adjustments,
+            "entry_votes": entry_votes,
+            "exit_votes": exit_votes,
+            "entry_score": round(entry_score, 3),
+            "exit_score": round(exit_score, 3),
+            "support_entry": entry_support,
+            "support_exit": exit_support,
+            "explain_entry": explain(entry_support),
+            "explain_exit": explain(exit_support),
+        }
+
+    # ------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------
+    def _weights_for_regime(self, regime: str) -> tuple[Dict[str, float], List[str]]:
+        weights = dict(self.weights)
+        adjustments: List[str] = []
+        if regime == "trending":
+            weights["adx"] = weights.get("adx", 1.0) * 1.5
+            adjustments.append("trending: x1.5 ADX weight")
+        elif regime == "ranging":
+            weights["rsi"] = weights.get("rsi", 1.0) * 1.5
+            weights["stoch_rsi"] = weights.get("stoch_rsi", 1.0) * 1.5
+            adjustments.append("ranging: x1.5 RSI / Stoch RSI weights")
+        elif regime == "exhaustion":
+            adjustments.append("exhaustion: divergence hook reserved")
+        return weights, adjustments
+
+    @staticmethod
+    def _explanations() -> Dict[str, str]:
+        return {
             "rsi_oversold": "RSI por debajo del umbral de sobreventa, posible rebote alcista",
             "rsi_overbought": "RSI por encima del umbral de sobrecompra, posible corrección",
             "vol_low": "Baja volatilidad (BBWP), posible inicio de movimiento",
@@ -175,17 +279,4 @@ class RulesService:
             "stoch_rsi_oversold": "Stoch RSI en sobreventa con divergencia alcista",
             "stoch_rsi_overbought": "Stoch RSI en sobrecompra con divergencia bajista",
             "low_volatility": "Baja volatilidad, ambiente propicio para breakouts",
-        }
-
-        def explain(codes: list[str]):
-            return [explanations.get(c, c) for c in codes]
-
-        return {
-            "signal": signal,
-            "entry_votes": entry_votes,
-            "exit_votes": exit_votes,
-            "support_entry": entry_support,
-            "support_exit": exit_support,
-            "explain_entry": explain(entry_support),
-            "explain_exit": explain(exit_support),
         }
