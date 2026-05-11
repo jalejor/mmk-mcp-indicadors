@@ -1,15 +1,27 @@
-version: "3.4"
-
 services:
   app:
-    image: app:local
+    image: mmk-mcp-indicadors:local
     build:
       context: .
-      target: debugger
+      target: runtime
+    restart: unless-stopped
+    env_file:
+      - .env
     environment:
-      PY_ENV: ${PY_ENV:-development}
+      PY_ENV: ${PY_ENV:-production}
       PORT: ${PORT:-8000}
       HOST: ${HOST:-0.0.0.0}
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+    expose:
+      - "8000"
     ports:
-      - 8000:8000
-      - 5678:5678
+      - "${PORT:-8000}:8000"
+    read_only: true
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8000/v1/healthy"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

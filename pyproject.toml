@@ -12,6 +12,8 @@ dependencies = [
   "pandas==2.2.2",
   "pandas-ta==0.3.14b0",
   "numpy<2.0.0",
+  "cachetools==5.3.3",
+  "slowapi==0.1.9",
 ]
 description = ""
 license = {text = "MIT"}

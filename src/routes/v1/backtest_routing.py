@@ -1,10 +1,11 @@
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Literal
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 
 from middlewares import has_errors
+from security import BACKTEST_RATE_LIMIT, limiter
 
 from controllers.metrics.backtest_service import BacktestService
 
@@ -28,9 +29,16 @@ class BacktestRequest(BaseModel):
     warmup_bars: int = Field(250, ge=50)
 
 
+def _maybe_limit(handler):
+    if limiter is not None:
+        return limiter.limit(BACKTEST_RATE_LIMIT)(handler)
+    return handler
+
+
 @backtest_router.post("/", tags=tags)
+@_maybe_limit
 @has_errors
-async def run_backtest(payload: BacktestRequest):
+async def run_backtest(request: Request, payload: BacktestRequest):
     """Replay the RulesService strategy on historical OHLCV.
 
     Returns aggregate metrics, the full equity curve and the executed trades
