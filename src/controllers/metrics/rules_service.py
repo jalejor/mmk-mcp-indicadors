@@ -1,58 +1,59 @@
-from typing import Dict
+from typing import Dict, Any
 from os import getenv
 
 
 class RulesService:
-    """Evalúa reglas de trading (entrada, salida, neutral) con umbrales configurables.
+    """Evaluates trading rules (entry, exit, neutral) with configurable thresholds.
 
-    Los umbrales pueden definirse de tres maneras:
-    1. Valores por defecto (DEFAULT_THRESHOLDS).
-    2. Variables de entorno globales, p.e. RSI_OVERBOUGHT.
-    3. Variables de entorno por símbolo, p.e. BTC_USDT_RSI_OVERSOLD.
-    4. Parámetro `thresholds` pasado al constructor, que tiene máxima prioridad.
+    Thresholds can be customised in three ways (highest priority wins):
+    1. DEFAULT_THRESHOLDS.
+    2. Global env vars, e.g. RSI_OVERBOUGHT.
+    3. Per-symbol env vars, e.g. BTC_USDT_RSI_OVERSOLD.
+    4. The `thresholds` constructor argument.
     """
 
     DEFAULT_THRESHOLDS: Dict[str, float] = {
         "rsi_overbought": 70.0,
         "rsi_oversold": 30.0,
         "adx_trend": 25.0,
-        "bbwp_high": 4.0,   # volatilidad alta
-        "bbwp_low": 1.5,    # volatilidad baja
+        # BBWP is now a 0-100 percentile (see IndicatorsService._calc_bbwp).
+        "bbwp_high": 80.0,  # high volatility (top 20% historical)
+        "bbwp_low": 20.0,   # compression (bottom 20% historical)
     }
 
     def __init__(self, *, symbol: str, thresholds: Dict[str, float] | None = None):
-        """symbol debe ser formato "BTC/USDT" para detectar overrides por activo."""
+        """`symbol` is expected as "BTC/USDT" so per-asset env overrides apply."""
         self.symbol = symbol.upper().replace("/", "_")
 
-        # 1. Partimos de los defaults
+        # 1. Defaults
         th = self.DEFAULT_THRESHOLDS.copy()
 
-        # 2. Overrides globales (sin símbolo)
+        # 2. Global env overrides
         for key in th.keys():
             env_val = getenv(key.upper())
             if env_val is not None:
                 th[key] = float(env_val)
 
-        # 3. Overrides por símbolo
+        # 3. Per-symbol env overrides
         for key in th.keys():
             env_key = f"{self.symbol}_{key.upper()}"
             env_val = getenv(env_key)
             if env_val is not None:
                 th[key] = float(env_val)
 
-        # 4. Overrides explícitos del caller
+        # 4. Caller-provided overrides
         if thresholds:
             th.update(thresholds)
 
         self.thresholds = th
 
     # ------------------------------------------------------------
-    # Evaluación de señales
+    # Signal evaluation
     # ------------------------------------------------------------
-    def evaluate(self, indicators: Dict[str, float]) -> Dict[str, str]:
-        """Evalúa múltiples indicadores.
+    def evaluate(self, indicators: Dict[str, Any]) -> Dict[str, Any]:
+        """Evaluate multiple indicators.
 
-        Devuelve:
+        Returns:
         {
             signal: entry | exit | neutral,
             entry_votes: 5,
@@ -79,8 +80,21 @@ class RulesService:
             elif bbwp > th["bbwp_high"]:
                 exit_support.append("vol_high")
 
+        # ADX with directional indicators: an ADX > 25 reading is only useful
+        # combined with +DI/-DI to know whether the trend is bullish or bearish.
         adx = indicators.get("adx14")
-        if adx is not None and adx > th["adx_trend"]:
+        plus_di = indicators.get("plus_di")
+        minus_di = indicators.get("minus_di")
+        if adx is not None and plus_di is not None and minus_di is not None:
+            if adx >= th["adx_trend"]:
+                if plus_di > minus_di:
+                    entry_support.append("adx_trend_bullish")
+                elif minus_di > plus_di:
+                    exit_support.append("adx_trend_bearish")
+            # adx < 20 -> ranging market, skip directional vote.
+        elif adx is not None and adx >= th["adx_trend"]:
+            # Backwards compat: if no DI info available fall back to the
+            # legacy direction-agnostic vote.
             entry_support.append("adx_trend")
 
         konkorde_val = indicators.get("konkorde_value")
@@ -97,7 +111,7 @@ class RulesService:
             elif ao < 0:
                 exit_support.append("ao_negative")
 
-        # EMA vs SMA 50 tendencia sencilla
+        # EMA vs SMA 50 short-term bias.
         sma50 = indicators.get("sma50")
         ema50 = indicators.get("ema50")
         if sma50 is not None and ema50 is not None:
@@ -124,20 +138,19 @@ class RulesService:
             elif stoch_k > 80 and stoch_k < stoch_d:
                 exit_support.append("stoch_rsi_overbought")
 
-        # ATR para volatilidad
-        atr = indicators.get("atr")
+        # Realised volatility (low vol favours breakouts).
         volatility = indicators.get("volatility_20")
-        if volatility is not None and volatility < 1.5:  # Baja volatilidad
+        if volatility is not None and volatility < 1.5:
             entry_support.append("low_volatility")
 
-        # Decisión final basada en mayoría (>=3 votos) y diferencia significativa
+        # Final decision.
         entry_votes = len(entry_support)
         exit_votes = len(exit_support)
         signal = "neutral"
-        
-        # Umbral dinámico: mínimo 3 votos o 60% de consenso
+
+        # Dynamic threshold: at least 3 votes or 60% consensus.
         min_votes = max(3, int(0.6 * (entry_votes + exit_votes)))
-        
+
         if entry_votes >= min_votes and entry_votes > exit_votes:
             signal = "entry"
         elif exit_votes >= min_votes and exit_votes > entry_votes:
@@ -149,8 +162,10 @@ class RulesService:
             "vol_low": "Baja volatilidad (BBWP), posible inicio de movimiento",
             "vol_high": "Alta volatilidad (BBWP), riesgo de agotamiento o toma de ganancias",
             "adx_trend": "ADX por encima del nivel de tendencia, mercado con dirección definida",
-            "konkorde_buy": "Konkorde indica presión compradora (OBV > EMA)",
-            "konkorde_sell": "Konkorde indica presión vendedora (OBV < EMA)",
+            "adx_trend_bullish": "ADX > 25 con +DI dominante: tendencia alcista confirmada",
+            "adx_trend_bearish": "ADX > 25 con -DI dominante: tendencia bajista confirmada",
+            "konkorde_buy": "Konkorde indica presión compradora (línea marrón positiva)",
+            "konkorde_sell": "Konkorde indica presión vendedora (línea marrón negativa)",
             "ao_positive": "Awesome Oscillator positivo, impulso alcista",
             "ao_negative": "Awesome Oscillator negativo, impulso bajista",
             "ema50_gt_sma50": "EMA50 sobre SMA50, sesgo alcista de corto plazo",

@@ -1,0 +1,21 @@
+FROM python:3.10-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends gcc build-essential git ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install only the dependencies needed to run the test suite. Avoids the
+# private SSH-cloned packages that the runtime requirements.txt declares.
+COPY tests/requirements-test.txt ./tests/requirements-test.txt
+RUN pip install --no-cache-dir -r tests/requirements-test.txt
+
+# Source and tests are mounted at runtime so we can iterate without rebuilds.
+ENV PYTHONPATH=/app/src
+
+CMD ["pytest", "-q", "tests/"]

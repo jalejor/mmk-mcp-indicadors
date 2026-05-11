@@ -1,0 +1,14 @@
+# Minimal dependency set used to run the test suite inside Docker.
+# Mirrors the runtime libraries actually exercised by the unit tests
+# (indicators, rules, backtest) without dragging private SSH-cloned packages.
+fastapi==0.115.14
+uvicorn==0.35.0
+pyyaml==6.0.2
+ccxt==4.2.97
+pandas==2.2.2
+pandas-ta @ git+https://github.com/polakowo/pandas-ta.git@main
+numpy<2.0.0
+cachetools==5.3.3
+slowapi==0.1.9
+pytest==8.2.0
+httpx==0.28.1
