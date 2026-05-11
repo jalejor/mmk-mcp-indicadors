@@ -20,3 +20,7 @@ api_v1.include_router(prefix="/movements", router=movements_router)
 # Datos para gráficos
 from .chart_routing import chart_router  # noqa: E402
 api_v1.include_router(prefix="/charts", router=chart_router)
+
+# Backtest engine
+from .backtest_routing import backtest_router  # noqa: E402
+api_v1.include_router(prefix="/backtest", router=backtest_router)
