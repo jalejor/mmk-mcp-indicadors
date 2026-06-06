@@ -127,10 +127,12 @@ def start_fastapi():
     )
 
     _ALLOWED_ORIGINS = getenv("CORS_ORIGINS", "*").split(",")
+    # Auth uses the X-API-Key header (no cookies), so credentials are never
+    # needed; wildcard origins + allow_credentials=True is an invalid combo.
     app.add_middleware(
         CORSMiddleware,
         allow_origins=_ALLOWED_ORIGINS,
-        allow_credentials=True,
+        allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
     )
