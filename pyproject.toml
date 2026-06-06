@@ -10,7 +10,7 @@ dependencies = [
   "fastapi-mcp @ git+https://github.com/am1ter/fastapi_mcp.git",
   "ccxt==4.2.97",
   "pandas==2.2.2",
-  "pandas-ta==0.3.14b0",
+  "pandas-ta-classic==0.3.14b1",
   "numpy<2.0.0",
   "cachetools==5.3.3",
   "slowapi==0.1.9",

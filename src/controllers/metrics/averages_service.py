@@ -14,7 +14,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Any, Callable
 
 import pandas as pd
-import pandas_ta as ta
+import pandas_ta_classic as ta
 import re
 
 from .market_data_service import MarketDataService
