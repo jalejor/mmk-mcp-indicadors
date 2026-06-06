@@ -105,7 +105,7 @@ Ver [ENVIRONMENT_VARIABLES.md](./ENVIRONMENT_VARIABLES.md) para la documentació
 
 ### Logging
 
-La configuración de logging se encuentra en `src/log_conf.yaml` y utiliza `yunopyutils` para la gestión de logs.
+El logging usa la librería estándar `logging` de Python con un formatter JSON estructurado (ver `src/web_server.py`); config base en `src/log_conf.yaml`.
 
 ## 🔧 Desarrollo
 
@@ -134,7 +134,7 @@ async def your_function(param: str):
 ```python
 # routes/v1/example_routing.py
 from fastapi import APIRouter
-from devops_py_utils.web.middlewares import has_errors
+from middlewares import has_errors
 from controllers.example.example_controller import your_function
 
 example_router = APIRouter()
@@ -259,9 +259,10 @@ Agrega la siguiente configuración a tu archivo `mcp.json`:
 
 - **FastAPI**: Framework web principal
 - **uvicorn**: Servidor ASGI
-- **yunopyutils**: Utilidades de Yuno
 - **fastapi-mcp**: Integración MCP
-- **devops-py-utils**: Utilidades DevOps
+- **ccxt**: Datos de mercado de exchanges
+- **pandas / pandas-ta**: Cálculo de indicadores
+- **slowapi**: Rate limiting
 - **PyYAML**: Manejo de archivos YAML
 
 ---

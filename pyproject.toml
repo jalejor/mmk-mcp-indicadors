@@ -1,13 +1,13 @@
 
 [project]
 authors = [
-  {name = "paintoxic", email = "andres.lopez@y.uno"},
+  {name = "jalejor", email = "jeissonrincongoye@gmail.com"},
 ]
 dependencies = [
   "fastapi==0.115.14",
   "uvicorn==0.35.0",
   "pyyaml==6.0.2",
-  "fastapi-mcp @ git+ssh://git@github.com/am1ter/fastapi_mcp.git",
+  "fastapi-mcp @ git+https://github.com/am1ter/fastapi_mcp.git",
   "ccxt==4.2.97",
   "pandas==2.2.2",
   "pandas-ta==0.3.14b0",
