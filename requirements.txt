@@ -6,6 +6,7 @@ anyio==4.9.0
 async-timeout==5.0.1; python_full_version < "3.11.3"
 attrs==25.3.0
 cachetools==5.3.3
+ccxt==4.2.97
 certifi==2025.6.15
 charset-normalizer==3.4.2
 click==8.2.1
@@ -25,7 +26,10 @@ jsonschema-specifications==2025.4.1
 markdown-it-py==3.0.0
 mcp==1.10.1
 mdurl==0.1.2
+numpy==1.26.4
 orderly-set==5.4.1
+pandas==2.2.2
+pandas-ta==0.3.14b0
 pydantic==2.11.7
 pydantic-core==2.33.2
 pydantic-settings==2.10.1
