@@ -1,3 +1,4 @@
+from controllers.metrics.market_data_service import DEFAULT_EXCHANGE
 from fastapi import APIRouter, Query
 from middlewares import has_errors
 from controllers.metrics.dominance_service import DominanceService
@@ -11,7 +12,7 @@ tags = ["dominance"]
 @has_errors
 async def get_dominance(
     coins: str = Query("btc,eth", description="Lista de monedas separadas por coma: btc,eth,usdt,bnb"),
-    exchange: str = Query("binance", description="Exchange a usar para análisis de indicadores"),
+    exchange: str = Query(DEFAULT_EXCHANGE, description="Exchange a usar para análisis de indicadores"),
     timeframe: str = Query("daily", description="Marco temporal para indicadores: daily, weekly, etc."),
     limit: int = Query(500, description="Número de velas para indicadores"),
 ):

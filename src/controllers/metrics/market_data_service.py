@@ -15,6 +15,7 @@ DataFrame so callers cannot mutate the shared object.
 from __future__ import annotations
 
 import threading
+from os import getenv
 from typing import Any, Dict, List, Optional, Tuple
 
 import ccxt
@@ -51,6 +52,12 @@ class _CacheEntry:
         self.lock = threading.Lock()
 
 
+# Default exchange for every endpoint/service. Binance geo-blocks US IPs
+# (HTTP 451), so cloud deployments in US regions should set
+# DEFAULT_EXCHANGE=bitget.
+DEFAULT_EXCHANGE = getenv("DEFAULT_EXCHANGE", "binance").lower()
+
+
 class MarketDataService:
     """OHLCV fetcher backed by a shared TTL cache."""
 
@@ -65,7 +72,7 @@ class MarketDataService:
     _CACHE: Optional["TTLCache[Tuple[str, str, str, int], _CacheEntry]"] = None
     _CACHE_LOCK = threading.Lock()
 
-    def __init__(self, exchange_name: str = "binance") -> None:
+    def __init__(self, exchange_name: str = DEFAULT_EXCHANGE) -> None:
         exchange_name = exchange_name.lower()
         if exchange_name not in self.SUPPORTED_EXCHANGES:
             raise ValueError(f"Exchange no soportado: {exchange_name}")

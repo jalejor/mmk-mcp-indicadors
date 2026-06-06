@@ -21,7 +21,7 @@ import math
 import pandas as pd
 
 from .indicators_service import IndicatorsService
-from .market_data_service import MarketDataService
+from .market_data_service import DEFAULT_EXCHANGE, MarketDataService
 from .rules_service import RulesService
 
 Side = Literal["long", "short", "both"]
@@ -87,7 +87,7 @@ class BacktestService:
         *,
         symbol: str,
         timeframe: str = "1h",
-        exchange: str = "binance",
+        exchange: str = DEFAULT_EXCHANGE,
         start: datetime,
         end: datetime,
         initial_capital: float = 10000.0,

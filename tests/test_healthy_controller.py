@@ -1,4 +1,4 @@
-"""Health controller tests — covers the new structured payload + Binance probe.
+"""Health controller tests — covers the structured payload + exchange probe.
 
 We import the module via `importlib` because `controllers/__init__.py`
 shadows the submodule attribute with a `HealthyController` instance for
@@ -18,15 +18,16 @@ def test_liveness_payload():
 
 
 def test_healthy_handles_probe_failure(monkeypatch):
-    """When the Binance probe raises, the endpoint must downgrade to degraded."""
-    monkeypatch.setattr(healthy_module, "_probe_binance", lambda: "error: boom")
+    """When the exchange probe raises, the endpoint must downgrade to degraded."""
+    monkeypatch.setattr(healthy_module, "_probe_exchange", lambda: "error: boom")
     out = healthy_module.healthy()
     assert out["status"] == "degraded"
-    assert out["exchange_binance"].startswith("error")
+    assert out["exchange_status"].startswith("error")
+    assert out["exchange"]
 
 
 def test_healthy_returns_ok_when_probe_succeeds(monkeypatch):
-    monkeypatch.setattr(healthy_module, "_probe_binance", lambda: "ok")
+    monkeypatch.setattr(healthy_module, "_probe_exchange", lambda: "ok")
     out = healthy_module.healthy()
     assert out["status"] == "healthy"
-    assert out["exchange_binance"] == "ok"
+    assert out["exchange_status"] == "ok"

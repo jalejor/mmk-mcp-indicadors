@@ -1,3 +1,4 @@
+from controllers.metrics.market_data_service import DEFAULT_EXCHANGE
 from typing import Literal
 
 from fastapi import APIRouter, Query
@@ -15,7 +16,7 @@ tags = ["movements"]
 async def get_movements(
     symbol: str = Query(..., description="Par de trading, ej: BTC/USDT"),
     timeframe: str = Query("1h", description="Marco temporal"),
-    exchange: str = Query("binance", description="Exchange"),
+    exchange: str = Query(DEFAULT_EXCHANGE, description="Exchange"),
     capital: float = Query(1000.0, description="Capital disponible para la posición"),
     risk_profile: Literal["low", "medium", "high"] = Query("medium", description="Perfil de riesgo"),
     side: Literal["long", "short", "both"] = Query("both", description="Tipo de posición a analizar"),

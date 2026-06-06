@@ -2,7 +2,7 @@
 
 `/liveness` is a simple "the process is up" probe used by the orchestrator.
 `/healthy` is a richer readiness probe that also checks the upstream
-exchange (Binance by default).  When the exchange call fails or times out
+exchange (`DEFAULT_EXCHANGE`).  When the exchange call fails or times out
 the endpoint downgrades to `degraded` so the load balancer can route
 traffic away while the process keeps responding.
 """
@@ -54,9 +54,13 @@ def root() -> Dict[str, Any]:
     return {"message": f"{_APP_ID} OK", "environment": _ENVIRONMENT}
 
 
-def _probe_binance() -> str:
+def _probe_exchange() -> str:
+    from controllers.metrics.market_data_service import DEFAULT_EXCHANGE
+
     try:
-        client = ccxt.binance({"enableRateLimit": True, "options": {"defaultType": "spot"}})
+        client = getattr(ccxt, DEFAULT_EXCHANGE)(
+            {"enableRateLimit": True, "options": {"defaultType": "spot"}}
+        )
         with ThreadPoolExecutor(max_workers=1) as executor:
             future = executor.submit(client.fetch_ticker, "BTC/USDT")
             future.result(timeout=_EXCHANGE_PROBE_TIMEOUT_S)
@@ -68,11 +72,14 @@ def _probe_binance() -> str:
 
 
 def healthy() -> Dict[str, Any]:
-    binance_status = _probe_binance()
-    overall = "healthy" if binance_status == "ok" else "degraded"
+    from controllers.metrics.market_data_service import DEFAULT_EXCHANGE
+
+    exchange_status = _probe_exchange()
+    overall = "healthy" if exchange_status == "ok" else "degraded"
     return {
         "status": overall,
-        "exchange_binance": binance_status,
+        "exchange": DEFAULT_EXCHANGE,
+        "exchange_status": exchange_status,
         "uptime_seconds": int(time.time() - _PROCESS_START_TS),
         "version": _VERSION,
         "environment": _ENVIRONMENT,

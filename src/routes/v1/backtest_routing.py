@@ -1,3 +1,4 @@
+from controllers.metrics.market_data_service import DEFAULT_EXCHANGE
 from datetime import datetime
 from typing import Literal
 
@@ -17,7 +18,7 @@ tags = ["backtest"]
 class BacktestRequest(BaseModel):
     symbol: str = Field(..., description="Trading pair, e.g. BTC/USDT")
     timeframe: str = Field("1h", description="Candle timeframe (ccxt format)")
-    exchange: str = Field("binance", description="Exchange identifier")
+    exchange: str = Field(DEFAULT_EXCHANGE, description="Exchange identifier")
     start: datetime = Field(..., description="Inclusive start of the simulation window")
     end: datetime = Field(..., description="Exclusive end of the simulation window")
     initial_capital: float = Field(10000.0, gt=0)

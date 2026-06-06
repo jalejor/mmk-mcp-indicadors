@@ -18,7 +18,7 @@ from typing import Any, Dict, Literal, Tuple
 import pandas as pd
 
 from .indicators_service import IndicatorsService
-from .market_data_service import MarketDataService
+from .market_data_service import DEFAULT_EXCHANGE, MarketDataService
 from .rules_service import RulesService
 
 RiskProfile = Literal["low", "medium", "high"]
@@ -49,7 +49,7 @@ class MovementsService:
         *,
         symbol: str,
         timeframe: str = "1h",
-        exchange: str = "binance",
+        exchange: str = DEFAULT_EXCHANGE,
         capital: float = 1000.0,
         risk_profile: RiskProfile = "medium",
         side: Side = "both",

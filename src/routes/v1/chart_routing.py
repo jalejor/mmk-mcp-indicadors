@@ -1,3 +1,4 @@
+from controllers.metrics.market_data_service import DEFAULT_EXCHANGE
 from datetime import datetime
 from typing import Optional
 
@@ -15,7 +16,7 @@ tags = ["charts"]
 @has_errors
 async def get_chart_data(
     symbol: str = Query(..., description="Par de trading, ej: BTC/USDT"),
-    exchange: str = Query("binance", description="Exchange a usar: binance, bitget"),
+    exchange: str = Query(DEFAULT_EXCHANGE, description="Exchange a usar: binance, bitget"),
     start: datetime | None = Query(None, description="Fecha/hora inicial en formato ISO 8601"),
     end: datetime | None = Query(None, description="Fecha/hora final en formato ISO 8601"),
     span: str = Query("24h", description="Rango retrospectivo si no se provee start/end. Ej: 1h,24h,7d,30d,1M"),
@@ -80,7 +81,7 @@ async def get_chart_data(
 @has_errors
 async def get_available_timeframes(
     symbol: str = Query(..., description="Par de trading"),
-    exchange: str = Query("binance", description="Exchange a consultar"),
+    exchange: str = Query(DEFAULT_EXCHANGE, description="Exchange a consultar"),
     span: str = Query("24h", description="Rango temporal para evaluar timeframes"),
     max_points: int = Query(1000, description="Máximo puntos deseados"),
 ):

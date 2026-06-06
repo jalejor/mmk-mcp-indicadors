@@ -1,3 +1,4 @@
+from controllers.metrics.market_data_service import DEFAULT_EXCHANGE
 from fastapi import APIRouter, Query
 from middlewares import has_errors
 from controllers.metrics.metrics_controller import MetricsController
@@ -15,7 +16,7 @@ def _get_controller(exchange: str):
 @has_errors
 async def get_metrics(
     symbol: str = Query(..., description="Par a consultar, ej: BTC/USDT"),
-    exchange: str = Query("binance", description="Exchange a usar"),
+    exchange: str = Query(DEFAULT_EXCHANGE, description="Exchange a usar"),
     timeframe: str = Query("1h", description="Marco temporal"),
     limit: int = Query(500, description="Número de velas"),
 ):

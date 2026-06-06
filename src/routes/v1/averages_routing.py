@@ -1,3 +1,4 @@
+from controllers.metrics.market_data_service import DEFAULT_EXCHANGE
 from datetime import datetime
 from typing import List
 
@@ -16,7 +17,7 @@ tags = ["averages"]
 async def get_averages(
     symbol: str = Query(..., description="Par de trading, ej: BTC/USDT"),
     timeframe: str = Query("1h", description="Marco temporal ccxt"),
-    exchange: str = Query("binance", description="Exchange a usar"),
+    exchange: str = Query(DEFAULT_EXCHANGE, description="Exchange a usar"),
     start: datetime | None = Query(None, description="Fecha/hora inicial en formato ISO 8601"),
     end: datetime | None = Query(None, description="Fecha/hora final en formato ISO 8601"),
     span: str = Query("1d", description="Rango retrospectivo si no se provee start/end. Ej: 48h,7d,1w,1m"),
