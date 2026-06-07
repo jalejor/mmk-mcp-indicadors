@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Dict, Any
 
-from .market_data_service import MarketDataService
+from .market_data_service import DEFAULT_EXCHANGE, MarketDataService
 from .indicators_service import IndicatorsService
 from .rules_service import RulesService
 
@@ -10,7 +10,7 @@ class MetricsController:
     """Controlador principal que coordina la descarga de datos, cálculo de indicadores
     y evaluación de reglas, devolviendo un payload estructurado listo para exponer vía API."""
 
-    def __init__(self, exchange: str = "binance") -> None:
+    def __init__(self, exchange: str = DEFAULT_EXCHANGE) -> None:
         self.exchange_name = exchange.lower()
 
     def process_symbol(self, symbol: str, timeframe: str = "1h", limit: int = 500) -> Dict[str, Any]:

@@ -1,0 +1,42 @@
+steps:
+    - id: Build
+      name: gcr.io/kaniko-project/executor:latest
+      args:
+          - --destination=$_AR_HOSTNAME/$PROJECT_ID/cloud-run-source-deploy/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA
+          - --destination=$_AR_HOSTNAME/$PROJECT_ID/cloud-run-source-deploy/$REPO_NAME/$_SERVICE_NAME:cache
+          - --cache=true
+          - --cache-ttl=24h
+          - --cache-repo=$_AR_HOSTNAME/$PROJECT_ID/cloud-run-source-deploy/$REPO_NAME/$_SERVICE_NAME-cache
+          - --dockerfile=Dockerfile
+          - --target=runtime
+          - --context=dir://.
+          - --snapshot-mode=redo
+          - --use-new-run
+
+    - id: Deploy
+      name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+      entrypoint: gcloud
+      args:
+          - run
+          - deploy
+          - $_SERVICE_NAME
+          - --platform=managed
+          - --image=$_AR_HOSTNAME/$PROJECT_ID/cloud-run-source-deploy/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA
+          - --labels=managed-by=gcp-cloud-build-deploy-cloud-run,commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID
+          - --region=$_DEPLOY_REGION
+          - --port=8000
+          - --allow-unauthenticated
+          - --set-secrets=API_KEYS=mmk-api-keys:latest
+          - --max-instances=2
+          - --quiet
+
+options:
+    logging: CLOUD_LOGGING_ONLY
+    substitutionOption: ALLOW_LOOSE
+    machineType: E2_HIGHCPU_8
+
+substitutions:
+    _AR_HOSTNAME: us-west1-docker.pkg.dev
+    _DEPLOY_REGION: us-west1
+    _PLATFORM: managed
+    _SERVICE_NAME: mmk-mcp-indicadors

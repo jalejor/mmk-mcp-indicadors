@@ -1,6 +1,8 @@
-from fastapi import APIRouter
-from controllers import healthy_controller
 from os import getenv
+
+from fastapi import APIRouter
+
+from controllers import healthy_controller
 
 healthy_router = APIRouter()
 

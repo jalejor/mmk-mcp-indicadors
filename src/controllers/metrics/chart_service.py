@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Any, Tuple, Optional
 import pandas as pd
 
-from .market_data_service import MarketDataService
+from .market_data_service import DEFAULT_EXCHANGE, MarketDataService
 
 
 class ChartService:
@@ -39,7 +39,7 @@ class ChartService:
         self,
         *,
         symbol: str,
-        exchange: str = "binance",
+        exchange: str = DEFAULT_EXCHANGE,
         start: datetime | None = None,
         end: datetime | None = None,
         span: str = "1d",
