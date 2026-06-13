@@ -1,4 +1,16 @@
 steps:
+    # Test gate: corre los 34 tests (sin Mongo; indicadores con data sintetica).
+    # Falla => el build falla y NO se despliega. tests/requirements-test.txt ya
+    # incluye pandas-ta-classic (alineado con el runtime).
+    - id: Test
+      name: gcr.io/cloud-builders/docker
+      entrypoint: bash
+      args:
+          - -c
+          - |
+              docker build -f Dockerfile.test -t mmk-test:$COMMIT_SHA .
+              docker run --rm -v /workspace:/app -w /app mmk-test:$COMMIT_SHA pytest -q tests/
+
     - id: Build
       name: gcr.io/kaniko-project/executor:latest
       args:
