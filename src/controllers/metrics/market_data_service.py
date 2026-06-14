@@ -53,9 +53,10 @@ class _CacheEntry:
 
 
 # Default exchange for every endpoint/service. Binance geo-blocks US IPs
-# (HTTP 451), so cloud deployments in US regions should set
-# DEFAULT_EXCHANGE=bitget.
-DEFAULT_EXCHANGE = getenv("DEFAULT_EXCHANGE", "binance").lower()
+# (HTTP 451), and every cloud deployment lives in a US region, so the safe
+# code default is bitget — binance can still be selected explicitly via the
+# DEFAULT_EXCHANGE env var or the per-request `exchange` query param.
+DEFAULT_EXCHANGE = getenv("DEFAULT_EXCHANGE", "bitget").lower()
 
 
 class MarketDataService:

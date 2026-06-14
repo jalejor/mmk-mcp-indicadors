@@ -137,10 +137,19 @@ class IndicatorsService:
                OscX = (X - EMA_X) * 100 / (max90 - min90)
         4. MFI(14) over tprice, B1 = bollinger oscillator over tprice,
            RSI(14) over close.
-        5. Lines:
+        5. Lines (Blai5 keeps every component centred on zero so the three
+           lines share the same axis and a reading of 0 means "neutral"):
                azul   = OscP
-               verde  = (MFI + B1 + OscP) / 3
-               marron = (RSI + MFI + B1 + OscP - OscN) / 4
+               verde  = ((MFI - 50) + B1 + OscP) / 3
+               marron = ((RSI - 50) + (MFI - 50) + B1 + OscP - OscN) / 4
+
+        WHY the `- 50`: RSI and MFI are 0-100 oscillators centred on 50,
+        whereas B1/OscP/OscN are already centred on 0. Averaging the raw
+        0-100 series with the 0-centred ones used to leave the brown line
+        at ~+25 in a flat market, which the rules engine then read as a
+        permanent `konkorde_buy` vote (weight 3.0). Subtracting the 50
+        baseline re-centres the line so neutral markets score ~0, matching
+        Blai5's canonical Pine where the brown line crosses zero to signal.
 
         DEPRECATED: `konkorde_value` is kept as an alias of
         `konkorde_marron` so existing consumers keep working.
@@ -204,9 +213,16 @@ class IndicatorsService:
         if rsi14 is None:
             rsi14 = pd.Series(np.nan, index=df.index)
 
+        # Re-centre the 0-100 oscillators (RSI, MFI) on zero so they share
+        # the same axis as the already 0-centred B1/OscP/OscN. Without this
+        # the brown line floats at ~+25 in a neutral market (50/2) and the
+        # rules engine reads `marron > 0` as a permanent buy vote.
+        rsi_centered = rsi14 - 50.0
+        mfi_centered = mfi - 50.0
+
         azul = osc_p
-        verde = (mfi + b1 + osc_p) / 3.0
-        marron = (rsi14 + mfi + b1 + osc_p - osc_n) / 4.0
+        verde = (mfi_centered + b1 + osc_p) / 3.0
+        marron = (rsi_centered + mfi_centered + b1 + osc_p - osc_n) / 4.0
 
         df["konkorde_azul"] = azul
         df["konkorde_verde"] = verde
