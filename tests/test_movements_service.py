@@ -120,3 +120,30 @@ def test_position_size_respects_risk(monkeypatch):
     )
     result = svc.execute()
     assert result["long"]["dollar_risk"] == pytest.approx(150.0, abs=0.01)
+
+
+def test_position_size_usd_is_notional_not_risk(monkeypatch):
+    """`position_size_usd` is the real notional (quantity * entry price), which
+    must NOT be the same figure as `dollar_risk`."""
+    df = _flat_df()
+    _patch_market_data(monkeypatch, df)
+    real_calc_all = ms_module.IndicatorsService.calculate_all
+    monkeypatch.setattr(
+        ms_module.IndicatorsService,
+        "calculate_all",
+        lambda self: {**real_calc_all(self), "atr": 800.0},
+    )
+    svc = MovementsService(
+        symbol="BTC/USDT",
+        capital=10000.0,
+        risk_per_trade_pct=1.5,
+        risk_profile="medium",  # atr_mult=1.5 -> stop_distance=1200, much < entry
+        side="long",
+        use_atr_sizing=True,
+    )
+    long_plan = svc.execute()["long"]
+    # Notional must equal quantity * entry price.
+    expected_notional = long_plan["position_size_quantity"] * long_plan["entry"]
+    assert long_plan["position_size_usd"] == pytest.approx(expected_notional, rel=1e-6)
+    # And it must NOT be confused with the dollar risk anymore.
+    assert long_plan["position_size_usd"] != pytest.approx(long_plan["dollar_risk"])

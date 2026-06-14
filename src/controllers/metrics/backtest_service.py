@@ -3,8 +3,14 @@
 Design goals:
 * Strict no-peek-ahead: at each bar `i` the indicator and rule services only
   see the slice `df.iloc[: i + 1]`, never future data.
-* ATR-based stops/targets aligned with the FASE 3 sizing logic so the same
-  contract is honoured live and in backtest.
+* ATR-based stops/targets and risk-per-trade quantity sizing, in the same
+  spirit as the live MovementsService. NOTE: the two are NOT numerically
+  identical. MovementsService derives `atr_mult`/`r_multiple` from the
+  `risk_profile` (low/medium/high -> 1.0/1.5/2.0 and 2/3/4), while this engine
+  uses the fixed `atr_stop_multiplier` (default 1.5) and `target_r_multiple`
+  (default 3.0). They coincide only for `risk_profile="medium"`; for low/high
+  the stops, targets and quantities differ. Unifying the two formulas is
+  tracked separately and intentionally out of scope here.
 * Pure-python metrics so the result is JSON-serialisable for the HTTP and
   MCP layers without extra dependencies.
 """

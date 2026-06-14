@@ -147,9 +147,13 @@ class MovementsService:
     ) -> Dict[str, Any]:
         stop_distance = atr * atr_mult
         target_distance = stop_distance * r_mult
-        position_size_usd = self.capital * (self.risk_per_trade_pct / 100.0)
-        quantity = position_size_usd / stop_distance if stop_distance > 0 else 0.0
-        dollar_risk = position_size_usd
+        # Dollars put at risk if the stop is hit (risk_per_trade_pct of capital).
+        dollar_risk = self.capital * (self.risk_per_trade_pct / 100.0)
+        # Quantity so that a full stop-out loses exactly `dollar_risk`.
+        quantity = dollar_risk / stop_distance if stop_distance > 0 else 0.0
+        # Real position size (notional) = quantity * entry price. This is the
+        # capital deployed in the position, NOT the dollar risk.
+        position_size_usd = quantity * price
         dollar_target = dollar_risk * r_mult
 
         if side == "long":
