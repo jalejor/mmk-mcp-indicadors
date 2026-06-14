@@ -1,5 +1,5 @@
 steps:
-    # Test gate: corre los 34 tests (sin Mongo; indicadores con data sintetica).
+    # Test gate: corre los 46 tests (sin Mongo; indicadores con data sintetica).
     # Falla => el build falla y NO se despliega. tests/requirements-test.txt ya
     # incluye pandas-ta-classic (alineado con el runtime).
     - id: Test

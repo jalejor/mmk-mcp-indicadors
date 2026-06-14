@@ -13,36 +13,26 @@ Two sizing modes are supported:
   schema is unchanged in this mode so older API consumers keep working.
 """
 
-from typing import Any, Dict, Literal, Tuple
+from typing import Any, Dict, Literal
 
 import pandas as pd
 
 from .indicators_service import IndicatorsService
 from .market_data_service import DEFAULT_EXCHANGE, MarketDataService
 from .rules_service import RulesService
+from .sizing_profiles import ATR_PROFILES, RISK_PROFILES, RiskProfile
 
-RiskProfile = Literal["low", "medium", "high"]
 Side = Literal["long", "short", "both"]
 
 
 class MovementsService:
     """Generates long/short trade recommendations."""
 
-    # Legacy fixed-percentage profiles, kept for backwards compatibility
-    # when `use_atr_sizing=False`.
-    RISK_PROFILES: Dict[RiskProfile, Tuple[float, float]] = {
-        # (target_pct, stop_pct)
-        "low": (2.5, 1.5),
-        "medium": (5.0, 3.0),
-        "high": (10.0, 5.0),
-    }
-
-    # ATR-based profiles: (atr_mult_stop, r_multiple_target).
-    ATR_PROFILES: Dict[RiskProfile, Tuple[float, float]] = {
-        "low": (1.0, 2.0),
-        "medium": (1.5, 3.0),
-        "high": (2.0, 4.0),
-    }
+    # Sizing tables live in `sizing_profiles` so the live service and the
+    # backtest engine share a single source of truth. Exposed as class
+    # attributes for backwards compatibility with existing callers/tests.
+    RISK_PROFILES = RISK_PROFILES  # legacy (target_pct, stop_pct), pct mode
+    ATR_PROFILES = ATR_PROFILES  # (atr_mult_stop, r_multiple_target), ATR mode
 
     def __init__(
         self,

@@ -3,14 +3,16 @@
 Design goals:
 * Strict no-peek-ahead: at each bar `i` the indicator and rule services only
   see the slice `df.iloc[: i + 1]`, never future data.
-* ATR-based stops/targets and risk-per-trade quantity sizing, in the same
-  spirit as the live MovementsService. NOTE: the two are NOT numerically
-  identical. MovementsService derives `atr_mult`/`r_multiple` from the
-  `risk_profile` (low/medium/high -> 1.0/1.5/2.0 and 2/3/4), while this engine
-  uses the fixed `atr_stop_multiplier` (default 1.5) and `target_r_multiple`
-  (default 3.0). They coincide only for `risk_profile="medium"`; for low/high
-  the stops, targets and quantities differ. Unifying the two formulas is
-  tracked separately and intentionally out of scope here.
+* ATR-based stops/targets and risk-per-trade quantity sizing, numerically
+  identical to the live MovementsService. Both services pull
+  `(atr_mult_stop, r_multiple_target)` from the shared `sizing_profiles`
+  module keyed by `risk_profile` (low/medium/high -> 1.0/1.5/2.0 and 2/3/4),
+  so the same symbol + ATR + equity + risk_profile yields the same
+  stop_distance, target and quantity in live and backtest. Callers may still
+  override `atr_stop_multiplier`/`target_r_multiple` explicitly to sweep
+  parameters; when omitted they are derived from `risk_profile` (default
+  "medium" -> 1.5/3.0, the historical defaults, so existing behaviour is
+  unchanged).
 * Pure-python metrics so the result is JSON-serialisable for the HTTP and
   MCP layers without extra dependencies.
 """
@@ -29,6 +31,7 @@ import pandas as pd
 from .indicators_service import IndicatorsService
 from .market_data_service import DEFAULT_EXCHANGE, MarketDataService
 from .rules_service import RulesService
+from .sizing_profiles import RiskProfile, atr_sizing_for
 
 Side = Literal["long", "short", "both"]
 
@@ -98,8 +101,9 @@ class BacktestService:
         end: datetime,
         initial_capital: float = 10000.0,
         risk_per_trade_pct: float = 1.5,
-        atr_stop_multiplier: float = 1.5,
-        target_r_multiple: float = 3.0,
+        risk_profile: RiskProfile = "medium",
+        atr_stop_multiplier: Optional[float] = None,
+        target_r_multiple: Optional[float] = None,
         max_concurrent_positions: int = 1,
         side: Side = "both",
         warmup_bars: int = 250,
@@ -109,6 +113,12 @@ class BacktestService:
         if max_concurrent_positions < 1:
             raise ValueError("max_concurrent_positions must be >= 1")
 
+        # Sizing comes from the shared profile table keyed by `risk_profile`,
+        # the same source the live MovementsService uses. Explicit
+        # atr_stop_multiplier/target_r_multiple still win when provided so the
+        # caller can sweep parameters independently of the profile.
+        profile_atr_mult, profile_r_multiple = atr_sizing_for(risk_profile)
+
         self.symbol = symbol
         self.timeframe = timeframe
         self.exchange = exchange
@@ -116,8 +126,13 @@ class BacktestService:
         self.end = self._ensure_utc(end)
         self.initial_capital = float(initial_capital)
         self.risk_per_trade_pct = float(risk_per_trade_pct)
-        self.atr_stop_multiplier = float(atr_stop_multiplier)
-        self.target_r_multiple = float(target_r_multiple)
+        self.risk_profile: RiskProfile = risk_profile
+        self.atr_stop_multiplier = (
+            float(atr_stop_multiplier) if atr_stop_multiplier is not None else profile_atr_mult
+        )
+        self.target_r_multiple = (
+            float(target_r_multiple) if target_r_multiple is not None else profile_r_multiple
+        )
         self.max_concurrent_positions = max_concurrent_positions
         self.side = side
         self.warmup_bars = max(50, warmup_bars)

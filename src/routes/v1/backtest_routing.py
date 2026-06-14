@@ -1,6 +1,6 @@
 from controllers.metrics.market_data_service import DEFAULT_EXCHANGE
 from datetime import datetime
-from typing import Literal
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
@@ -23,8 +23,24 @@ class BacktestRequest(BaseModel):
     end: datetime = Field(..., description="Exclusive end of the simulation window")
     initial_capital: float = Field(10000.0, gt=0)
     risk_per_trade_pct: float = Field(1.5, gt=0)
-    atr_stop_multiplier: float = Field(1.5, gt=0)
-    target_r_multiple: float = Field(3.0, gt=0)
+    risk_profile: Literal["low", "medium", "high"] = Field(
+        "medium",
+        description=(
+            "Sizing profile shared with the live recommender. Derives "
+            "atr_stop_multiplier/target_r_multiple (low/medium/high -> "
+            "1.0/1.5/2.0 and 2/3/4) unless they are overridden explicitly."
+        ),
+    )
+    atr_stop_multiplier: Optional[float] = Field(
+        None,
+        gt=0,
+        description="Override the profile's ATR stop multiplier. Defaults to the risk_profile value.",
+    )
+    target_r_multiple: Optional[float] = Field(
+        None,
+        gt=0,
+        description="Override the profile's target R multiple. Defaults to the risk_profile value.",
+    )
     max_concurrent_positions: int = Field(1, ge=1)
     side: Literal["long", "short", "both"] = Field("both")
     warmup_bars: int = Field(250, ge=50)
@@ -53,6 +69,7 @@ async def run_backtest(request: Request, payload: BacktestRequest):
         end=payload.end,
         initial_capital=payload.initial_capital,
         risk_per_trade_pct=payload.risk_per_trade_pct,
+        risk_profile=payload.risk_profile,
         atr_stop_multiplier=payload.atr_stop_multiplier,
         target_r_multiple=payload.target_r_multiple,
         max_concurrent_positions=payload.max_concurrent_positions,
