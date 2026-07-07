@@ -988,3 +988,32 @@ Governance rule (ties into §F TF ladder):
   channel inside a bearish macro is traded long while it holds but is
   EXPECTED to resolve in the macro's direction — UNLESS price breaks the
   macro boundary itself (daily close beyond) = regime change, hierarchy flips.
+
+## G. APPROVED BRAINSTORM — event-driven rotation + scalp mode (owner, 2026-07-07)
+
+Owner-approved direction (brainstorm level — NOT in F0/F1 scope until promoted):
+
+1. **Volatility screener + rotation scanner (one component, priority 1 — natural F1 fit).**
+   Triggers: guardian-TF candle close (existing cron), TRADE CLOSED (TP/SL hit),
+   FIGURE COMPLETED (E7 channel break), RETRACEMENT DETECTED. On trigger, run the
+   F0 evaluator across the whole watchlist and rank assets by setup-readiness
+   (context alignment + trigger freshness + BBWP regime + ATR% of the target
+   band). Output: top-N "where is the next move" with reasons (owner's case:
+   stopped out on BTC -> scanner points at the asset actually retracing today).
+2. **SCALP-5M setup family (priority 2 — backtest-gated).** Constant quick trades
+   targeting +1.5-1.8%. Low-band rules only (BBWP+AO+ADX per §0.3) + E7 channel
+   structure for tight stops. Eligibility screen: only assets where 1.8% is a
+   3-6x ATR(5m) move (screener above). Fees are the killer: taker round-trip +
+   slippage ~0.25-0.3% (~17% of target) — model REAL fees, prefer maker entries,
+   thin-spread pairs only. Backtest variants: fixed TP 1.5% / 1.8% vs
+   channel-projected TP; 60-90 days of 5m data. Approved ONLY if net expectancy
+   survives (same gate discipline as §C).
+3. **Multi-market data layer (phase 2).** Owner watches non-crypto too (OIL, gold,
+   SP500). Signals require a second data provider (ccxt is crypto-only);
+   execution on those markets is out of scope. Design as a DataProvider
+   abstraction when promoted.
+
+Context note: the 2y/3-symbol gate run showed the 4h/1d setups are ultra-selective
+(~25 trades, mostly positive expectancy, n far below gate) — rotation across a
+wider watchlist and a scalp family are the frequency fillers, each behind its
+own gate.
