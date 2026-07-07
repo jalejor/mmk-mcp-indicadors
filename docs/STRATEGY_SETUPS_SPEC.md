@@ -844,3 +844,31 @@ correct (each maps to a **[calibrable]** default above):
     spec's provisional choice) or against the **maximum** wave (`ratio_max`,
     more conservative)? And confirm the adaptive-EMA approximation for wave
     resets (provisional: KAMA(10); simplest alternative EMA(20)).
+
+---
+
+## E. OWNER DECISIONS — 2026-07-06 (answers to Section D)
+
+Recorded from the owner's answers; these override the provisional defaults
+above. Remaining questions (1-5, 7, 11, 12) keep their provisional defaults
+until answered.
+
+- **Q6 (band cut): CONFIRMED** — low band = everything below 4h (1m-2h, only
+  BBWP+AO+ADX); high band = 4h and up (4h/6h/8h/12h/1d/3d/1w, full strategy).
+- **Q8 (shorts): MIRROR SHORTS FROM F0** — the backtest validates long AND
+  short mirrored setups from the start. Gate C metrics are reported per side;
+  n >= 30 applies to the combined set with per-side breakdown. NOTE: real
+  short execution requires margin/futures (spot cannot short) — that is an
+  F3 execution decision, the backtest simulates symmetric entries.
+- **Q9 (market/fees): UNDER REVIEW** — owner is evaluating spot, margin and
+  futures. Implementation: fee/slippage are CONFIG PARAMETERS of the backtest
+  (per-side taker fee, per-side slippage, optional funding rate for
+  perpetuals). Base/reference model until decided: bitget spot taker 0.10% +
+  0.05% slippage per side (conservative). Gate C must be reported with the
+  base model; re-runs with margin/futures params are one config change.
+- **Q10 (veto windows): RELAXED TO 5** — `max_event_age = 5` closed candles
+  (V1 freshness) and `confirm_window = 5` (V2 ADX-turn confirmation). Both
+  stay calibrable; the counterfactual veto replay in the backtest should
+  compare 3 vs 5 to validate the choice with evidence. The sub-rule stands:
+  ADX level alone (>= 25, dominant DI) does NOT substitute the turn — no
+  adx_turn within window = veto (FE-G1 unchanged).
