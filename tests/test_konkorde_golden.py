@@ -104,3 +104,57 @@ def test_konkorde_bullish_market_votes_buy():
 
     rules = RulesService(symbol="BTC/USDT").evaluate(indicators)
     assert "konkorde_buy" in rules["support_entry"]
+
+
+# ----------------------------------------------------------------------
+# BASELINE — pin the exact magnitude of the removed ~+25 bias
+# ----------------------------------------------------------------------
+def test_konkorde_removed_bias_is_exactly_25_on_neutral_market():
+    """Numeric regression on the baseline the re-centring fix removed.
+
+    The pre-fix brown line was
+        marron_biased = (RSI + MFI + B1 + OscP - OscN) / 4
+    and the fix subtracts the 50-point baseline from RSI and MFI:
+        marron_fixed  = ((RSI - 50) + (MFI - 50) + B1 + OscP - OscN) / 4
+                      = marron_biased - (50 + 50) / 4
+                      = marron_biased - 25.0
+
+    So the constant bias the fix strips out is exactly +25. On the neutral
+    fixture the fixed line sits at ~0, which means the *old* formula would
+    have floated at ~+25 — the permanent `konkorde_buy` vote we removed.
+    """
+    indicators = IndicatorsService(_neutral_df()).calculate_all()
+
+    marron_fixed = indicators["konkorde_marron"]
+    marron_biased = marron_fixed + 25.0  # reconstruct the pre-fix formula
+
+    # Fixed line is centred on zero; the pre-fix line floated at ~+25.
+    assert marron_fixed == pytest.approx(0.0, abs=1e-6)
+    assert marron_biased == pytest.approx(25.0, abs=1e-6)
+
+    # The removed baseline is a fixed +25 offset: the old line sat well
+    # above zero (a buy vote) while the fixed one hugs zero (no vote).
+    assert marron_biased - marron_fixed == pytest.approx(25.0, abs=1e-9)
+    assert marron_biased > 0.0
+
+
+# ----------------------------------------------------------------------
+# WEIGHT — konkorde is the heaviest vote (3.0)
+# ----------------------------------------------------------------------
+def test_konkorde_family_weight_is_three():
+    """The konkorde family must carry the highest weight of 3.0."""
+    assert RulesService.DEFAULT_WEIGHTS["konkorde"] == 3.0
+
+
+def test_konkorde_buy_contributes_exactly_three_to_entry_score():
+    """A lone konkorde_buy vote must score exactly its 3.0 weight.
+
+    Feeding only a positive `konkorde_value` isolates the konkorde family so
+    the entry score equals its weight with no other votes mixed in. konkorde
+    is not touched by any regime multiplier, so the contribution is a clean
+    3.0.
+    """
+    rules = RulesService(symbol="BTC/USDT").evaluate({"konkorde_value": 42.0})
+
+    assert rules["support_entry"] == ["konkorde_buy"]
+    assert rules["entry_score"] == pytest.approx(3.0, abs=1e-9)
