@@ -971,3 +971,20 @@ inside the macro descending channel):
 Implementation: extends E7 channel objects with `traveled_span`, `width`,
 `break_direction`, `measured_targets[]`; signals inside the inter-channel
 transition zone get a quality penalty. Backtest variant D covers it.
+
+### E7 addendum 2 — fractal nesting & which-channel-governs (owner, 2026-07-06 late)
+
+Channels NEST fractally: e.g. 15m channels alternate (ascending flag -> break
+-> descending channel -> measured target lands on macro boundary -> new
+ascending channel) INSIDE a daily ascending channel, itself inside the
+weekly/daily descending macro channel. Verified live on BTC (owner charts):
+the late-June descending 15m channel completed its measured move exactly on
+the macro floor (~58k) before the current ascending sequence.
+
+Governance rule (ties into §F TF ladder):
+- You OPERATE the channel of your trade's timeframe.
+- You EXIT by the guardian timeframe's channel/retracement.
+- The MACRO channel caps direction conviction and size: a counter-trend
+  channel inside a bearish macro is traded long while it holds but is
+  EXPECTED to resolve in the macro's direction — UNLESS price breaks the
+  macro boundary itself (daily close beyond) = regime change, hierarchy flips.
