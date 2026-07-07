@@ -159,10 +159,14 @@ class ChartService:
         for timeframe in timeframes_to_try:
             try:
                 max_candles = self.TIMEFRAMES[timeframe]["max_candles"]
+                # Charts are display-only: keep the forming candle so the UI
+                # shows the live bar. Signal paths use the default
+                # drop_forming=True (closed candles only, spec §0.1).
                 df = market_service.get_ohlcv(
                     symbol=self.symbol,
                     timeframe=timeframe,
-                    limit=max_candles
+                    limit=max_candles,
+                    drop_forming=False,
                 )
                 
                 # Filtrar por rango temporal

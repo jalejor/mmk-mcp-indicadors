@@ -15,6 +15,7 @@ DataFrame so callers cannot mutate the shared object.
 from __future__ import annotations
 
 import threading
+import time
 from os import getenv
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -118,8 +119,21 @@ class MarketDataService:
         timeframe: str = "1h",
         limit: int = 500,
         use_cache: bool = True,
+        drop_forming: bool = True,
     ) -> pd.DataFrame:
-        """Fetch OHLCV from the exchange (or the cache) as a DataFrame."""
+        """Fetch OHLCV from the exchange (or the cache) as a DataFrame.
+
+        ccxt returns the in-progress (forming) candle as the last row. With
+        ``drop_forming=True`` (the default) that row is discarded so every
+        consumer evaluates **closed candles only** — the live path would
+        otherwise repaint (spec: docs/STRATEGY_SETUPS_SPEC.md §0.1). Callers
+        that explicitly need the forming candle (e.g. chart rendering) must
+        opt out with ``drop_forming=False``.
+
+        The cache always stores the raw exchange payload; the forming-candle
+        filter is applied on the returned copy, so cached data can serve both
+        modes.
+        """
         key = (self.exchange_name, symbol, timeframe, int(limit))
         ttl = max(_TIMEFRAME_TO_SECONDS.get(timeframe, 3600) // 2, 60)
         cache = self._get_cache(ttl) if use_cache else None
@@ -128,7 +142,8 @@ class MarketDataService:
             entry = cache.get(key)
             if entry is not None:
                 with entry.lock:
-                    return entry.df.copy()
+                    df = entry.df.copy()
+                return self._drop_forming_candle(df, timeframe) if drop_forming else df
 
         raw_ohlcv: List[List[Any]] = self.exchange.fetch_ohlcv(
             symbol=symbol, timeframe=timeframe, limit=limit
@@ -140,4 +155,25 @@ class MarketDataService:
         if cache is not None:
             cache[key] = _CacheEntry(df)
 
-        return df.copy()
+        result = df.copy()
+        return self._drop_forming_candle(result, timeframe) if drop_forming else result
+
+    @staticmethod
+    def _drop_forming_candle(df: pd.DataFrame, timeframe: str) -> pd.DataFrame:
+        """Drop the last row when its candle has not closed yet.
+
+        A candle is closed iff ``open_time + timeframe_duration <= now_utc``.
+        Only the last row can be forming (ccxt appends it), so a single
+        check is enough. Unknown timeframes are returned untouched.
+        """
+        if df.empty:
+            return df
+        duration_s = _TIMEFRAME_TO_SECONDS.get(timeframe)
+        if duration_s is None:
+            return df
+        last_open_ms = int(df["timestamp"].iloc[-1])
+        close_ms = last_open_ms + duration_s * 1000
+        now_ms = time.time() * 1000.0
+        if close_ms > now_ms:
+            return df.iloc[:-1]
+        return df
