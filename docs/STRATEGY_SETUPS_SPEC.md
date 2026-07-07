@@ -1038,3 +1038,11 @@ Events (closed candles): `bbwp_zone_change(from, to)`. Notable transitions:
   confirmed); candidate exit/invalidation signal.
 Golden cases to add with implementation: series crossing 19->21 emits
 blue->green; 81->79 emits red->yellow; no event while staying in-zone.
+
+**Zone JUMPS (owner, same day):** when volatility rises fast the color can SKIP
+a zone in a single closed candle (e.g. blue->yellow without green). A skip
+(`zone_jump`, |to - from| >= 2 zones) means a HIGH-magnitude volatility burst —
+stronger than a normal one-step transition: treat blue->yellow/red as explosive
+expansion ignition (top-grade awakening signal), and yellow/red->blue collapse
+as regime death. Golden case: 15 -> 62 in one candle emits zone_jump
+blue->yellow (not two sequential changes).
