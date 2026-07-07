@@ -929,3 +929,25 @@ conviction cascades up the ladder.
   open question for calibration).
 - F1 implication: the watcher must alert GUARDIAN RETRACEMENT events for open
   positions, not only entry signals.
+
+### E7 CANDIDATE — channel/structure confluence (owner, 2026-07-06 late)
+
+Owner observation: hand-drawn bearish/bullish CHANNELS are respected — the
+channel floor coincided with the actual bounce lows, retracements on 15m
+respect intermediate lines, and the ceiling is a rejection candidate.
+
+Concept (implementable, parked post-F0 like E6):
+- Detect channels programmatically: fractal pivots (strength 2, closed bars)
+  -> linear regression over pivot highs and pivot lows -> parallel-ish lines
+  with `respect_count` = touches within tolerance (ATR fraction). A channel is
+  VALID with >= 3 respected touches.
+- Use as CONFLUENCE, never as trigger: (a) strategy long signal AT the channel
+  floor = quality bonus; (b) rejection candidates at the ceiling only WITH a
+  fresh opposite trigger + adx_turn (vetoes apply unchanged); (c) TP
+  projection = opposite channel boundary (geometric target).
+- **Variant D (backtest, post-F0): low-TF channel scalps at high leverage** —
+  owner idea: on 15m/1h, channel structure gives the tight structural stop
+  (just beyond the floor/ceiling) and geometric TP that high leverage (10x)
+  needs. The backtest must model fees+slippage at scalp frequency and report
+  liquidation-adjusted risk; variant D is approved ONLY if net expectancy
+  survives those costs. Until then, high leverage stays confined to paper.
