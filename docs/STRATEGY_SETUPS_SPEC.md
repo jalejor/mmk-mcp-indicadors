@@ -5,7 +5,7 @@
 | **rule_version** | `0.1.0-draft` |
 | **Status** | Draft for backend implementation — pending owner confirmation of [§D Open Questions](#d-open-questions-for-the-owner) |
 | **Audience** | `backend` (implements `SetupService` + multi-TF backtest), reviewer: trading analyst |
-| **Date** | 2026-07-06 (includes the owner's timeframe-band refinement of the same night) |
+| **Date** | 2026-07-06 (includes the owner's same-night refinements: timeframe bands §0.3 and false-entry vetoes §B.3) |
 | **Council decision** | F0→F3 roadmap: setups are **declarative, versioned rules with numeric golden cases**. Paper-first: nothing trades real money without a passing multi-TF backtest AND audited paper trading. |
 
 This document specifies, in implementable numeric terms, the owner's 5 strategy
@@ -194,6 +194,18 @@ both AO pivots `> 0`.
 confirmed pivot highs (momentum confirms trend continuation). Mirror for
 bearish. A cheap per-candle variant for trigger conditions:
 `ao_rising = ao[-1] > ao[-2]` (and `ao_falling` mirror).
+
+**Zero-cross events on AO** (used by the false-entry vetoes, §B.3 — same event
+semantics as E3):
+
+```
+ao_zero_cross_up   = ao[-2] <= 0 AND ao[-1] > 0      (fires on candle -1)
+ao_zero_cross_down = ao[-2] >= 0 AND ao[-1] < 0
+event_age(e)       = index(last closed candle) - index(candle where e fired)   // fired candle -> age 0
+```
+
+Golden: `ao = [-0.4, 0.3, 0.9, 1.4, 1.8, 2.1, 2.3]` → `ao_zero_cross_up` fired
+at index 1; evaluated at the last closed candle (index 6), `event_age = 5`.
 
 **Parameters**:
 
@@ -403,16 +415,21 @@ bbwp_regime_on = bbwp[-1] > 50.0        (strict; on the closed candle of the set
   "context":  { "timeframe": "1d",  "conditions": [ /* ALL must hold on last closed context candle */ ] },
   "trigger":  { "timeframe": "1d",  "conditions": [ /* see per-setup logic */ ] },
   "invalidation": { "conditions": [ /* ANY cancels pending setup / flags open trade */ ] },
+  "vetoes": [ /* false-entry filters, §B.3 — ANY match suppresses the entry signal */ ],
   "risk": { "risk_profile": "medium" } // sizing via sizing_profiles.atr_sizing_for → live/backtest parity preserved
 }
 ```
 
 Each condition is `{ "element": "<detector>", "variant": "...", "params": { ... } }`
 referencing §A detectors, or a primitive comparison on existing series
-(e.g. `close > sma200`). Evaluation: context checked at every closed trigger
-candle using §0.2 alignment; trigger fires only on the candle where its logic
-first becomes true while context holds; invalidation checked on every closed
-trigger candle afterwards.
+(e.g. `close > sma200`). **Evaluation order at every closed trigger candle**
+(§0.2 alignment for context TFs):
+
+1. **Invalidation** — cancels an armed setup / flags an open trade.
+2. **Context** — all context conditions must hold.
+3. **Trigger logic** — fires on the candle where it first becomes true.
+4. **Vetoes (§B.3)** — a vetoed trigger emits **no** signal; it is logged with
+   `veto_reasons[]` + `rule_version` and counted by the backtest (§C).
 
 Band gating golden cases (must be pytest-ed):
 
@@ -473,6 +490,10 @@ strict mirror (gated by Q8).
       { "element": "vol_turn", "variant": "w_or_v_high", "source": "konkorde_marron", "timeframe": "1d" }  // E4: strong-hands distribution
     ]
   },
+  "vetoes": [                                                                       // §B.3
+    { "veto": "freshness", "event": "konkorde_zero_cross_up", "max_event_age": 3 },
+    { "veto": "adx_confirmation", "variant": "up_bullish", "confirm_window": 3 }
+  ],
   "risk": { "risk_profile": "medium" }   // stop = entry − 1.5·atr14, target = 3R (sizing_profiles parity)
 }
 ```
@@ -493,7 +514,7 @@ Konkorde) applies.
     "timeframe": "4h",
     "conditions": [
       { "element": "bbwp_regime", "params": { "bbwp_regime_min": 50.0 } },   // E5 — the owner's >50 filter
-      { "element": "adx_turn", "variant": "up_bullish" },                     // E1 on 4h
+      { "element": "adx_turn", "variant": "up_bullish", "fired_within": 3 },  // E1 on 4h — subsumed by veto V2 (§B.3): fired within confirm_window, not necessarily on the trigger candle
       { "expr": "close > sma200", "timeframe": "1d" }                         // 1d must not oppose [calibrable]
     ]
   },
@@ -513,6 +534,11 @@ Konkorde) applies.
       { "element": "adx_turn", "variant": "down", "timeframe": "4h" }
     ]
   },
+  "vetoes": [                                                                       // §B.3
+    { "veto": "freshness", "event": "konkorde_zero_cross_up", "max_event_age": 3 },
+    { "veto": "freshness", "event": "ao_zero_cross_up", "max_event_age": 3 },
+    { "veto": "adx_confirmation", "variant": "up_bullish", "confirm_window": 3 }
+  ],
   "risk": { "risk_profile": "medium" }
 }
 ```
@@ -524,6 +550,133 @@ condition; whether they are enabled in the F0 backtest is Open Question **Q8**.
 high band. The band machinery (§0.3) must ship in F0 anyway (validation +
 runtime guard + B0 goldens), so that any future `low_tf` scalping rule set is
 structurally limited to BBWP + AO + ADX from day one.
+
+### B.3 False-entry veto filters (owner refinement, 2026-07-06)
+
+**Owner's example (verbatim)**: "el AO pasó de su punto 0 hace varias líneas
+[velas] y el ADX no hizo un cambio de 90 grados para señalar un impulso o un
+retroceso bien marcado" → the signal is **INVALID**.
+
+Generalisation: an entry trigger is only tradable when its evidence is
+**fresh** (V1) and the move is **confirmed as "well marked"** by an ADX turn
+(V2). Vetoes run at step 4 of the §B.0 evaluation order — after the trigger
+logic is satisfied — and **any** matching veto suppresses the entry signal.
+Vetoes never close open trades and never cancel an armed setup; that is
+invalidation's job (step 1). Both mechanisms can match on the same candle;
+they are independent. Every vetoed signal MUST be logged with `veto_reasons[]`
+and `rule_version`, and counted by the backtest (§C).
+
+**V1 — FRESHNESS (event age)**
+
+```
+event_age(e) = index(last closed candle) - index(candle where e fired)   // fired on the trigger candle -> 0
+veto_stale(e) = event_age(e) > max_event_age
+```
+
+| Param | Default | Notes |
+|---|---|---|
+| `max_event_age` | 3 | closed candles **[calibrable]** — see Q10 |
+
+Applies to **cross events** used as trigger/evidence: `konkorde_zero_cross_up/down`
+(E3) and `ao_zero_cross_up/down` (E2). A cross older than `max_event_age`
+closed candles is stale — the impulse it announced is already several candles
+old and the entry would chase it. Structural events keep their own persistence
+windows unchanged (E2 divergence: `divergence_ttl = 10` — a divergence is a
+structure, not a cross, so V1 does not apply to it).
+
+**V2 — REQUIRED ADX CONFIRMATION ("bien marcado")**
+
+```
+veto_unconfirmed = no adx_turn event (E1, direction matching the setup side)
+                   fired within the last confirm_window closed candles
+                   (the trigger candle itself counts, age 0)
+```
+
+| Param | Default | Notes |
+|---|---|---|
+| `confirm_window` | 3 | closed candles **[calibrable]** — see Q10 |
+
+The E1 turn is what marks an impulse or a well-defined retracement ending;
+an AO/Konkorde zero-cross without the ADX bend is treated as noise and vetoed.
+Two deliberate consequences (both match the owner's example):
+
+* A **steady rise** in ADX (E1-G2: constant slope, no bend) does **not**
+  satisfy V2 — sustained strength is not a turn.
+* A **high ADX level** (≥ 25, dominant DI) without a recent turn does **not**
+  satisfy V2 either. Whether the level may substitute for the turn is Q10.
+
+**Veto table per setup** (shorts: mirror variants):
+
+| Setup | Veto | Rule | Default |
+|---|---|---|---|
+| `PB-1D-LONG` | V1 | `konkorde_zero_cross_up` used as reversal evidence must have `event_age <= max_event_age` (the `ao_divergence_bullish` path keeps its own `divergence_ttl`, V1 not applied) | 3 |
+| `PB-1D-LONG` | V2 | `adx_turn_up_bullish` must have fired within `confirm_window` closed candles of the trigger | 3 |
+| `IMP-4H-LONG` | V1 | `konkorde_zero_cross_up` age ≤ `max_event_age` **AND** `ao_zero_cross_up` age ≤ `max_event_age` — AO positive but stale-crossed is exactly the owner's false entry | 3 |
+| `IMP-4H-LONG` | V2 | `adx_turn_up_bullish` fired within `confirm_window` — this **subsumes** the context `adx_turn` condition, which now reads "fired within `confirm_window`" instead of "true on the last closed candle" | 3 |
+
+Interaction with existing invalidations: unchanged. Invalidation (e.g.
+`vol_turn` W/V at highs, `konkorde_zero_cross_down`, `adx_turn_down`) still
+cancels armed setups and flags open positions; vetoes only gate the entry at
+trigger time. A candle can simultaneously produce a trigger, a veto and an
+invalidation — invalidation wins (evaluated first), then the veto suppresses
+whatever trigger survived.
+
+**Band applicability**: V1 + V2 apply in **both** bands. In `low_tf` they act
+on `ao_zero_cross_*` and `adx_turn` only (Konkorde does not exist there, §0.3).
+Provisional — see Q11.
+
+**Golden cases** (defaults: `max_event_age = 3`, `confirm_window = 3`; E1
+defaults from §A):
+
+**FE-G1 — the owner's exact case → VETO (stale AO cross + flat ADX)**
+
+Evaluated at the last closed 4h candle, `IMP-4H-LONG`:
+
+```
+ao              = [-0.4, 0.3, 0.9, 1.4, 1.8, 2.1, 2.3]
+adx14           = [24.6, 24.7, 24.8, 24.9, 25.0, 25.1, 25.2, 25.3, 25.4]   (plus_di > minus_di on every candle)
+konkorde_marron = [-1.0, 0.8, 1.5]
+```
+
+* `ao_zero_cross_up` fired at index 1 → `event_age = 5` > 3 → **stale** (the
+  owner's "pasó de su punto 0 hace varias líneas").
+* `adx14` slope is a constant 0.1 pts/bar → `slope_recent − slope_prior = 0`
+  on every candle → **no `adx_turn_up` ever fired** ("no hizo un cambio de 90
+  grados"). Note ADX **level** is 25.4 ≥ 25 — still vetoed: level ≠ turn.
+* `konkorde_zero_cross_up` fired at index 1 of 3 → age 1 ≤ 3 (fresh), `ao > 0`,
+  `ao_rising` → the trigger logic itself is satisfied.
+
+Expected: **no entry signal**;
+`veto_reasons = ["stale_ao_cross", "no_adx_turn_confirmation"]`.
+
+**FE-G2 — fresh + confirmed → NO veto (entry fires)**
+
+```
+ao              = [-1.2, -0.6, -0.1, 0.5, 1.1]
+adx14           = [18, 18, 18, 18, 18, 18, 18.5, 21.5, 24.5]   (plus_di = 28, minus_di = 15)
+konkorde_marron = [-0.5, 0.7, 1.3]
+```
+
+* `ao_zero_cross_up` at index 3 → age 1 ≤ 3 ✓; `ao_rising` ✓.
+* `adx14` = E1-G1 → `adx_turn_up_bullish` fires on the last closed candle
+  (age 0 ≤ 3) ✓.
+* `konkorde_zero_cross_up` at index 1 of 3 → age 1 ≤ 3 ✓.
+
+Expected: **entry signal fires**, `veto_reasons = []`.
+
+**FE-G3 — fresh crosses but steady ADX → VETO (isolates V2)**
+
+```
+ao              = [-0.6, 0.4, 1.0]
+adx14           = [16, 17.2, 18.4, 19.6, 20.8, 22.0, 23.2, 24.4, 25.6]   (plus_di > minus_di)
+konkorde_marron = [-0.3, 0.9]
+```
+
+* `ao_zero_cross_up` age 1 ✓ fresh; `konkorde_zero_cross_up` age 0 ✓ fresh.
+* `adx14` = E1-G2 (constant slope 1.2 pts/bar, bend = 0) → no turn ever fires.
+
+Expected: **no entry signal**; `veto_reasons = ["no_adx_turn_confirmation"]` —
+freshness alone is not enough, the move must be "bien marcado".
 
 ---
 
@@ -548,7 +701,11 @@ for 4h).
 `setup_id`, symbol, TFs, `n_trades`, `win_rate`, `expectancy_R` (net),
 `avg_win_R` / `avg_loss_R`, `profit_factor`, `max_drawdown_pct`,
 `avg_trade_duration_bars`, fee/slippage assumptions, IS and OOS blocks
-separately.
+separately. Additionally, per §B.3: `vetoed_signals` (count + breakdown by
+`veto_reason`), and — recommended report, not a PASS threshold in F0 — a
+**counterfactual replay** of the vetoed entries as hypothetical trades: the
+veto is empirically justified when vetoed-entry expectancy is materially below
+accepted-entry expectancy; report both numbers side by side.
 
 **PASS / NO-PASS thresholds (analyst recommendation)**:
 
@@ -601,3 +758,13 @@ correct (each maps to a **[calibrable]** default above):
 9. **Fees (C)**: net expectancy assumes bitget spot taker 0.1 % + 0.05 %
    slippage per side. Confirm the actual fee tier / market type (spot vs
    futures) to lock the numbers.
+10. **False-entry vetoes (B.3)**: `max_event_age = 3` closed candles for the
+    AO/Konkorde zero-cross freshness (V1) and `confirm_window = 3` for the
+    ADX-turn confirmation (V2). Confirm both numbers, and whether a strong ADX
+    **level** (≥ 25 with dominant DI) may substitute for the turn in V2 — the
+    spec says no: the turn is always mandatory, level alone still vetoes
+    (FE-G1).
+11. **Vetoes in `low_tf` band (B.3)**: the spec applies V1 + V2 in both bands
+    (in `low_tf` they act on the AO cross and the ADX turn, the only trigger
+    events available there). Confirm this also holds for any future low-band
+    scalping setup.
