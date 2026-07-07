@@ -899,3 +899,33 @@ band subset) IF E6 trend_speed acts as mandatory additional confirmation
 A/B-compared against the band-pure setups after the F0 gate. Not part of F0
 scope; requires E6 implementation first. If variant C beats IMP-4H on net
 expectancy with n>=30, the band table gains a 1h exception (rule_version bump).
+
+## F. POSITION MANAGEMENT — TF LADDER MODEL (owner, 2026-07-06 late)
+
+Owner's management doctrine, verbatim concept: enter/hold while the entry
+band is aligned; the EXIT is decided by the next timeframe up (the
+"guardian"); after a guardian retracement, re-evaluate the opposite side;
+conviction cascades up the ladder.
+
+- **Alignment entry**: a low-band trade requires 15m/30m/1h aligned in the
+  same impulse direction (low-band elements: BBWP+AO+ADX). Setup entries
+  (4h/1d) require their own band alignment per §0.2.
+- **Guardian TF** (= exit authority, one band up):
+  | Trade managed on | Guardian |
+  |---|---|
+  | 15m-1h (low band) | 4h |
+  | 4h | 1d |
+  | 1d | 1w |
+- **Exit rule**: close the position when the GUARDIAN fires a retracement
+  against it: directional `adx_turn` against the position + AO rollover/cross
+  against, OR `vol_turn` V/W in high zone on the guardian TF. Lower-TF noise
+  (e.g. 15m flipping bearish) does NOT exit a trade whose guardian (4h) has
+  not fired.
+- **Flip evaluation**: after a guardian retracement exit, when the guardian's
+  new cycle starts, evaluate the OPPOSITE side as a fresh setup — full rules
+  + vetoes apply; never an automatic flip.
+- **Conviction cascade**: 4h + 1d + 1w impulses aligned = full-size tier;
+  partial alignment = reduced tier (ties into sizing_profiles; exact tiers =
+  open question for calibration).
+- F1 implication: the watcher must alert GUARDIAN RETRACEMENT events for open
+  positions, not only entry signals.
