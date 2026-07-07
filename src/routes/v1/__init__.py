@@ -24,3 +24,7 @@ api_v1.include_router(prefix="/charts", router=chart_router)
 # Backtest engine
 from .backtest_routing import backtest_router  # noqa: E402
 api_v1.include_router(prefix="/backtest", router=backtest_router)
+
+# Strategy setups (F0 live evaluation)
+from .setups_routing import setups_router  # noqa: E402
+api_v1.include_router(prefix="/setups", router=setups_router)
