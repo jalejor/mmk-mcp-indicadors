@@ -889,3 +889,13 @@ Implementation: `adx_turn` gains an origin-level quality dimension:
   F1 restricts V2 confirmation to A-grade turns (rule_version bump).
 - Golden case to add with implementation: ADX series pivoting at 16.2 with
   slope/bend passing → A-grade; same shape pivoting at 31 → B-grade.
+
+### Owner proposal — 2026-07-06 late: 1h full-strategy variant with E6
+
+Owner hypothesis: on 1h the FULL strategy could be traded (not just the low
+band subset) IF E6 trend_speed acts as mandatory additional confirmation
+(compensating Konkorde noise at 1h). To validate, the backtest adds a
+**variant C**: `1h-full+E6` (all elements + E6 wave-ratio gate on 1h) to be
+A/B-compared against the band-pure setups after the F0 gate. Not part of F0
+scope; requires E6 implementation first. If variant C beats IMP-4H on net
+expectancy with n>=30, the band table gains a 1h exception (rule_version bump).
