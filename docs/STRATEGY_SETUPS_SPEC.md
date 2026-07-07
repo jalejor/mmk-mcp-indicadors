@@ -872,3 +872,20 @@ until answered.
   compare 3 vs 5 to validate the choice with evidence. The sub-rule stands:
   ADX level alone (>= 25, dominant DI) does NOT substitute the turn — no
   adx_turn within window = veto (FE-G1 unchanged).
+
+### E1 refinement — ADX turn origin level (owner, 2026-07-06 late)
+
+The BEST entry turns are those where the ADX pivots **from ~16 on the scale**:
+a low-ADX turn means the previous trend's strength has fully reset and a new
+move is being born; a turn starting from an already-high ADX is late.
+
+Implementation: `adx_turn` gains an origin-level quality dimension:
+- `origin_level` = ADX value at the pivot (the local low where the turn starts).
+- **A-grade turn**: `origin_level` inside `[origin_low, origin_high]` =
+  `[12, 20]` (sweet spot centered at 16) [calibrable].
+- **B-grade turn**: any other origin that still satisfies the slope/bend rule.
+- Setups and the V2 veto accept both grades in F0, but the backtest MUST
+  stratify results by grade (A vs B) — if A-grade entries dominate expectancy,
+  F1 restricts V2 confirmation to A-grade turns (rule_version bump).
+- Golden case to add with implementation: ADX series pivoting at 16.2 with
+  slope/bend passing → A-grade; same shape pivoting at 31 → B-grade.
