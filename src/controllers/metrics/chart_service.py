@@ -281,14 +281,22 @@ class ChartService:
 
     @staticmethod
     def _span_to_timedelta(span: str) -> timedelta:
-        """Convierte span string a timedelta."""
+        """Convierte span string a timedelta.
+
+        Case note: `h`/`d`/`w` are accepted upper or lower case; `M` (month)
+        must be UPPERCASE. The old code lowercased the whole span before the
+        `[hdwM]` regex, turning `1M` into `1m` and breaking month spans
+        (bug reported by mmk-dashboard).
+        """
         import re
-        match = re.fullmatch(r"(\d+)([hdwM])", span.strip().lower())
+        match = re.fullmatch(r"(\d+)([hHdDwWM])", span.strip())
         if not match:
             raise ValueError("Formato de span inválido. Use ej: '24h', '7d', '1w', '1M'")
 
         qty = int(match.group(1))
         unit = match.group(2)
+        if unit != "M":
+            unit = unit.lower()
 
         if unit == "h":
             return timedelta(hours=qty)

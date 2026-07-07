@@ -16,6 +16,42 @@ from controllers.metrics.market_data_service import MarketDataService
 
 
 # ---------------------------------------------------------------------------
+# Span parsing: the `1M` (month) regression
+# ---------------------------------------------------------------------------
+
+def test_span_1M_uppercase_month_works():
+    """Regression: `.lower()` used to turn 1M into 1m, which matched nothing
+    in `[hdwM]` and raised — month spans were unusable."""
+    assert ChartService._span_to_timedelta("1M") == timedelta(days=30)
+    assert ChartService._span_to_timedelta("3M") == timedelta(days=90)
+
+
+def test_span_hours_days_weeks_stay_case_insensitive():
+    assert ChartService._span_to_timedelta("24h") == timedelta(hours=24)
+    assert ChartService._span_to_timedelta("24H") == timedelta(hours=24)
+    assert ChartService._span_to_timedelta("7d") == timedelta(days=7)
+    assert ChartService._span_to_timedelta("7D") == timedelta(days=7)
+    assert ChartService._span_to_timedelta("1w") == timedelta(days=7)
+    assert ChartService._span_to_timedelta("2W") == timedelta(days=14)
+
+
+def test_span_lowercase_m_and_garbage_still_rejected():
+    """`m` (minutes) was never a valid span unit; month requires uppercase M."""
+    with pytest.raises(ValueError):
+        ChartService._span_to_timedelta("1m")
+    with pytest.raises(ValueError):
+        ChartService._span_to_timedelta("banana")
+    with pytest.raises(ValueError):
+        ChartService._span_to_timedelta("h24")
+
+
+def test_span_1M_selects_a_usable_chart_range():
+    """End-to-end: constructing the service with span=1M must not raise."""
+    service = ChartService(symbol="BTC/USDT", span="1M")
+    assert service.duration_seconds == pytest.approx(30 * 24 * 3600)
+
+
+# ---------------------------------------------------------------------------
 # Konkorde series in the charts payload
 # ---------------------------------------------------------------------------
 
