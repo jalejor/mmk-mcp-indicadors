@@ -173,6 +173,16 @@ def adx_turn_fired_within(
     V2: "the trigger candle itself counts, age 0").
     Variants: "up" | "down" | "up_bullish" | "up_bearish".
     """
+    # Hot path in the backtest (called once per bar): trim every series to the
+    # tail actually needed. Tail-slicing the ORIGINAL index keeps adx and the
+    # DI series aligned on the same candles (their NaNs only live at the head).
+    max_needed = params.turn_window + params.base_window + 1 + window
+    if len(adx) > max_needed:
+        adx = adx.iloc[-max_needed:]
+        if plus_di is not None and len(plus_di) > max_needed:
+            plus_di = plus_di.iloc[-max_needed:]
+        if minus_di is not None and len(minus_di) > max_needed:
+            minus_di = minus_di.iloc[-max_needed:]
     for age in range(0, window):
         end = len(adx) - age
         if end < params.turn_window + params.base_window + 1:
