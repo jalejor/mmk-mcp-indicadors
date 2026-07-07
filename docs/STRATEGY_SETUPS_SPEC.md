@@ -951,3 +951,23 @@ Concept (implementable, parked post-F0 like E6):
   needs. The backtest must model fees+slippage at scalp frequency and report
   liquidation-adjusted risk; variant D is approved ONLY if net expectancy
   survives those costs. Until then, high leverage stays confined to paper.
+
+### E7 addendum — measured move & inter-channel transition (owner, 2026-07-06 late)
+
+Owner doctrine, from live BTC 15m example (two channels: ascending 15m channel
+inside the macro descending channel):
+1. A counter-trend ascending channel INSIDE a bearish macro structure
+   typically resolves with a DOWNSIDE break (short) — trade the channel long
+   while it holds, expect the break.
+2. **Measured move ("saldo minimo")**: after the break, the minimum projected
+   move equals the span the channel already traveled (break level minus the
+   channel's traveled range; first objective = channel WIDTH, full objective =
+   traveled span). Projection targets gain confluence when they land on the
+   macro channel's opposite boundary.
+3. **Transition chop**: while exiting, price tends to BOUNCE BETWEEN the
+   broken channel line (now resistance) and the next structure below — the
+   inter-channel zone is chop, not trend; entries there are low quality
+   (vetoes apply, expect whipsaw).
+Implementation: extends E7 channel objects with `traveled_span`, `width`,
+`break_direction`, `measured_targets[]`; signals inside the inter-channel
+transition zone get a quality penalty. Backtest variant D covers it.
