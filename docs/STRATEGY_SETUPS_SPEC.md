@@ -1017,3 +1017,24 @@ Context note: the 2y/3-symbol gate run showed the 4h/1d setups are ultra-selecti
 (~25 trades, mostly positive expectancy, n far below gate) — rotation across a
 wider watchlist and a scalp family are the frequency fillers, each behind its
 own gate.
+
+### E5 addendum — BBWP color zones & zone-change events (owner, 2026-07-07)
+
+BBWP analysis must also consider its COLOR (zone) and COLOR CHANGES (zone
+transitions), mirroring the TradingView rendering the owner reads:
+
+| Zone | Range [calibrable] | Meaning |
+|------|--------------------|---------|
+| blue | [0, 20) | extreme compression (spring loading) |
+| green | [20, 50) | building |
+| yellow | [50, 80) | tradeable regime (E5 >50 lives here) |
+| red | [80, 100] | extreme volatility (exhaustion watch, E4 territory) |
+
+Events (closed candles): `bbwp_zone_change(from, to)`. Notable transitions:
+- **blue->green**: expansion ignition — the "spring firing" signal (candidate
+  trigger component for IMP-4H's awakening after compression).
+- **yellow->red**: entering extreme — arm E4 V/W turn detection.
+- **red->yellow**: volatility rollover — corroborates E4 turns (exhaustion
+  confirmed); candidate exit/invalidation signal.
+Golden cases to add with implementation: series crossing 19->21 emits
+blue->green; 81->79 emits red->yellow; no event while staying in-zone.
