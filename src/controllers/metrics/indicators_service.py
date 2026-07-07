@@ -42,6 +42,17 @@ class IndicatorsService:
 
         return result
 
+    def calculate_konkorde(self) -> Dict[str, Any]:
+        """Compute ONLY the Konkorde block (cheaper than `calculate_all`).
+
+        The full series stay on `self.df` as the `konkorde_azul`,
+        `konkorde_verde` and `konkorde_marron` columns; the returned dict
+        carries the last-candle values (same keys as `calculate_all`).
+        """
+        result: Dict[str, Any] = {}
+        self._calc_konkorde(result)
+        return result
+
     # ------------------------------------------------------------------
     # Individual indicators (private)
     # ------------------------------------------------------------------

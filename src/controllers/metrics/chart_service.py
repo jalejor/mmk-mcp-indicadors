@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Any, Tuple, Optional
 import pandas as pd
 
+from .indicators_service import IndicatorsService
 from .market_data_service import DEFAULT_EXCHANGE, MarketDataService
 
 
@@ -91,10 +92,15 @@ class ChartService:
         
         # 3. Procesar datos para el gráfico
         processed_data = self._process_chart_data(chart_data)
-        
+
         # 4. Calcular métricas del gráfico
         chart_metrics = self._calculate_chart_metrics(chart_data)
-        
+
+        # 5. Konkorde series aligned 1:1 with the returned candles (same
+        #    window — the forming candle stays included like the rest of the
+        #    chart; new field, backward-compatible).
+        konkorde_series = self._calculate_konkorde_series(chart_data)
+
         return {
             "symbol": self.symbol,
             "exchange": self.exchange,
@@ -104,6 +110,7 @@ class ChartService:
             "duration_hours": round(self.duration_seconds / 3600, 1),
             "total_candles": len(chart_data),
             "chart_data": processed_data,
+            "konkorde": konkorde_series,
             "metrics": chart_metrics,
             "optimization": {
                 "optimal_timeframe": optimal_timeframe,
@@ -199,6 +206,29 @@ class ChartService:
         
         return chart_points
 
+    @staticmethod
+    def _calculate_konkorde_series(df: pd.DataFrame) -> Dict[str, List[Optional[float]]]:
+        """Konkorde lines (marron/verde/azul) aligned 1:1 with `df`.
+
+        Computed with `IndicatorsService` over the SAME window as the chart
+        (warmup included: leading values may be null until the indicator's
+        moving averages have enough data). NaN serialises as null to keep
+        the JSON strict.
+        """
+        if df.empty:
+            return {"marron": [], "verde": [], "azul": []}
+        service = IndicatorsService(df)
+        service.calculate_konkorde()
+
+        def _clean(column: str) -> List[Optional[float]]:
+            return [None if pd.isna(v) else float(v) for v in service.df[column]]
+
+        return {
+            "marron": _clean("konkorde_marron"),
+            "verde": _clean("konkorde_verde"),
+            "azul": _clean("konkorde_azul"),
+        }
+
     def _calculate_chart_metrics(self, df: pd.DataFrame) -> Dict[str, Any]:
         """Calcula métricas resumidas del gráfico."""
         if df.empty:
@@ -259,7 +289,7 @@ class ChartService:
 
         qty = int(match.group(1))
         unit = match.group(2)
-        
+
         if unit == "h":
             return timedelta(hours=qty)
         elif unit == "d":
