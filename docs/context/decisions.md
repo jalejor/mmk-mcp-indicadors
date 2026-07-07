@@ -126,3 +126,19 @@ default exchange's ticker with a bounded timeout (`HEALTH_EXCHANGE_TIMEOUT`, 3 s
 in a worker thread; on failure it downgrades `status` to `degraded` so the load
 balancer can route away while the process keeps serving. Both are excluded from
 the OpenAPI schema and from access-log noise.
+
+## D14 — F0 multi-TF setup engine is a layer ABOVE RulesService (2026-07-07)
+
+`setup_service.py` + `setup_definitions.py` + `setup_backtest_service.py`
+implement STRATEGY_SETUPS_SPEC.md (rule_version 0.1.0): the owner's elements
+E1–E5 as pure functions on closed-candle series, declarative versioned setups
+(PB-1D / IMP-4H, longs + mirrored shorts), timeframe bands (low_tf < 4h without
+Konkorde), V1/V2 false-entry vetoes (windows = 5, owner Q10), and a multi-TF
+backtest with fees (bitget base 0.10% + 0.05% slippage per side), 70/30 IS/OOS
+and counterfactual veto replay. RulesService and the legacy BacktestService are
+deliberately untouched (they keep serving the existing `/v1` endpoints; E5
+coexistence with the legacy 20/80 pends owner Q5). The live path now evaluates
+CLOSED candles only: `get_ohlcv(drop_forming=True)` is the default; charts opt
+out. Gate runner: `scripts/run_f0_backtest.py` (Docker-only). E6/E7 are parked
+post-gate. Backtest indicators are precomputed once over the full series (all
+causal), giving O(n) replays.

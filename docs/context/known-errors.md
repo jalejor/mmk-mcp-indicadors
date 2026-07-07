@@ -206,6 +206,25 @@ deps; drop the `uuid` pin.
 
 ---
 
+<a id="e13"></a>
+## E13 🔴 bitget history pagination: `limit=1000` silently caps/gaps old ranges — MEDIUM
+
+For ranges older than its recent window, bitget routes `fetch_ohlcv(since=...)`
+to the **history-candles** endpoint, which serves at most **200 rows ending at
+`since + limit * duration`**. With `limit=1000` that means: (a) 1d requests
+months back return only the LATEST 200 candles (since ignored), and (b) 4h
+requests return a 200-row window that STARTS ~months after `since` (silent
+gap). Verified live 2026-07-07. With `limit=200` bitget honours `since`
+exactly and forward pagination is gap-free.
+
+* `SetupBacktestService._fetch_paginated` uses `limit=200` (fixed).
+* **`BacktestService._fetch_paginated` (legacy `/v1/backtest`) still uses
+  `limit=1000`** — long-range legacy backtests on bitget can have silent
+  gaps or truncated warmup. Fix pending (same one-line change); left
+  untouched in F0 to avoid perturbing the legacy engine.
+
+---
+
 <a id="e12"></a>
 ## E12 ⚠️ `@has_errors` returns 400/500 with key `error`, some docs show `detail` — LOW
 

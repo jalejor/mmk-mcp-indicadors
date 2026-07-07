@@ -520,7 +520,14 @@ class SetupBacktestService:
         duration_ms = TIMEFRAME_SECONDS[timeframe] * 1000
         since_ms = int(since_dt.timestamp() * 1000)
         end_ms = int(self.end.timestamp() * 1000)
-        limit = 1000
+        # 200, NOT 1000: for ranges beyond its recent window bitget routes to
+        # the history-candles endpoint, which serves at most 200 rows ending
+        # at `since + limit * duration` — with limit=1000 that returns a
+        # window that starts AFTER `since` (silent gap / ignored since;
+        # verified live 2026-07-07: 1d since 8 months back returned only the
+        # latest 200 candles). With limit=200 bitget honours `since` exactly,
+        # so forward pagination is gap-free at the cost of more requests.
+        limit = 200
         rows: List[List[Any]] = []
         cursor = since_ms
 

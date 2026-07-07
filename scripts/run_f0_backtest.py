@@ -26,9 +26,15 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import warnings
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+# Cosmetic only: pandas-ta emits a giant FutureWarning (mfi dtype) per
+# Konkorde computation that floods the gate report. The computation itself
+# is untouched.
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
