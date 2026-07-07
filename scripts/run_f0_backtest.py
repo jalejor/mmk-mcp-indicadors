@@ -196,19 +196,32 @@ def main() -> int:
 
     for symbol in args.symbols:
         print(f"\n== {symbol} " + "=" * 50)
-        service = SetupBacktestService(
-            symbol=symbol,
-            exchange=args.exchange,
-            start=start,
-            end=end,
-            setups=setups,
-            initial_capital=args.capital,
-            risk_per_trade_pct=args.risk_pct,
-            risk_profile=args.risk_profile,
-            fee_rate_per_side=args.fee_rate,
-            slippage_per_side=args.slippage,
-        )
-        report = service.run()
+        # Symbols listed after --start have no data at the requested since:
+        # retry with progressively later starts instead of aborting the run.
+        report = None
+        for attempt_start in _start_candidates(start, end):
+            service = SetupBacktestService(
+                symbol=symbol,
+                exchange=args.exchange,
+                start=attempt_start,
+                end=end,
+                setups=setups,
+                initial_capital=args.capital,
+                risk_per_trade_pct=args.risk_pct,
+                risk_profile=args.risk_profile,
+                fee_rate_per_side=args.fee_rate,
+                slippage_per_side=args.slippage,
+            )
+            try:
+                report = service.run()
+                if attempt_start != start:
+                    print(f"  (data starts late: effective start {attempt_start.date()})")
+                break
+            except ValueError as exc:
+                print(f"  retry with later start ({attempt_start.date()}): {exc}")
+        if report is None:
+            print(f"  SKIPPED {symbol}: no OHLCV data in any attempted range")
+            continue
         full_reports[symbol] = report
 
         families: Dict[str, List[Dict[str, Any]]] = {}
