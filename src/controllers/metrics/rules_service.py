@@ -195,8 +195,18 @@ class RulesService:
             elif stoch_k > 80 and stoch_k < stoch_d:
                 exit_support.append("stoch_rsi_overbought")
 
+        # `low_volatility` reads realised volatility (20-bar stdev of returns)
+        # while `vol_high` reads BBWP — two different metrics that can and do
+        # disagree (live bug 2026-07-06: long side said "Baja volatilidad"
+        # via volatility_20 while the short side said "Alta volatilidad" via
+        # BBWP 82). When BBWP already flags exhaustion-level volatility the
+        # breakout-anticipation vote is contradictory, so it is suppressed.
         volatility = indicators.get("volatility_20")
-        if volatility is not None and volatility < 1.5:
+        if (
+            volatility is not None
+            and volatility < 1.5
+            and (bbwp is None or bbwp <= th["bbwp_high"])
+        ):
             entry_support.append("low_volatility")
 
         # ----------------------------------------------------------
@@ -278,5 +288,5 @@ class RulesService:
             "macd_bearish": "MACD por debajo de su señal en territorio negativo",
             "stoch_rsi_oversold": "Stoch RSI en sobreventa con divergencia alcista",
             "stoch_rsi_overbought": "Stoch RSI en sobrecompra con divergencia bajista",
-            "low_volatility": "Baja volatilidad, ambiente propicio para breakouts",
+            "low_volatility": "Baja volatilidad realizada (desv. est. 20 velas), ambiente propicio para breakouts",
         }

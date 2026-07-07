@@ -123,3 +123,20 @@ def test_backward_compat_weights_default():
     rules = RulesService(symbol="BTC/USDT").evaluate(indicators)
     assert rules["entry_votes"] == len(rules["support_entry"])
     assert rules["exit_votes"] == len(rules["support_exit"])
+
+
+def test_low_volatility_suppressed_when_bbwp_contradicts():
+    """Live bug 2026-07-06: `low_volatility` (realised vol) voted entry while
+    BBWP > 80 voted exit ("Alta volatilidad") on the same candle — the two
+    reasons contradicted each other in /v1/movements. With exhaustion-level
+    BBWP the breakout-anticipation vote must be suppressed."""
+    service = RulesService(symbol="BTC/USDT")
+    contradictory = service.evaluate({"volatility_20": 0.5, "bbwp": 82.0})
+    assert "low_volatility" not in contradictory["support_entry"]
+    assert "vol_high" in contradictory["support_exit"]
+
+    consistent = service.evaluate({"volatility_20": 0.5, "bbwp": 40.0})
+    assert "low_volatility" in consistent["support_entry"]
+
+    no_bbwp = service.evaluate({"volatility_20": 0.5})
+    assert "low_volatility" in no_bbwp["support_entry"]
