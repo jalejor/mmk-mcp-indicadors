@@ -179,6 +179,18 @@ def _gate_row(family: str, symbol: str, blocks: List[Dict[str, Any]]) -> Dict[st
     }
 
 
+def _start_candidates(start, end):
+    """Progressively later starts for symbols listed after --start."""
+    from datetime import timedelta
+    cands = [start]
+    step = timedelta(days=365)
+    cur = start + step
+    while cur < end - timedelta(days=180):
+        cands.append(cur)
+        cur += step
+    return cands
+
+
 def main() -> int:
     args = _parse_args()
     start, end = _resolve_period(args)
