@@ -402,6 +402,72 @@ bbwp_regime_on = bbwp[-1] > 50.0        (strict; on the closed candle of the set
 
 ---
 
+### E6 — `trend_speed`: wave-speed impulse strength — **CANDIDATE (parked, post-F0 gate)**
+
+> **Status: NOT part of F0.** Explicit recommendation: F0 ships the 5 owner
+> elements + timeframe bands + false-entry vetoes and nothing else. E6 enters
+> the rule set only if the F0 backtest shows the impulse confirmation is
+> lacking — concretely, if the §C counterfactual replay shows V2 (`adx_turn`)
+> rejecting too many profitable entries or passing too many false ones. Adding
+> it later is a `rule_version` bump with its own golden tests and its own
+> backtest A/B (with-vs-without E6).
+
+**Source concept**: "Trend Speed Analyzer" by Zeiierman (TradingView, Pine v6).
+Concept only — **no code was copied**.
+
+> **License note**: the original indicator is published under
+> **CC BY-NC-SA 4.0** (non-commercial, share-alike). Using the *concept* in a
+> personal, non-commercial strategy is fine for the owner's current use. If
+> mmk ever becomes commercial (multi-account phase of the roadmap), this
+> element must be reviewed: reimplement from an independent formulation or
+> obtain permission — flag it in that phase's gate checklist.
+
+**Operational definition (mmk terms, pandas)**:
+
+```
+# Per closed candle; RMA = Wilder's smoothing (pandas-ta-classic: ta.rma)
+body_speed[i] = RMA(close, 10)[i] - RMA(open, 10)[i]
+
+# Cumulative speed within the current trend segment:
+speed_acc[i] = speed_acc[i-1] + body_speed[i]
+
+# Segment reset ("trend turn"): when close crosses the adaptive trend EMA.
+# mmk approximation of the dynamic-length EMA [calibrable]: KAMA(10), or plain
+# EMA(20) as the simplest first cut. On reset: close the current "wave" and
+# restart speed_acc at 0.
+```
+
+**Wave statistics** (over `wave_lookback` = last 50 completed waves **[calibrable]**):
+
+```
+wave_height       = extreme |speed_acc| reached during the segment (signed by side)
+avg_bull, max_bull = mean / max of bull wave heights in the lookback   (mirror for bear)
+ratio_avg         = |current_wave| / avg_same_side      # > 1 -> stronger than the historical average
+ratio_max         = |current_wave| / max_same_side      # > 1 -> strongest move in the lookback
+dominance         = avg_bull - |avg_bear|               # > 0 -> bull waves structurally larger
+```
+
+**Intended role — confirmation of "impulso bien marcado" in the vetoes**: E6
+would extend veto V2 (§B.3) as a complement/alternative to the ADX turn:
+
+```
+V2' (post-F0 candidate) = adx_turn fired within confirm_window
+                          OR (current wave started <= max_event_age candles ago     # aligns with V1 freshness
+                              AND ratio_avg >= speed_ratio_min)                      # default 1.0 [calibrable] — see Q12
+```
+
+**Golden cases (conceptual — deterministic once the adaptive EMA choice is
+fixed; inputs are the wave-level values, not raw OHLCV)**:
+
+| # | Wave history (bull side) | Current wave | Expected | Why |
+|---|---|---|---|---|
+| E6-G1 | heights `[10, 12, 8, 10]` → `avg_bull = 10`, `max_bull = 12` | `speed_acc` peak `15` | `ratio_avg = 1.5`, `ratio_max = 1.25` → impulse confirmation **true** | current move stronger than both the average and the historical max |
+| E6-G2 | same history | `speed_acc` peak `6` | `ratio_avg = 0.6`, `ratio_max = 0.5` → confirmation **false** | weaker-than-average move; if `adx_turn` is also absent, the V2' veto stands |
+
+**TFs**: both bands (no Konkorde dependency).
+
+---
+
 ## B. Composite setups (declarative, versioned)
 
 ### B.0 Rule document schema
@@ -605,6 +671,10 @@ Two deliberate consequences (both match the owner's example):
 * A **high ADX level** (≥ 25, dominant DI) without a recent turn does **not**
   satisfy V2 either. Whether the level may substitute for the turn is Q10.
 
+A parked candidate alternative/complement for this confirmation —
+`trend_speed` wave ratios (E6, Zeiierman concept) — is specified in §E6 and is
+**post-F0 only** (V2' formulation there).
+
 **Veto table per setup** (shorts: mirror variants):
 
 | Setup | Veto | Rule | Default |
@@ -768,3 +838,9 @@ correct (each maps to a **[calibrable]** default above):
     (in `low_tf` they act on the AO cross and the ADX turn, the only trigger
     events available there). Confirm this also holds for any future low-band
     scalping setup.
+12. **E6 `trend_speed` threshold (post-F0 candidate)**: if E6 is ever
+    activated, should the impulse-strength gate compare the current wave
+    against the **average** wave (`ratio_avg >= 1.0`, more sensitive — the
+    spec's provisional choice) or against the **maximum** wave (`ratio_max`,
+    more conservative)? And confirm the adaptive-EMA approximation for wave
+    resets (provisional: KAMA(10); simplest alternative EMA(20)).
