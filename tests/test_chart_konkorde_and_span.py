@@ -121,6 +121,55 @@ def test_konkorde_values_match_indicators_service_on_same_window(chart_result):
     assert result["konkorde"]["marron"][-1] == pytest.approx(expected_last)
 
 
+# ---------------------------------------------------------------------------
+# Oscillator series (ADX +DI/-DI, BBWP, AO) in the charts payload
+# ---------------------------------------------------------------------------
+
+def test_charts_response_includes_oscillator_series(chart_result):
+    result, _frame = chart_result
+    assert "adx" in result
+    assert set(result["adx"].keys()) == {"adx", "plus_di", "minus_di"}
+    assert "bbwp" in result
+    assert "ao" in result
+
+
+def test_oscillator_series_align_one_to_one_with_candles(chart_result):
+    result, _frame = chart_result
+    n = len(result["chart_data"])
+    assert n == result["total_candles"]
+    series = (
+        result["adx"]["adx"],
+        result["adx"]["plus_di"],
+        result["adx"]["minus_di"],
+        result["bbwp"],
+        result["ao"],
+    )
+    for values in series:
+        assert len(values) == n
+        assert all(v is None or isinstance(v, float) for v in values)
+    # With a 7d window of hourly candles the tail must be numeric.
+    assert result["adx"]["adx"][-1] is not None
+    assert result["bbwp"][-1] is not None
+    assert result["ao"][-1] is not None
+    # BBWP is a 0-100 percentile.
+    assert 0.0 <= result["bbwp"][-1] <= 100.0
+
+
+def test_oscillator_values_match_indicators_service_on_same_window(chart_result):
+    """The series must come from the SAME window the chart returns."""
+    result, frame = chart_result
+    start = pd.Timestamp(result["start"])
+    end = pd.Timestamp(result["end"])
+    window = frame.loc[start:end]
+
+    service = IndicatorsService(window)
+    service.calculate_oscillators()
+    assert result["adx"]["adx"][-1] == pytest.approx(
+        float(service.df["adx14"].iloc[-1])
+    )
+    assert result["ao"][-1] == pytest.approx(float(service.df["ao"].iloc[-1]))
+
+
 def test_charts_existing_contract_unchanged(chart_result):
     """Backward-compat: every pre-existing key keeps its place and shape."""
     result, _frame = chart_result

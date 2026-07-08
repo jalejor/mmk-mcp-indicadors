@@ -101,6 +101,11 @@ class ChartService:
         #    chart; new field, backward-compatible).
         konkorde_series = self._calculate_konkorde_series(chart_data)
 
+        # 6. Oscillator panels (ADX +DI/-DI, BBWP, AO) as series aligned 1:1
+        #    with the candles — same treatment as Konkorde (new fields,
+        #    backward-compatible; the dashboard renders them as sub-panels).
+        oscillators = self._calculate_indicator_series(chart_data)
+
         return {
             "symbol": self.symbol,
             "exchange": self.exchange,
@@ -111,6 +116,9 @@ class ChartService:
             "total_candles": len(chart_data),
             "chart_data": processed_data,
             "konkorde": konkorde_series,
+            "adx": oscillators["adx"],
+            "bbwp": oscillators["bbwp"],
+            "ao": oscillators["ao"],
             "metrics": chart_metrics,
             "optimization": {
                 "optimal_timeframe": optimal_timeframe,
@@ -227,6 +235,36 @@ class ChartService:
             "marron": _clean("konkorde_marron"),
             "verde": _clean("konkorde_verde"),
             "azul": _clean("konkorde_azul"),
+        }
+
+    @staticmethod
+    def _calculate_indicator_series(df: pd.DataFrame) -> Dict[str, Any]:
+        """ADX(+DI/-DI), BBWP and AO series aligned 1:1 with `df`.
+
+        Same contract as `_calculate_konkorde_series`: computed with
+        `IndicatorsService` over the SAME window as the chart (warmup
+        included, leading values may be null until each indicator has enough
+        data) and NaN serialises as null. BBWP is a rolling percentile over
+        the visible window, so it tracks the standalone `/v1/metrics` value
+        closely but is not bit-identical (different lookback horizon).
+        """
+        empty = {"adx": {"adx": [], "plus_di": [], "minus_di": []}, "bbwp": [], "ao": []}
+        if df.empty:
+            return empty
+        service = IndicatorsService(df)
+        service.calculate_oscillators()
+
+        def _clean(column: str) -> List[Optional[float]]:
+            return [None if pd.isna(v) else float(v) for v in service.df[column]]
+
+        return {
+            "adx": {
+                "adx": _clean("adx14"),
+                "plus_di": _clean("plus_di"),
+                "minus_di": _clean("minus_di"),
+            },
+            "bbwp": _clean("bbwp"),
+            "ao": _clean("ao"),
         }
 
     def _calculate_chart_metrics(self, df: pd.DataFrame) -> Dict[str, Any]:

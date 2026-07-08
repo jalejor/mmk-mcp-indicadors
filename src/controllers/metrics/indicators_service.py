@@ -53,6 +53,21 @@ class IndicatorsService:
         self._calc_konkorde(result)
         return result
 
+    def calculate_oscillators(self) -> Dict[str, Any]:
+        """Compute ONLY the ADX / BBWP / AO oscillators (cheaper than
+        `calculate_all`).
+
+        The full series stay on `self.df` as the `adx14`, `plus_di`,
+        `minus_di`, `bbwp` and `ao` columns; the returned dict carries the
+        last-candle values (same keys as `calculate_all`). Used by the chart
+        service to ship per-candle oscillator panels alongside Konkorde.
+        """
+        result: Dict[str, Any] = {}
+        self._calc_adx(result)
+        self._calc_bbwp(result)
+        self._calc_ao(result)
+        return result
+
     # ------------------------------------------------------------------
     # Individual indicators (private)
     # ------------------------------------------------------------------
