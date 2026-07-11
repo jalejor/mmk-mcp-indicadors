@@ -1,0 +1,3621 @@
+{
+  "gate": [
+    {
+      "family": "IMP-4H",
+      "symbol": "BTC/USDT",
+      "n_full": 20,
+      "n_oos": 4,
+      "expectancy_full": 0.048560000000000006,
+      "expectancy_oos": -0.15995,
+      "profit_factor_oos": 0.0,
+      "max_drawdown_pct": 6.89,
+      "checks": {
+        "n_trades_full>=30": false,
+        "n_trades_oos>=10": false,
+        "expectancy_full>=0.15R": false,
+        "expectancy_oos>=0.10R": false,
+        "profit_factor_oos>=1.15": false,
+        "max_drawdown<=20%": true,
+        "oos>=50%_of_is_expectancy": false
+      },
+      "pass": false
+    },
+    {
+      "family": "PB-1D",
+      "symbol": "BTC/USDT",
+      "n_full": 9,
+      "n_oos": 5,
+      "expectancy_full": 0.6145444444444446,
+      "expectancy_oos": 1.1392,
+      "profit_factor_oos": 2.554,
+      "max_drawdown_pct": 3.23,
+      "checks": {
+        "n_trades_full>=30": false,
+        "n_trades_oos>=10": false,
+        "expectancy_full>=0.15R": true,
+        "expectancy_oos>=0.10R": true,
+        "profit_factor_oos>=1.15": true,
+        "max_drawdown<=20%": true,
+        "oos>=50%_of_is_expectancy": false
+      },
+      "pass": false
+    },
+    {
+      "family": "IMP-4H",
+      "symbol": "ETH/USDT",
+      "n_full": 19,
+      "n_oos": 6,
+      "expectancy_full": 0.17172105263157894,
+      "expectancy_oos": 0.8990333333333335,
+      "profit_factor_oos": 0.863,
+      "max_drawdown_pct": 8.59,
+      "checks": {
+        "n_trades_full>=30": false,
+        "n_trades_oos>=10": false,
+        "expectancy_full>=0.15R": true,
+        "expectancy_oos>=0.10R": true,
+        "profit_factor_oos>=1.15": false,
+        "max_drawdown<=20%": true,
+        "oos>=50%_of_is_expectancy": false
+      },
+      "pass": false
+    },
+    {
+      "family": "PB-1D",
+      "symbol": "ETH/USDT",
+      "n_full": 4,
+      "n_oos": 0,
+      "expectancy_full": 0.9624500000000001,
+      "expectancy_oos": null,
+      "profit_factor_oos": null,
+      "max_drawdown_pct": 1.59,
+      "checks": {
+        "n_trades_full>=30": false,
+        "n_trades_oos>=10": false,
+        "expectancy_full>=0.15R": true,
+        "expectancy_oos>=0.10R": false,
+        "profit_factor_oos>=1.15": false,
+        "max_drawdown<=20%": true,
+        "oos>=50%_of_is_expectancy": false
+      },
+      "pass": false
+    },
+    {
+      "family": "IMP-4H",
+      "symbol": "SOL/USDT",
+      "n_full": 16,
+      "n_oos": 9,
+      "expectancy_full": 0.41915,
+      "expectancy_oos": 0.6834333333333332,
+      "profit_factor_oos": 0.858,
+      "max_drawdown_pct": 4.63,
+      "checks": {
+        "n_trades_full>=30": false,
+        "n_trades_oos>=10": false,
+        "expectancy_full>=0.15R": true,
+        "expectancy_oos>=0.10R": true,
+        "profit_factor_oos>=1.15": false,
+        "max_drawdown<=20%": true,
+        "oos>=50%_of_is_expectancy": true
+      },
+      "pass": false
+    },
+    {
+      "family": "PB-1D",
+      "symbol": "SOL/USDT",
+      "n_full": 4,
+      "n_oos": 2,
+      "expectancy_full": 0.9729000000000001,
+      "expectancy_oos": 2.9687,
+      "profit_factor_oos": Infinity,
+      "max_drawdown_pct": 3.05,
+      "checks": {
+        "n_trades_full>=30": false,
+        "n_trades_oos>=10": false,
+        "expectancy_full>=0.15R": true,
+        "expectancy_oos>=0.10R": true,
+        "profit_factor_oos>=1.15": true,
+        "max_drawdown<=20%": true,
+        "oos>=50%_of_is_expectancy": false
+      },
+      "pass": false
+    },
+    {
+      "family": "IMP-4H",
+      "symbol": "BNB/USDT",
+      "n_full": 16,
+      "n_oos": 5,
+      "expectancy_full": -0.3546375,
+      "expectancy_oos": -0.3107,
+      "profit_factor_oos": 0.0,
+      "max_drawdown_pct": 9.7,
+      "checks": {
+        "n_trades_full>=30": false,
+        "n_trades_oos>=10": false,
+        "expectancy_full>=0.15R": false,
+        "expectancy_oos>=0.10R": false,
+        "profit_factor_oos>=1.15": false,
+        "max_drawdown<=20%": true,
+        "oos>=50%_of_is_expectancy": false
+      },
+      "pass": false
+    },
+    {
+      "family": "PB-1D",
+      "symbol": "BNB/USDT",
+      "n_full": 4,
+      "n_oos": 1,
+      "expectancy_full": -0.030200000000000005,
+      "expectancy_oos": -1.0292,
+      "profit_factor_oos": 0.0,
+      "max_drawdown_pct": 3.04,
+      "checks": {
+        "n_trades_full>=30": false,
+        "n_trades_oos>=10": false,
+        "expectancy_full>=0.15R": false,
+        "expectancy_oos>=0.10R": false,
+        "profit_factor_oos>=1.15": false,
+        "max_drawdown<=20%": true,
+        "oos>=50%_of_is_expectancy": false
+      },
+      "pass": false
+    }
+  ],
+  "reports": {
+    "BTC/USDT": {
+      "rule_version": "0.1.0",
+      "symbol": "BTC/USDT",
+      "exchange": "binance",
+      "period": {
+        "start": "2018-07-01T00:00:00+00:00",
+        "end": "2026-07-01T00:00:00+00:00",
+        "in_sample_end": "2024-02-05T09:36:00+00:00",
+        "in_sample_fraction": 0.7
+      },
+      "fee_model": {
+        "fee_rate_per_side": 0.001,
+        "slippage_per_side": 0.0005
+      },
+      "sizing": {
+        "risk_profile": "medium",
+        "atr_stop_multiplier": 1.5,
+        "target_r_multiple": 3.0,
+        "risk_per_trade_pct": 1.5,
+        "initial_capital": 10000.0
+      },
+      "setups": {
+        "PB-1D-LONG": {
+          "rule_version": "0.1.0",
+          "setup_id": "PB-1D-LONG",
+          "side": "long",
+          "timeframes": [
+            "1d"
+          ],
+          "candidates": 9,
+          "full": {
+            "n_trades": 7,
+            "win_rate": 0.4286,
+            "expectancy_R": 0.6499,
+            "avg_win_R": 2.931,
+            "avg_loss_R": -1.061,
+            "profit_factor": 1.988,
+            "max_drawdown_pct": 3.23,
+            "avg_trade_duration_bars": 10.29
+          },
+          "in_sample": {
+            "n_trades": 3,
+            "win_rate": 0.3333,
+            "expectancy_R": 0.2837,
+            "avg_win_R": 2.923,
+            "avg_loss_R": -1.036,
+            "profit_factor": 1.362,
+            "max_drawdown_pct": 3.08,
+            "avg_trade_duration_bars": 8.33
+          },
+          "out_of_sample": {
+            "n_trades": 4,
+            "win_rate": 0.5,
+            "expectancy_R": 0.9245,
+            "avg_win_R": 2.935,
+            "avg_loss_R": -1.086,
+            "profit_factor": 2.554,
+            "max_drawdown_pct": 3.23,
+            "avg_trade_duration_bars": 11.75
+          },
+          "vetoed_signals": {
+            "count": 1,
+            "by_reason": {
+              "no_adx_turn_confirmation": 1
+            },
+            "counterfactual_expectancy_R": -1.0264,
+            "accepted_expectancy_R": 0.4322,
+            "window_comparison": {
+              "3": {
+                "accepted_n": 4,
+                "accepted_expectancy_R": 0.9323,
+                "vetoed_n": 5,
+                "vetoed_expectancy_R": -0.2596
+              },
+              "5": {
+                "accepted_n": 8,
+                "accepted_expectancy_R": 0.4322,
+                "vetoed_n": 1,
+                "vetoed_expectancy_R": -1.0264
+              }
+            }
+          },
+          "adx_turn_grades": {
+            "A": {
+              "n_trades": 4,
+              "expectancy_R": 0.922,
+              "win_rate": 0.5
+            },
+            "B": {
+              "n_trades": 3,
+              "expectancy_R": 0.287,
+              "win_rate": 0.3333
+            }
+          },
+          "trades": [
+            {
+              "entry_time": "2019-04-02T00:00:00+00:00",
+              "exit_time": "2019-04-23T00:00:00+00:00",
+              "side": "long",
+              "entry_price": 4857.29,
+              "exit_price": 5462.87544942,
+              "stop_price": 4655.42818353,
+              "target_price": 5462.87544942,
+              "exit_reason": "target",
+              "bars_held": 21,
+              "r_net": 2.9233,
+              "pnl_net": 438.5,
+              "fees_paid": 11.5,
+              "adx_turn_grade": "A",
+              "support": [
+                "close_above_sma200",
+                "ema50_above_sma50",
+                "konkorde_state:positive",
+                "pullback_state",
+                "adx_turn:up_bullish",
+                "konkorde_zero_cross:up",
+                "close_breaks_prior_high"
+              ]
+            },
+            {
+              "entry_time": "2020-12-19T00:00:00+00:00",
+              "exit_time": "2020-12-21T00:00:00+00:00",
+              "side": "long",
+              "entry_price": 23821.61,
+              "exit_price": 22192.95997235,
+              "stop_price": 22192.95997235,
+              "target_price": 28707.56008296,
+              "exit_reason": "stop",
+              "bars_held": 2,
+              "r_net": -1.0424,
+              "pnl_net": -163.21,
+              "fees_paid": 6.64,
+              "adx_turn_grade": "B",
+              "support": [
+                "close_above_sma200",
+                "ema50_above_sma50",
+                "konkorde_state:positive",
+                "pullback_state",
+                "adx_level:bullish",
+                "adx_turn:up_bullish",
+                "konkorde_zero_cross:up",
+                "close_breaks_prior_high"
+              ]
+            },
+            {
+              "entry_time": "2021-03-13T00:00:00+00:00",
+              "exit_time": "2021-03-15T00:00:00+00:00",
+              "side": "long",
+              "entry_price": 61188.39,
+              "exit_price": 55306.193142,
+              "stop_price": 55306.193142,
+              "target_price": 78834.98057401,
+              "exit_reason": "stop",
+              "bars_held": 2,
+              "r_net": -1.0297,
+              "pnl_net": -158.71,
+              "fees_paid": 4.58,
+              "adx_turn_grade": "B",
+              "support": [
+                "close_above_sma200",
+                "ema50_above_sma50",
+                "konkorde_state:positive",
+                "pullback_state",
+                "adx_level:bullish",
+                "konkorde_zero_cross:up",
+                "close_breaks_prior_high"
+              ]
+            },
+            {
+              "entry_time": "2024-11-10T00:00:00+00:00",
+              "exit_time": "2024-11-13T00:00:00+00:00",
+              "side": "long",
+              "entry_price": 80370.01,
+              "exit_price": 91958.06123141,
+              "stop_price": 76507.3262562,
+              "target_price": 91958.06123141,
+              "exit_reason": "target",
+              "bars_held": 3,
+              "r_net": 2.9331,
+              "pnl_net": 445.09,
+              "fees_paid": 10.16,
+              "adx_turn_grade": "B",
+              "support": [
+                "close_above_sma200",
+                "ema50_above_sma50",
+                "konkorde_state:positive",
+                "pullback_state",
+                "adx_level:bullish",
+                "adx_turn:up_bullish",
+                "konkorde_zero_cross:up",
+                "close_breaks_prior_high"
+              ]
+            },
+            {
+              "entry_time": "2025-04-25T00:00:00+00:00",
+              "exit_time": "2025-05-21T00:00:00+00:00",
+              "side": "long",
+              "entry_price": 94638.68,
+              "exit_price": 109368.35525668,
+              "stop_price": 89728.78824777,
+              "target_price": 109368.35525668,
+              "exit_reason": "target",
+              "bars_held": 26,
+              "r_net": 2.9377,
+              "pnl_net": 465.4,
+              "fees_paid": 9.87,
+              "adx_turn_grade": "A",
+              "support": [
+                "close_above_sma200",
+                "ema50_above_sma50",
+                "konkorde_state:positive",
+                "pullback_state",
+                "adx_turn:up_bullish",
+                "konkorde_zero_cross:up",
+                "close_breaks_prior_high"
+              ]
+            },
+            {
+              "entry_time": "2025-07-14T00:00:00+00:00",
+              "exit_time": "2025-07-25T00:00:00+00:00",
+              "side": "long",
+              "entry_price": 119841.18,
+              "exit_price": 115617.34366904,
+              "stop_price": 115617.34366904,
+              "target_price": 132512.68899287,
+              "exit_reason": "stop",
+              "bars_held": 11,
+              "r_net": -1.0836,
+              "pnl_net": -179.24,
+              "fees_paid": 13.83,
+              "adx_turn_grade": "A",
+              "support": [
+                "close_above_sma200",
+                "ema50_above_sma50",
+                "konkorde_state:positive",
+                "pullback_state",
+                "adx_turn:up_bullish",
+                "konkorde_zero_cross:up",
+                "close_breaks_prior_high"
+              ]
+            },
+            {
+              "entry_time": "2025-10-03T00:00:00+00:00",
+              "exit_time": "2025-10-10T00:00:00+00:00",
+              "side": "long",
+              "entry_price": 122232.0,
+              "exit_price": 118194.53009283,
+              "stop_price": 118194.53009283,
+              "target_price": 134344.40972151,
+              "exit_reason": "stop",
+              "bars_held": 7,
+              "r_net": -1.0893,
+              "pnl_net": -177.25,
+              "fees_paid": 14.53,
+              "adx_turn_grade": "A",
+              "support": [
+                "close_above_sma200",
+                "ema50_above_sma50",
+                "konkorde_state:positive",
+                "pullback_state",
+                "adx_turn:up_bullish",
+                "konkorde_zero_cross:up",
+                "close_breaks_prior_high"
+              ]
+            }
+          ]
+        },
+        "PB-1D-SHORT": {
+          "rule_version": "0.1.0",
+          "setup_id": "PB-1D-SHORT",
+          "side": "short",
+          "timeframes": [
+            "1d"
+          ],
+          "candidates": 2,
+          "full": {
+            "n_trades": 2,
+            "win_rate": 0.5,
+            "expectancy_R": 0.4908,
+            "avg_win_R": 1.998,
+            "avg_loss_R": -1.016,
+            "profit_factor": 1.936,
+            "max_drawdown_pct": 1.52,
+            "avg_trade_duration_bars": 15.0
+          },
+          "in_sample": {
+            "n_trades": 1,
+            "win_rate": 0.0,
+            "expectancy_R": -1.0165,
+            "avg_win_R": 0.0,
+            "avg_loss_R": -1.016,
+            "profit_factor": 0.0,
+            "max_drawdown_pct": 1.52,
+            "avg_trade_duration_bars": 1.0
+          },
+          "out_of_sample": {
+            "n_trades": 1,
+            "win_rate": 1.0,
+            "expectancy_R": 1.998,
+            "avg_win_R": 1.998,
+            "avg_loss_R": 0.0,
+            "profit_factor": Infinity,
+            "max_drawdown_pct": 0.0,
+            "avg_trade_duration_bars": 29.0
+          },
+          "vetoed_signals": {
+            "count": 0,
+            "by_reason": {},
+            "counterfactual_expectancy_R": null,
+            "accepted_expectancy_R": 0.4908,
+            "window_comparison": {
+              "3": {
+                "accepted_n": 1,
+                "accepted_expectancy_R": -1.0165,
+                "vetoed_n": 1,
+                "vetoed_expectancy_R": 1.998
+              },
+              "5": {
+                "accepted_n": 2,
+                "accepted_expectancy_R": 0.4908,
+                "vetoed_n": 0,
+                "vetoed_expectancy_R": null
+              }
+            }
+          },
+          "adx_turn_grades": {
+            "A": {
+              "n_trades": 1,
+              "expectancy_R": 1.998,
+              "win_rate": 1.0
+            },
+            "B": {
+              "n_trades": 1,
+              "expectancy_R": -1.0165,
+              "win_rate": 0.0
+            }
+          },
+          "trades": [
+            {
+              "entry_time": "2020-03-12T00:00:00+00:00",
+              "exit_time": "2020-03-13T00:00:00+00:00",
+              "side": "short",
+              "entry_price": 4800.0,
+              "exit_price": 5762.64696129,
+              "stop_price": 5762.64696129,
+              "target_price": 1912.05911612,
+              "exit_reason": "stop",
+              "bars_held": 1,
+              "r_net": -1.0165,
+              "pnl_net": -152.47,
+              "fees_paid": 2.47,
+              "adx_turn_grade": "B",
+              "support": [
+                "close_below_sma200",
+                "ema50_below_sma50",
+                "konkorde_state:negative",
+                "rally_state",
+                "adx_level:bearish",
+                "adx_turn:up_bearish",
+                "konkorde_zero_cross:down",
+                "close_breaks_prior_low"
+              ]
+            },
+            {
+              "entry_time": "2026-06-02T00:00:00+00:00",
+              "exit_time": "2026-07-01T00:00:00+00:00",
+              "side": "short",
+              "entry_price": 66760.83,
+              "exit_price": 60024.0,
+              "stop_price": 70037.41020345,
+              "target_price": 56931.08938966,
+              "exit_reason": "end_of_data",
+              "bars_held": 29,
+              "r_net": 1.998,
+              "pnl_net": 295.13,
+              "fees_paid": 8.57,
+              "adx_turn_grade": "A",
+              "support": [
+                "close_below_sma200",
+                "ema50_below_sma50",
+                "konkorde_state:negative",
+                "rally_state",
+                "adx_level:bearish",
+                "konkorde_zero_cross:down",
+                "close_breaks_prior_low"
+              ]
+            }
+          ]
+        },
+        "IMP-4H-LONG": {
+          "rule_version": "0.1.0",
+          "setup_id": "IMP-4H-LONG",
+          "side": "long",
+          "timeframes": [
+            "1d",
+            "4h"
+          ],
+          "candidates": 44,
+          "full": {
+            "n_trades": 12,
+            "win_rate": 0.25,
+            "expectancy_R": -0.1662,
+            "avg_win_R": 2.848,
+            "avg_loss_R": -1.171,
+            "profit_factor": 0.788,
+            "max_drawdown_pct": 6.89,
+            "avg_trade_duration_bars": 16.0
+          },
+          "in_sample": {
+            "n_trades": 9,
+            "win_rate": 0.2222,
+            "expectancy_R": -0.277,
+            "avg_win_R": 2.825,
+            "avg_loss_R": -1.163,
+            "profit_factor": 0.678,
+            "max_drawdown_pct": 6.89,
+            "avg_trade_duration_bars": 18.0
+          },
+          "out_of_sample": {
+            "n_trades": 3,
+            "win_rate": 0.3333,
+            "expectancy_R": 0.1663,
+            "avg_win_R": 2.894,
+            "avg_loss_R": -1.198,
+            "profit_factor": 1.169,
+            "max_drawdown_pct": 3.56,
+            "avg_trade_duration_bars": 10.0
+          },
+          "vetoed_signals": {
+            "count": 32,
+            "by_reason": {
+              "stale_ao_cross": 32
+            },
+            "counterfactual_expectancy_R": 0.7271,
+            "accepted_expectancy_R": -0.1662,
+            "window_comparison": {
+              "3": {
+                "accepted_n": 9,
+                "accepted_expectancy_R": -0.2605,
+                "vetoed_n": 35,
+                "vetoed_expectancy_R": 0.6748
+              },
+              "5": {
+                "accepted_n": 12,
+                "accepted_expectancy_R": -0.1662,
+                "vetoed_n": 32,
+                "vetoed_expectancy_R": 0.7271
+              }
+            }
+          },
+          "adx_turn_grades": {
+            "A": {
+              "n_trades": 7,
+              "expectancy_R": -0.5955,
+              "win_rate": 0.1429
+            },
+            "B": {
+              "n_trades": 5,
+              "expectancy_R": 0.4348,
+              "win_rate": 0.4
+            }
+          },
+          "trades": [
+            {
+              "entry_time": "2019-04-23T00:00:00+00:00",
+              "exit_time": "2019-04-25T20:00:00+00:00",
+              "side": "long",
+              "entry_price": 5414.5,
+              "exit_price": 5310.28594968,
+              "stop_price": 5310.28594968,
+              "target_price": 5727.14215096,
+              "exit_reason": "stop",
+              "bars_held": 17,
+              "r_net": -1.1544,
+              "pnl_net": -173.16,
+              "fees_paid": 23.16,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2020-02-12T00:00:00+00:00",
+              "exit_time": "2020-02-15T12:00:00+00:00",
+              "side": "long",
+              "entry_price": 10263.0,
+              "exit_price": 10052.71486387,
+              "stop_price": 10052.71486387,
+              "target_price": 10893.8554084,
+              "exit_reason": "stop",
+              "bars_held": 21,
+              "r_net": -1.1449,
+              "pnl_net": -168.76,
+              "fees_paid": 21.36,
+              "adx_turn_grade": "B",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2020-10-09T00:00:00+00:00",
+              "exit_time": "2020-10-10T00:00:00+00:00",
+              "side": "long",
+              "entry_price": 10887.19,
+              "exit_price": 11330.63332609,
+              "stop_price": 10739.37555797,
+              "target_price": 11330.63332609,
+              "exit_reason": "target",
+              "bars_held": 6,
+              "r_net": 2.7745,
+              "pnl_net": 401.95,
+              "fees_paid": 32.66,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2021-11-08T04:00:00+00:00",
+              "exit_time": "2021-11-10T20:00:00+00:00",
+              "side": "long",
+              "entry_price": 65941.89,
+              "exit_price": 64413.93019788,
+              "stop_price": 64413.93019788,
+              "target_price": 70525.76940636,
+              "exit_reason": "stop",
+              "bars_held": 16,
+              "r_net": -1.128,
+              "pnl_net": -170.21,
+              "fees_paid": 19.31,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2023-01-21T00:00:00+00:00",
+              "exit_time": "2023-02-02T00:00:00+00:00",
+              "side": "long",
+              "entry_price": 22547.35,
+              "exit_price": 24237.31187156,
+              "stop_price": 21984.02937615,
+              "target_price": 24237.31187156,
+              "exit_reason": "target",
+              "bars_held": 72,
+              "r_net": 2.8754,
+              "pnl_net": 426.56,
+              "fees_paid": 18.48,
+              "adx_turn_grade": "B",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2023-02-02T04:00:00+00:00",
+              "exit_time": "2023-02-03T12:00:00+00:00",
+              "side": "long",
+              "entry_price": 23781.12,
+              "exit_price": 23269.81306427,
+              "stop_price": 23269.81306427,
+              "target_price": 25315.04080719,
+              "exit_reason": "stop",
+              "bars_held": 8,
+              "r_net": -1.138,
+              "pnl_net": -176.11,
+              "fees_paid": 21.36,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2023-08-09T00:00:00+00:00",
+              "exit_time": "2023-08-10T16:00:00+00:00",
+              "side": "long",
+              "entry_price": 29716.01,
+              "exit_price": 29359.11983157,
+              "stop_price": 29359.11983157,
+              "target_price": 30786.68050528,
+              "exit_reason": "stop",
+              "bars_held": 10,
+              "r_net": -1.2483,
+              "pnl_net": -189.87,
+              "fees_paid": 37.77,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2023-08-29T20:00:00+00:00",
+              "exit_time": "2023-08-30T12:00:00+00:00",
+              "side": "long",
+              "entry_price": 27716.34,
+              "exit_price": 27242.27894963,
+              "stop_price": 27242.27894963,
+              "target_price": 29138.52315111,
+              "exit_reason": "stop",
+              "bars_held": 4,
+              "r_net": -1.1739,
+              "pnl_net": -175.21,
+              "fees_paid": 25.96,
+              "adx_turn_grade": "B",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2024-01-02T00:00:00+00:00",
+              "exit_time": "2024-01-03T08:00:00+00:00",
+              "side": "long",
+              "entry_price": 45402.38,
+              "exit_price": 44536.62468433,
+              "stop_price": 44536.62468433,
+              "target_price": 47999.64594702,
+              "exit_reason": "stop",
+              "bars_held": 8,
+              "r_net": -1.1558,
+              "pnl_net": -169.48,
+              "fees_paid": 22.85,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2024-11-06T04:00:00+00:00",
+              "exit_time": "2024-11-10T08:00:00+00:00",
+              "side": "long",
+              "entry_price": 73370.89,
+              "exit_price": 79883.72645697,
+              "stop_price": 71199.94451434,
+              "target_price": 79883.72645697,
+              "exit_reason": "target",
+              "bars_held": 25,
+              "r_net": 2.8941,
+              "pnl_net": 417.0,
+              "fees_paid": 15.26,
+              "adx_turn_grade": "B",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2024-12-05T08:00:00+00:00",
+              "exit_time": "2024-12-05T16:00:00+00:00",
+              "side": "long",
+              "entry_price": 102566.91,
+              "exit_price": 100003.11612886,
+              "stop_price": 100003.11612886,
+              "target_price": 110258.29161342,
+              "exit_reason": "stop",
+              "bars_held": 2,
+              "r_net": -1.1185,
+              "pnl_net": -168.16,
+              "fees_paid": 17.82,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2025-09-29T20:00:00+00:00",
+              "exit_time": "2025-09-30T08:00:00+00:00",
+              "side": "long",
+              "entry_price": 114311.96,
+              "exit_price": 113078.7439992,
+              "stop_price": 113078.7439992,
+              "target_price": 118011.60800241,
+              "exit_reason": "stop",
+              "bars_held": 3,
+              "r_net": -1.2766,
+              "pnl_net": -188.7,
+              "fees_paid": 40.88,
+              "adx_turn_grade": "B",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            }
+          ]
+        },
+        "IMP-4H-SHORT": {
+          "rule_version": "0.1.0",
+          "setup_id": "IMP-4H-SHORT",
+          "side": "short",
+          "timeframes": [
+            "1d",
+            "4h"
+          ],
+          "candidates": 24,
+          "full": {
+            "n_trades": 8,
+            "win_rate": 0.375,
+            "expectancy_R": 0.3707,
+            "avg_win_R": 2.863,
+            "avg_loss_R": -1.124,
+            "profit_factor": 1.481,
+            "max_drawdown_pct": 3.36,
+            "avg_trade_duration_bars": 17.88
+          },
+          "in_sample": {
+            "n_trades": 7,
+            "win_rate": 0.4286,
+            "expectancy_R": 0.5864,
+            "avg_win_R": 2.863,
+            "avg_loss_R": -1.121,
+            "profit_factor": 1.869,
+            "max_drawdown_pct": 3.26,
+            "avg_trade_duration_bars": 19.0
+          },
+          "out_of_sample": {
+            "n_trades": 1,
+            "win_rate": 0.0,
+            "expectancy_R": -1.1387,
+            "avg_win_R": 0.0,
+            "avg_loss_R": -1.139,
+            "profit_factor": 0.0,
+            "max_drawdown_pct": 1.71,
+            "avg_trade_duration_bars": 10.0
+          },
+          "vetoed_signals": {
+            "count": 15,
+            "by_reason": {
+              "stale_ao_cross": 15
+            },
+            "counterfactual_expectancy_R": 0.4551,
+            "accepted_expectancy_R": 0.2054,
+            "window_comparison": {
+              "3": {
+                "accepted_n": 3,
+                "accepted_expectancy_R": 1.5262,
+                "vetoed_n": 21,
+                "vetoed_expectancy_R": 0.1951
+              },
+              "5": {
+                "accepted_n": 9,
+                "accepted_expectancy_R": 0.2054,
+                "vetoed_n": 15,
+                "vetoed_expectancy_R": 0.4551
+              }
+            }
+          },
+          "adx_turn_grades": {
+            "A": {
+              "n_trades": 5,
+              "expectancy_R": 0.4609,
+              "win_rate": 0.4
+            },
+            "B": {
+              "n_trades": 3,
+              "expectancy_R": 0.2204,
+              "win_rate": 0.3333
+            }
+          },
+          "trades": [
+            {
+              "entry_time": "2018-10-11T04:00:00+00:00",
+              "exit_time": "2018-10-14T04:00:00+00:00",
+              "side": "short",
+              "entry_price": 6300.86,
+              "exit_price": 6412.80016078,
+              "stop_price": 6412.80016078,
+              "target_price": 5965.03951767,
+              "exit_reason": "stop",
+              "bars_held": 18,
+              "r_net": -1.1704,
+              "pnl_net": -175.55,
+              "fees_paid": 25.55,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bearish",
+                "close_below_sma200",
+                "konkorde_zero_cross:down",
+                "ao_negative",
+                "ao_falling"
+              ]
+            },
+            {
+              "entry_time": "2018-11-14T12:00:00+00:00",
+              "exit_time": "2018-11-14T16:00:00+00:00",
+              "side": "short",
+              "entry_price": 6232.83,
+              "exit_price": 5966.3295315,
+              "stop_price": 6321.6634895,
+              "target_price": 5966.3295315,
+              "exit_reason": "target",
+              "bars_held": 1,
+              "r_net": 2.794,
+              "pnl_net": 411.74,
+              "fees_paid": 30.36,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bearish",
+                "close_below_sma200",
+                "konkorde_zero_cross:down",
+                "ao_negative",
+                "ao_falling"
+              ]
+            },
+            {
+              "entry_time": "2019-10-23T20:00:00+00:00",
+              "exit_time": "2019-10-25T12:00:00+00:00",
+              "side": "short",
+              "entry_price": 7466.62,
+              "exit_price": 7666.20430017,
+              "stop_price": 7666.20430017,
+              "target_price": 6867.8670995,
+              "exit_reason": "stop",
+              "bars_held": 10,
+              "r_net": -1.1137,
+              "pnl_net": -171.01,
+              "fees_paid": 17.46,
+              "adx_turn_grade": "B",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bearish",
+                "close_below_sma200",
+                "konkorde_zero_cross:down",
+                "ao_negative",
+                "ao_falling"
+              ]
+            },
+            {
+              "entry_time": "2021-12-13T20:00:00+00:00",
+              "exit_time": "2021-12-14T20:00:00+00:00",
+              "side": "short",
+              "entry_price": 46702.75,
+              "exit_price": 48574.07023736,
+              "stop_price": 48574.07023736,
+              "target_price": 41088.78928792,
+              "exit_reason": "stop",
+              "bars_held": 6,
+              "r_net": -1.0764,
+              "pnl_net": -162.51,
+              "fees_paid": 11.53,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bearish",
+                "close_below_sma200",
+                "konkorde_zero_cross:down",
+                "ao_negative",
+                "ao_falling"
+              ]
+            },
+            {
+              "entry_time": "2022-04-06T20:00:00+00:00",
+              "exit_time": "2022-04-11T20:00:00+00:00",
+              "side": "short",
+              "entry_price": 43170.47,
+              "exit_price": 39587.56882018,
+              "stop_price": 44364.77039327,
+              "target_price": 39587.56882018,
+              "exit_reason": "target",
+              "bars_held": 30,
+              "r_net": 2.8961,
+              "pnl_net": 430.18,
+              "fees_paid": 15.44,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bearish",
+                "close_below_sma200",
+                "konkorde_zero_cross:down",
+                "ao_negative",
+                "ao_falling"
+              ]
+            },
+            {
+              "entry_time": "2022-08-26T20:00:00+00:00",
+              "exit_time": "2022-09-07T00:00:00+00:00",
+              "side": "short",
+              "entry_price": 20241.05,
+              "exit_price": 18526.74426383,
+              "stop_price": 20812.48524539,
+              "target_price": 18526.74426383,
+              "exit_reason": "target",
+              "bars_held": 67,
+              "r_net": 2.8982,
+              "pnl_net": 449.21,
+              "fees_paid": 15.77,
+              "adx_turn_grade": "B",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bearish",
+                "close_below_sma200",
+                "konkorde_zero_cross:down",
+                "ao_negative",
+                "ao_falling"
+              ]
+            },
+            {
+              "entry_time": "2022-11-08T12:00:00+00:00",
+              "exit_time": "2022-11-08T16:00:00+00:00",
+              "side": "short",
+              "entry_price": 19520.97,
+              "exit_price": 20001.6355258,
+              "stop_price": 20001.6355258,
+              "target_price": 18078.97342261,
+              "exit_reason": "stop",
+              "bars_held": 1,
+              "r_net": -1.1233,
+              "pnl_net": -181.68,
+              "fees_paid": 19.95,
+              "adx_turn_grade": "B",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bearish",
+                "close_below_sma200",
+                "konkorde_zero_cross:down",
+                "ao_negative",
+                "ao_falling"
+              ]
+            },
+            {
+              "entry_time": "2026-06-18T20:00:00+00:00",
+              "exit_time": "2026-06-20T12:00:00+00:00",
+              "side": "short",
+              "entry_price": 62958.01,
+              "exit_price": 64334.71068289,
+              "stop_price": 64334.71068289,
+              "target_price": 58827.90795134,
+              "exit_reason": "stop",
+              "bars_held": 10,
+              "r_net": -1.1387,
+              "pnl_net": -181.06,
+              "fees_paid": 22.05,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bearish",
+                "close_below_sma200",
+                "konkorde_zero_cross:down",
+                "ao_negative",
+                "ao_falling"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "ETH/USDT": {
+      "rule_version": "0.1.0",
+      "symbol": "ETH/USDT",
+      "exchange": "binance",
+      "period": {
+        "start": "2018-07-01T00:00:00+00:00",
+        "end": "2026-07-01T00:00:00+00:00",
+        "in_sample_end": "2024-02-05T09:36:00+00:00",
+        "in_sample_fraction": 0.7
+      },
+      "fee_model": {
+        "fee_rate_per_side": 0.001,
+        "slippage_per_side": 0.0005
+      },
+      "sizing": {
+        "risk_profile": "medium",
+        "atr_stop_multiplier": 1.5,
+        "target_r_multiple": 3.0,
+        "risk_per_trade_pct": 1.5,
+        "initial_capital": 10000.0
+      },
+      "setups": {
+        "PB-1D-LONG": {
+          "rule_version": "0.1.0",
+          "setup_id": "PB-1D-LONG",
+          "side": "long",
+          "timeframes": [
+            "1d"
+          ],
+          "candidates": 5,
+          "full": {
+            "n_trades": 3,
+            "win_rate": 0.6667,
+            "expectancy_R": 1.6201,
+            "avg_win_R": 2.96,
+            "avg_loss_R": -1.059,
+            "profit_factor": 5.237,
+            "max_drawdown_pct": 1.59,
+            "avg_trade_duration_bars": 15.0
+          },
+          "in_sample": {
+            "n_trades": 3,
+            "win_rate": 0.6667,
+            "expectancy_R": 1.6201,
+            "avg_win_R": 2.96,
+            "avg_loss_R": -1.059,
+            "profit_factor": 5.237,
+            "max_drawdown_pct": 1.59,
+            "avg_trade_duration_bars": 15.0
+          },
+          "out_of_sample": {
+            "n_trades": 0,
+            "win_rate": 0.0,
+            "expectancy_R": 0.0,
+            "avg_win_R": 0.0,
+            "avg_loss_R": 0.0,
+            "profit_factor": 0.0,
+            "max_drawdown_pct": 0.0,
+            "avg_trade_duration_bars": 0.0
+          },
+          "vetoed_signals": {
+            "count": 1,
+            "by_reason": {
+              "no_adx_turn_confirmation": 1
+            },
+            "counterfactual_expectancy_R": 2.9301,
+            "accepted_expectancy_R": 0.9551,
+            "window_comparison": {
+              "3": {
+                "accepted_n": 2,
+                "accepted_expectancy_R": 0.9485,
+                "vetoed_n": 3,
+                "vetoed_expectancy_R": 1.6178
+              },
+              "5": {
+                "accepted_n": 4,
+                "accepted_expectancy_R": 0.9551,
+                "vetoed_n": 1,
+                "vetoed_expectancy_R": 2.9301
+              }
+            }
+          },
+          "adx_turn_grades": {
+            "A": {
+              "n_trades": 1,
+              "expectancy_R": 2.9563,
+              "win_rate": 1.0
+            },
+            "B": {
+              "n_trades": 2,
+              "expectancy_R": 0.9519,
+              "win_rate": 0.5
+            }
+          },
+          "trades": [
+            {
+              "entry_time": "2020-11-11T00:00:00+00:00",
+              "exit_time": "2020-11-22T00:00:00+00:00",
+              "side": "long",
+              "entry_price": 463.09,
+              "exit_price": 569.45500209,
+              "stop_price": 427.6349993,
+              "target_price": 569.45500209,
+              "exit_reason": "target",
+              "bars_held": 11,
+              "r_net": 2.9563,
+              "pnl_net": 443.45,
+              "fees_paid": 6.55,
+              "adx_turn_grade": "A",
+              "support": [
+                "close_above_sma200",
+                "ema50_above_sma50",
+                "konkorde_state:positive",
+                "pullback_state",
+                "adx_level:bullish",
+                "konkorde_zero_cross:up",
+                "close_breaks_prior_high"
+              ]
+            },
+            {
+              "entry_time": "2020-12-30T00:00:00+00:00",
+              "exit_time": "2021-01-03T00:00:00+00:00",
+              "side": "long",
+              "entry_price": 752.17,
+              "exit_price": 961.6010948,
+              "stop_price": 682.35963507,
+              "target_price": 961.6010948,
+              "exit_reason": "target",
+              "bars_held": 4,
+              "r_net": 2.9632,
+              "pnl_net": 464.19,
+              "fees_paid": 5.77,
+              "adx_turn_grade": "B",
+              "support": [
+                "close_above_sma200",
+                "ema50_above_sma50",
+                "konkorde_state:positive",
+                "pullback_state",
+                "adx_level:bullish",
+                "adx_turn:up_bullish",
+                "konkorde_zero_cross:up",
+                "close_breaks_prior_high"
+              ]
+            },
+            {
+              "entry_time": "2023-01-14T00:00:00+00:00",
+              "exit_time": "2023-02-13T00:00:00+00:00",
+              "side": "long",
+              "entry_price": 1549.9,
+              "exit_price": 1473.46786526,
+              "stop_price": 1473.46786526,
+              "target_price": 1779.19640422,
+              "exit_reason": "stop",
+              "bars_held": 30,
+              "r_net": -1.0593,
+              "pnl_net": -173.32,
+              "fees_paid": 9.71,
+              "adx_turn_grade": "B",
+              "support": [
+                "close_above_sma200",
+                "ema50_above_sma50",
+                "konkorde_state:positive",
+                "pullback_state",
+                "adx_level:bullish",
+                "adx_turn:up_bullish",
+                "konkorde_zero_cross:up",
+                "close_breaks_prior_high"
+              ]
+            }
+          ]
+        },
+        "PB-1D-SHORT": {
+          "rule_version": "0.1.0",
+          "setup_id": "PB-1D-SHORT",
+          "side": "short",
+          "timeframes": [
+            "1d"
+          ],
+          "candidates": 2,
+          "full": {
+            "n_trades": 1,
+            "win_rate": 0.0,
+            "expectancy_R": -1.0105,
+            "avg_win_R": 0.0,
+            "avg_loss_R": -1.011,
+            "profit_factor": 0.0,
+            "max_drawdown_pct": 1.52,
+            "avg_trade_duration_bars": 4.0
+          },
+          "in_sample": {
+            "n_trades": 1,
+            "win_rate": 0.0,
+            "expectancy_R": -1.0105,
+            "avg_win_R": 0.0,
+            "avg_loss_R": -1.011,
+            "profit_factor": 0.0,
+            "max_drawdown_pct": 1.52,
+            "avg_trade_duration_bars": 4.0
+          },
+          "out_of_sample": {
+            "n_trades": 0,
+            "win_rate": 0.0,
+            "expectancy_R": 0.0,
+            "avg_win_R": 0.0,
+            "avg_loss_R": 0.0,
+            "profit_factor": 0.0,
+            "max_drawdown_pct": 0.0,
+            "avg_trade_duration_bars": 0.0
+          },
+          "vetoed_signals": {
+            "count": 1,
+            "by_reason": {
+              "no_adx_turn_confirmation": 1
+            },
+            "counterfactual_expectancy_R": -1.0104,
+            "accepted_expectancy_R": -1.0105,
+            "window_comparison": {
+              "3": {
+                "accepted_n": 0,
+                "accepted_expectancy_R": null,
+                "vetoed_n": 2,
+                "vetoed_expectancy_R": -1.0104
+              },
+              "5": {
+                "accepted_n": 1,
+                "accepted_expectancy_R": -1.0105,
+                "vetoed_n": 1,
+                "vetoed_expectancy_R": -1.0104
+              }
+            }
+          },
+          "adx_turn_grades": {
+            "A": {
+              "n_trades": 0,
+              "expectancy_R": null,
+              "win_rate": null
+            },
+            "B": {
+              "n_trades": 1,
+              "expectancy_R": -1.0105,
+              "win_rate": 0.0
+            }
+          },
+          "trades": [
+            {
+              "entry_time": "2020-03-16T00:00:00+00:00",
+              "exit_time": "2020-03-20T00:00:00+00:00",
+              "side": "short",
+              "entry_price": 111.02,
+              "exit_price": 147.91145908,
+              "stop_price": 147.91145908,
+              "target_price": 0.34562277,
+              "exit_reason": "stop",
+              "bars_held": 4,
+              "r_net": -1.0105,
+              "pnl_net": -151.58,
+              "fees_paid": 1.58,
+              "adx_turn_grade": "B",
+              "support": [
+                "close_below_sma200",
+                "ema50_below_sma50",
+                "konkorde_state:negative",
+                "rally_state",
+                "adx_level:bearish",
+                "konkorde_zero_cross:down",
+                "close_breaks_prior_low"
+              ]
+            }
+          ]
+        },
+        "IMP-4H-LONG": {
+          "rule_version": "0.1.0",
+          "setup_id": "IMP-4H-LONG",
+          "side": "long",
+          "timeframes": [
+            "1d",
+            "4h"
+          ],
+          "candidates": 43,
+          "full": {
+            "n_trades": 12,
+            "win_rate": 0.1667,
+            "expectancy_R": -0.4291,
+            "avg_win_R": 2.906,
+            "avg_loss_R": -1.096,
+            "profit_factor": 0.517,
+            "max_drawdown_pct": 8.59,
+            "avg_trade_duration_bars": 13.08
+          },
+          "in_sample": {
+            "n_trades": 8,
+            "win_rate": 0.125,
+            "expectancy_R": -0.5969,
+            "avg_win_R": 2.899,
+            "avg_loss_R": -1.096,
+            "profit_factor": 0.372,
+            "max_drawdown_pct": 7.95,
+            "avg_trade_duration_bars": 9.38
+          },
+          "out_of_sample": {
+            "n_trades": 4,
+            "win_rate": 0.25,
+            "expectancy_R": -0.0935,
+            "avg_win_R": 2.912,
+            "avg_loss_R": -1.095,
+            "profit_factor": 0.863,
+            "max_drawdown_pct": 4.85,
+            "avg_trade_duration_bars": 20.5
+          },
+          "vetoed_signals": {
+            "count": 31,
+            "by_reason": {
+              "stale_ao_cross": 31
+            },
+            "counterfactual_expectancy_R": 0.6942,
+            "accepted_expectancy_R": -0.4291,
+            "window_comparison": {
+              "3": {
+                "accepted_n": 8,
+                "accepted_expectancy_R": -0.0918,
+                "vetoed_n": 35,
+                "vetoed_expectancy_R": 0.4887
+              },
+              "5": {
+                "accepted_n": 12,
+                "accepted_expectancy_R": -0.4291,
+                "vetoed_n": 31,
+                "vetoed_expectancy_R": 0.6942
+              }
+            }
+          },
+          "adx_turn_grades": {
+            "A": {
+              "n_trades": 8,
+              "expectancy_R": -0.602,
+              "win_rate": 0.125
+            },
+            "B": {
+              "n_trades": 4,
+              "expectancy_R": -0.0833,
+              "win_rate": 0.25
+            }
+          },
+          "trades": [
+            {
+              "entry_time": "2019-05-07T00:00:00+00:00",
+              "exit_time": "2019-05-07T12:00:00+00:00",
+              "side": "long",
+              "entry_price": 180.15,
+              "exit_price": 173.95893192,
+              "stop_price": 173.95893192,
+              "target_price": 198.72320423,
+              "exit_reason": "stop",
+              "bars_held": 3,
+              "r_net": -1.0858,
+              "pnl_net": -162.87,
+              "fees_paid": 12.87,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2020-10-21T20:00:00+00:00",
+              "exit_time": "2020-10-30T04:00:00+00:00",
+              "side": "long",
+              "entry_price": 390.38,
+              "exit_price": 379.92098165,
+              "stop_price": 379.92098165,
+              "target_price": 421.75705505,
+              "exit_reason": "stop",
+              "bars_held": 50,
+              "r_net": -1.1105,
+              "pnl_net": -163.86,
+              "fees_paid": 16.3,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2020-11-05T00:00:00+00:00",
+              "exit_time": "2020-11-06T08:00:00+00:00",
+              "side": "long",
+              "entry_price": 404.62,
+              "exit_price": 442.36092466,
+              "stop_price": 392.03969178,
+              "target_price": 442.36092466,
+              "exit_reason": "target",
+              "bars_held": 8,
+              "r_net": 2.899,
+              "pnl_net": 420.64,
+              "fees_paid": 14.65,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2020-11-17T20:00:00+00:00",
+              "exit_time": "2020-11-18T04:00:00+00:00",
+              "side": "long",
+              "entry_price": 482.15,
+              "exit_price": 469.18242385,
+              "stop_price": 469.18242385,
+              "target_price": 521.05272845,
+              "exit_reason": "stop",
+              "bars_held": 2,
+              "r_net": -1.11,
+              "pnl_net": -168.07,
+              "fees_paid": 16.66,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2021-08-05T00:00:00+00:00",
+              "exit_time": "2021-08-05T08:00:00+00:00",
+              "side": "long",
+              "entry_price": 2712.01,
+              "exit_price": 2591.52352551,
+              "stop_price": 2591.52352551,
+              "target_price": 3073.46942346,
+              "exit_reason": "stop",
+              "bars_held": 2,
+              "r_net": -1.066,
+              "pnl_net": -158.72,
+              "fees_paid": 9.83,
+              "adx_turn_grade": "B",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2021-11-25T16:00:00+00:00",
+              "exit_time": "2021-11-26T04:00:00+00:00",
+              "side": "long",
+              "entry_price": 4502.04,
+              "exit_price": 4342.33352294,
+              "stop_price": 4342.33352294,
+              "target_price": 4981.15943119,
+              "exit_reason": "stop",
+              "bars_held": 3,
+              "r_net": -1.0831,
+              "pnl_net": -158.68,
+              "fees_paid": 12.17,
+              "adx_turn_grade": "B",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2021-11-26T04:00:00+00:00",
+              "exit_time": "2021-11-26T08:00:00+00:00",
+              "side": "long",
+              "entry_price": 4343.45,
+              "exit_price": 4181.07774231,
+              "stop_price": 4181.07774231,
+              "target_price": 4830.56677307,
+              "exit_reason": "stop",
+              "bars_held": 1,
+              "r_net": -1.0787,
+              "pnl_net": -155.48,
+              "fees_paid": 11.35,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2024-01-02T08:00:00+00:00",
+              "exit_time": "2024-01-03T08:00:00+00:00",
+              "side": "long",
+              "entry_price": 2391.24,
+              "exit_price": 2340.47471838,
+              "stop_price": 2340.47471838,
+              "target_price": 2543.53584487,
+              "exit_reason": "stop",
+              "bars_held": 6,
+              "r_net": -1.1398,
+              "pnl_net": -161.62,
+              "fees_paid": 19.82,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2024-11-21T16:00:00+00:00",
+              "exit_time": "2024-11-30T04:00:00+00:00",
+              "side": "long",
+              "entry_price": 3347.0,
+              "exit_price": 3709.70059963,
+              "stop_price": 3226.09980012,
+              "target_price": 3709.70059963,
+              "exit_reason": "target",
+              "bars_held": 51,
+              "r_net": 2.9124,
+              "pnl_net": 405.91,
+              "fees_paid": 12.2,
+              "adx_turn_grade": "B",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2024-12-04T20:00:00+00:00",
+              "exit_time": "2024-12-05T20:00:00+00:00",
+              "side": "long",
+              "entry_price": 3837.8,
+              "exit_price": 3720.57359653,
+              "stop_price": 3720.57359653,
+              "target_price": 4189.4792104,
+              "exit_reason": "stop",
+              "bars_held": 6,
+              "r_net": -1.0967,
+              "pnl_net": -159.53,
+              "fees_paid": 14.07,
+              "adx_turn_grade": "B",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2025-07-03T00:00:00+00:00",
+              "exit_time": "2025-07-04T16:00:00+00:00",
+              "side": "long",
+              "entry_price": 2561.23,
+              "exit_price": 2494.28024387,
+              "stop_price": 2494.28024387,
+              "target_price": 2762.0792684,
+              "exit_reason": "stop",
+              "bars_held": 10,
+              "r_net": -1.1133,
+              "pnl_net": -159.27,
+              "fees_paid": 16.2,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2025-08-22T16:00:00+00:00",
+              "exit_time": "2025-08-25T04:00:00+00:00",
+              "side": "long",
+              "entry_price": 4833.0,
+              "exit_price": 4647.08331774,
+              "stop_price": 4647.08331774,
+              "target_price": 5390.75004678,
+              "exit_reason": "stop",
+              "bars_held": 15,
+              "r_net": -1.0765,
+              "pnl_net": -151.44,
+              "fees_paid": 10.76,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            }
+          ]
+        },
+        "IMP-4H-SHORT": {
+          "rule_version": "0.1.0",
+          "setup_id": "IMP-4H-SHORT",
+          "side": "short",
+          "timeframes": [
+            "1d",
+            "4h"
+          ],
+          "candidates": 23,
+          "full": {
+            "n_trades": 7,
+            "win_rate": 0.5714,
+            "expectancy_R": 1.2017,
+            "avg_win_R": 2.908,
+            "avg_loss_R": -1.073,
+            "profit_factor": 3.58,
+            "max_drawdown_pct": 3.18,
+            "avg_trade_duration_bars": 21.57
+          },
+          "in_sample": {
+            "n_trades": 5,
+            "win_rate": 0.4,
+            "expectancy_R": 0.5288,
+            "avg_win_R": 2.932,
+            "avg_loss_R": -1.073,
+            "profit_factor": 1.757,
+            "max_drawdown_pct": 3.18,
+            "avg_trade_duration_bars": 27.8
+          },
+          "out_of_sample": {
+            "n_trades": 2,
+            "win_rate": 1.0,
+            "expectancy_R": 2.8841,
+            "avg_win_R": 2.884,
+            "avg_loss_R": 0.0,
+            "profit_factor": Infinity,
+            "max_drawdown_pct": 0.0,
+            "avg_trade_duration_bars": 6.0
+          },
+          "vetoed_signals": {
+            "count": 16,
+            "by_reason": {
+              "stale_ao_cross": 16
+            },
+            "counterfactual_expectancy_R": 0.6332,
+            "accepted_expectancy_R": 1.2017,
+            "window_comparison": {
+              "3": {
+                "accepted_n": 5,
+                "accepted_expectancy_R": 1.311,
+                "vetoed_n": 18,
+                "vetoed_expectancy_R": 0.6661
+              },
+              "5": {
+                "accepted_n": 7,
+                "accepted_expectancy_R": 1.2017,
+                "vetoed_n": 16,
+                "vetoed_expectancy_R": 0.6332
+              }
+            }
+          },
+          "adx_turn_grades": {
+            "A": {
+              "n_trades": 4,
+              "expectancy_R": 0.9063,
+              "win_rate": 0.5
+            },
+            "B": {
+              "n_trades": 3,
+              "expectancy_R": 1.5956,
+              "win_rate": 0.6667
+            }
+          },
+          "trades": [
+            {
+              "entry_time": "2018-10-11T04:00:00+00:00",
+              "exit_time": "2018-10-15T04:00:00+00:00",
+              "side": "short",
+              "entry_price": 200.53,
+              "exit_price": 207.70956232,
+              "stop_price": 207.70956232,
+              "target_price": 178.99131305,
+              "exit_reason": "stop",
+              "bars_held": 24,
+              "r_net": -1.0853,
+              "pnl_net": -162.79,
+              "fees_paid": 12.79,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bearish",
+                "close_below_sma200",
+                "konkorde_zero_cross:down",
+                "ao_negative",
+                "ao_falling"
+              ]
+            },
+            {
+              "entry_time": "2018-12-03T12:00:00+00:00",
+              "exit_time": "2018-12-06T20:00:00+00:00",
+              "side": "short",
+              "entry_price": 108.0,
+              "exit_price": 90.48202614,
+              "stop_price": 113.83932462,
+              "target_price": 90.48202614,
+              "exit_reason": "target",
+              "bars_held": 20,
+              "r_net": 2.949,
+              "pnl_net": 435.15,
+              "fees_paid": 7.52,
+              "adx_turn_grade": "B",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bearish",
+                "close_below_sma200",
+                "konkorde_zero_cross:down",
+                "ao_negative",
+                "ao_falling"
+              ]
+            },
+            {
+              "entry_time": "2022-04-06T16:00:00+00:00",
+              "exit_time": "2022-04-18T04:00:00+00:00",
+              "side": "short",
+              "entry_price": 3225.33,
+              "exit_price": 2902.15297705,
+              "stop_price": 3333.05567432,
+              "target_price": 2902.15297705,
+              "exit_reason": "target",
+              "bars_held": 69,
+              "r_net": 2.9147,
+              "pnl_net": 449.11,
+              "fees_paid": 13.15,
+              "adx_turn_grade": "B",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bearish",
+                "close_below_sma200",
+                "konkorde_zero_cross:down",
+                "ao_negative",
+                "ao_falling"
+              ]
+            },
+            {
+              "entry_time": "2022-05-18T20:00:00+00:00",
+              "exit_time": "2022-05-19T12:00:00+00:00",
+              "side": "short",
+              "entry_price": 1915.11,
+              "exit_price": 2017.38239478,
+              "stop_price": 2017.38239478,
+              "target_price": 1608.29281566,
+              "exit_reason": "stop",
+              "bars_held": 4,
+              "r_net": -1.0577,
+              "pnl_net": -170.1,
+              "fees_paid": 9.28,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bearish",
+                "close_below_sma200",
+                "konkorde_zero_cross:down",
+                "ao_negative",
+                "ao_falling"
+              ]
+            },
+            {
+              "entry_time": "2022-06-02T12:00:00+00:00",
+              "exit_time": "2022-06-06T04:00:00+00:00",
+              "side": "short",
+              "entry_price": 1816.52,
+              "exit_price": 1888.84392534,
+              "stop_price": 1888.84392534,
+              "target_price": 1599.54822397,
+              "exit_reason": "stop",
+              "bars_held": 22,
+              "r_net": -1.0768,
+              "pnl_net": -170.43,
+              "fees_paid": 12.16,
+              "adx_turn_grade": "B",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bearish",
+                "close_below_sma200",
+                "konkorde_zero_cross:down",
+                "ao_negative",
+                "ao_falling"
+              ]
+            },
+            {
+              "entry_time": "2024-08-27T16:00:00+00:00",
+              "exit_time": "2024-08-27T20:00:00+00:00",
+              "side": "short",
+              "entry_price": 2584.0,
+              "exit_price": 2395.12799114,
+              "stop_price": 2646.95733629,
+              "target_price": 2395.12799114,
+              "exit_reason": "target",
+              "bars_held": 1,
+              "r_net": 2.8814,
+              "pnl_net": 448.67,
+              "fees_paid": 18.47,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bearish",
+                "close_below_sma200",
+                "konkorde_zero_cross:down",
+                "ao_negative",
+                "ao_falling"
+              ]
+            },
+            {
+              "entry_time": "2026-06-23T16:00:00+00:00",
+              "exit_time": "2026-06-25T12:00:00+00:00",
+              "side": "short",
+              "entry_price": 1662.58,
+              "exit_price": 1535.37925684,
+              "stop_price": 1704.98024772,
+              "target_price": 1535.37925684,
+              "exit_reason": "target",
+              "bars_held": 11,
+              "r_net": 2.8869,
+              "pnl_net": 468.95,
+              "fees_paid": 18.38,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bearish",
+                "close_below_sma200",
+                "konkorde_zero_cross:down",
+                "ao_negative",
+                "ao_falling"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "SOL/USDT": {
+      "rule_version": "0.1.0",
+      "symbol": "SOL/USDT",
+      "exchange": "binance",
+      "period": {
+        "start": "2018-07-01T00:00:00+00:00",
+        "end": "2026-07-01T00:00:00+00:00",
+        "in_sample_end": "2024-02-05T09:36:00+00:00",
+        "in_sample_fraction": 0.7
+      },
+      "fee_model": {
+        "fee_rate_per_side": 0.001,
+        "slippage_per_side": 0.0005
+      },
+      "sizing": {
+        "risk_profile": "medium",
+        "atr_stop_multiplier": 1.5,
+        "target_r_multiple": 3.0,
+        "risk_per_trade_pct": 1.5,
+        "initial_capital": 10000.0
+      },
+      "setups": {
+        "PB-1D-LONG": {
+          "rule_version": "0.1.0",
+          "setup_id": "PB-1D-LONG",
+          "side": "long",
+          "timeframes": [
+            "1d"
+          ],
+          "candidates": 3,
+          "full": {
+            "n_trades": 1,
+            "win_rate": 1.0,
+            "expectancy_R": 2.9559,
+            "avg_win_R": 2.956,
+            "avg_loss_R": 0.0,
+            "profit_factor": Infinity,
+            "max_drawdown_pct": 0.0,
+            "avg_trade_duration_bars": 10.0
+          },
+          "in_sample": {
+            "n_trades": 0,
+            "win_rate": 0.0,
+            "expectancy_R": 0.0,
+            "avg_win_R": 0.0,
+            "avg_loss_R": 0.0,
+            "profit_factor": 0.0,
+            "max_drawdown_pct": 0.0,
+            "avg_trade_duration_bars": 0.0
+          },
+          "out_of_sample": {
+            "n_trades": 1,
+            "win_rate": 1.0,
+            "expectancy_R": 2.9559,
+            "avg_win_R": 2.956,
+            "avg_loss_R": 0.0,
+            "profit_factor": Infinity,
+            "max_drawdown_pct": 0.0,
+            "avg_trade_duration_bars": 10.0
+          },
+          "vetoed_signals": {
+            "count": 1,
+            "by_reason": {
+              "no_adx_turn_confirmation": 1
+            },
+            "counterfactual_expectancy_R": -1.0175,
+            "accepted_expectancy_R": 2.9556,
+            "window_comparison": {
+              "3": {
+                "accepted_n": 1,
+                "accepted_expectancy_R": 2.9559,
+                "vetoed_n": 2,
+                "vetoed_expectancy_R": 0.9689
+              },
+              "5": {
+                "accepted_n": 2,
+                "accepted_expectancy_R": 2.9556,
+                "vetoed_n": 1,
+                "vetoed_expectancy_R": -1.0175
+              }
+            }
+          },
+          "adx_turn_grades": {
+            "A": {
+              "n_trades": 1,
+              "expectancy_R": 2.9559,
+              "win_rate": 1.0
+            },
+            "B": {
+              "n_trades": 0,
+              "expectancy_R": null,
+              "win_rate": null
+            }
+          },
+          "trades": [
+            {
+              "entry_time": "2024-11-08T00:00:00+00:00",
+              "exit_time": "2024-11-18T00:00:00+00:00",
+              "side": "long",
+              "entry_price": 199.85,
+              "exit_price": 245.30019361,
+              "stop_price": 184.69993546,
+              "target_price": 245.30019361,
+              "exit_reason": "target",
+              "bars_held": 10,
+              "r_net": 2.9559,
+              "pnl_net": 443.39,
+              "fees_paid": 6.61,
+              "adx_turn_grade": "A",
+              "support": [
+                "close_above_sma200",
+                "ema50_above_sma50",
+                "konkorde_state:positive",
+                "pullback_state",
+                "adx_turn:up_bullish",
+                "konkorde_zero_cross:up",
+                "close_breaks_prior_high"
+              ]
+            }
+          ]
+        },
+        "PB-1D-SHORT": {
+          "rule_version": "0.1.0",
+          "setup_id": "PB-1D-SHORT",
+          "side": "short",
+          "timeframes": [
+            "1d"
+          ],
+          "candidates": 5,
+          "full": {
+            "n_trades": 3,
+            "win_rate": 0.3333,
+            "expectancy_R": 0.3119,
+            "avg_win_R": 2.981,
+            "avg_loss_R": -1.023,
+            "profit_factor": 1.424,
+            "max_drawdown_pct": 3.05,
+            "avg_trade_duration_bars": 38.0
+          },
+          "in_sample": {
+            "n_trades": 2,
+            "win_rate": 0.0,
+            "expectancy_R": -1.023,
+            "avg_win_R": 0.0,
+            "avg_loss_R": -1.023,
+            "profit_factor": 0.0,
+            "max_drawdown_pct": 3.05,
+            "avg_trade_duration_bars": 11.0
+          },
+          "out_of_sample": {
+            "n_trades": 1,
+            "win_rate": 1.0,
+            "expectancy_R": 2.9815,
+            "avg_win_R": 2.981,
+            "avg_loss_R": 0.0,
+            "profit_factor": Infinity,
+            "max_drawdown_pct": 0.0,
+            "avg_trade_duration_bars": 92.0
+          },
+          "vetoed_signals": {
+            "count": 2,
+            "by_reason": {
+              "no_adx_turn_confirmation": 2
+            },
+            "counterfactual_expectancy_R": 1.164,
+            "accepted_expectancy_R": 0.3119,
+            "window_comparison": {
+              "3": {
+                "accepted_n": 3,
+                "accepted_expectancy_R": 0.3119,
+                "vetoed_n": 2,
+                "vetoed_expectancy_R": 1.164
+              },
+              "5": {
+                "accepted_n": 3,
+                "accepted_expectancy_R": 0.3119,
+                "vetoed_n": 2,
+                "vetoed_expectancy_R": 1.164
+              }
+            }
+          },
+          "adx_turn_grades": {
+            "A": {
+              "n_trades": 3,
+              "expectancy_R": 0.3119,
+              "win_rate": 0.3333
+            },
+            "B": {
+              "n_trades": 0,
+              "expectancy_R": null,
+              "win_rate": null
+            }
+          },
+          "trades": [
+            {
+              "entry_time": "2023-03-09T00:00:00+00:00",
+              "exit_time": "2023-03-12T00:00:00+00:00",
+              "side": "short",
+              "entry_price": 17.33,
+              "exit_price": 19.72119981,
+              "stop_price": 19.72119981,
+              "target_price": 10.15640058,
+              "exit_reason": "stop",
+              "bars_held": 3,
+              "r_net": -1.0232,
+              "pnl_net": -153.49,
+              "fees_paid": 3.49,
+              "adx_turn_grade": "A",
+              "support": [
+                "close_below_sma200",
+                "ema50_below_sma50",
+                "konkorde_state:negative",
+                "rally_state",
+                "adx_turn:up_bearish",
+                "konkorde_zero_cross:down",
+                "close_breaks_prior_low"
+              ]
+            },
+            {
+              "entry_time": "2023-06-10T00:00:00+00:00",
+              "exit_time": "2023-06-29T00:00:00+00:00",
+              "side": "short",
+              "entry_price": 15.61,
+              "exit_price": 17.81980734,
+              "stop_price": 17.81980734,
+              "target_price": 8.98057799,
+              "exit_reason": "stop",
+              "bars_held": 19,
+              "r_net": -1.0227,
+              "pnl_net": -151.05,
+              "fees_paid": 3.35,
+              "adx_turn_grade": "A",
+              "support": [
+                "close_below_sma200",
+                "ema50_below_sma50",
+                "konkorde_state:negative",
+                "rally_state",
+                "adx_turn:up_bearish",
+                "konkorde_zero_cross:down",
+                "close_breaks_prior_low"
+              ]
+            },
+            {
+              "entry_time": "2025-11-04T00:00:00+00:00",
+              "exit_time": "2026-02-04T00:00:00+00:00",
+              "side": "short",
+              "entry_price": 155.03,
+              "exit_price": 94.38408848,
+              "stop_price": 175.24530384,
+              "target_price": 94.38408848,
+              "exit_reason": "target",
+              "bars_held": 92,
+              "r_net": 2.9815,
+              "pnl_net": 433.6,
+              "fees_paid": 2.69,
+              "adx_turn_grade": "A",
+              "support": [
+                "close_below_sma200",
+                "ema50_below_sma50",
+                "konkorde_state:negative",
+                "rally_state",
+                "adx_turn:up_bearish",
+                "konkorde_zero_cross:down",
+                "close_breaks_prior_low"
+              ]
+            }
+          ]
+        },
+        "IMP-4H-LONG": {
+          "rule_version": "0.1.0",
+          "setup_id": "IMP-4H-LONG",
+          "side": "long",
+          "timeframes": [
+            "1d",
+            "4h"
+          ],
+          "candidates": 25,
+          "full": {
+            "n_trades": 8,
+            "win_rate": 0.5,
+            "expectancy_R": 0.91,
+            "avg_win_R": 2.888,
+            "avg_loss_R": -1.068,
+            "profit_factor": 2.677,
+            "max_drawdown_pct": 3.14,
+            "avg_trade_duration_bars": 20.5
+          },
+          "in_sample": {
+            "n_trades": 3,
+            "win_rate": 0.3333,
+            "expectancy_R": 0.2477,
+            "avg_win_R": 2.854,
+            "avg_loss_R": -1.055,
+            "profit_factor": 1.32,
+            "max_drawdown_pct": 3.14,
+            "avg_trade_duration_bars": 15.33
+          },
+          "out_of_sample": {
+            "n_trades": 5,
+            "win_rate": 0.6,
+            "expectancy_R": 1.3073,
+            "avg_win_R": 2.899,
+            "avg_loss_R": -1.08,
+            "profit_factor": 3.909,
+            "max_drawdown_pct": 1.63,
+            "avg_trade_duration_bars": 23.6
+          },
+          "vetoed_signals": {
+            "count": 16,
+            "by_reason": {
+              "stale_ao_cross": 16
+            },
+            "counterfactual_expectancy_R": 0.172,
+            "accepted_expectancy_R": 0.6898,
+            "window_comparison": {
+              "3": {
+                "accepted_n": 6,
+                "accepted_expectancy_R": 0.9095,
+                "vetoed_n": 19,
+                "vetoed_expectancy_R": 0.1844
+              },
+              "5": {
+                "accepted_n": 9,
+                "accepted_expectancy_R": 0.6898,
+                "vetoed_n": 16,
+                "vetoed_expectancy_R": 0.172
+              }
+            }
+          },
+          "adx_turn_grades": {
+            "A": {
+              "n_trades": 4,
+              "expectancy_R": 0.9217,
+              "win_rate": 0.5
+            },
+            "B": {
+              "n_trades": 4,
+              "expectancy_R": 0.8983,
+              "win_rate": 0.5
+            }
+          },
+          "trades": [
+            {
+              "entry_time": "2021-03-22T12:00:00+00:00",
+              "exit_time": "2021-03-22T20:00:00+00:00",
+              "side": "long",
+              "entry_price": 15.8338,
+              "exit_price": 15.05700332,
+              "stop_price": 15.05700332,
+              "target_price": 18.16419004,
+              "exit_reason": "stop",
+              "bars_held": 2,
+              "r_net": -1.0597,
+              "pnl_net": -158.95,
+              "fees_paid": 8.95,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2021-07-30T00:00:00+00:00",
+              "exit_time": "2021-07-30T08:00:00+00:00",
+              "side": "long",
+              "entry_price": 32.751,
+              "exit_price": 30.88556856,
+              "stop_price": 30.88556856,
+              "target_price": 38.34729431,
+              "exit_reason": "stop",
+              "bars_held": 2,
+              "r_net": -1.0512,
+              "pnl_net": -155.17,
+              "fees_paid": 7.55,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2023-05-28T04:00:00+00:00",
+              "exit_time": "2023-06-04T04:00:00+00:00",
+              "side": "long",
+              "entry_price": 20.49,
+              "exit_price": 21.79176605,
+              "stop_price": 20.05607798,
+              "target_price": 21.79176605,
+              "exit_reason": "target",
+              "bars_held": 42,
+              "r_net": 2.8538,
+              "pnl_net": 414.63,
+              "fees_paid": 21.24,
+              "adx_turn_grade": "B",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2024-11-06T08:00:00+00:00",
+              "exit_time": "2024-11-10T12:00:00+00:00",
+              "side": "long",
+              "entry_price": 186.72,
+              "exit_price": 210.02979676,
+              "stop_price": 178.95006775,
+              "target_price": 210.02979676,
+              "exit_reason": "target",
+              "bars_held": 25,
+              "r_net": 2.9234,
+              "pnl_net": 442.92,
+              "fees_paid": 11.6,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2025-01-02T08:00:00+00:00",
+              "exit_time": "2025-01-08T00:00:00+00:00",
+              "side": "long",
+              "entry_price": 208.51,
+              "exit_price": 201.53399662,
+              "stop_price": 201.53399662,
+              "target_price": 229.43801014,
+              "exit_reason": "stop",
+              "bars_held": 34,
+              "r_net": -1.0882,
+              "pnl_net": -172.1,
+              "fees_paid": 13.94,
+              "adx_turn_grade": "B",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2025-07-16T20:00:00+00:00",
+              "exit_time": "2025-07-21T04:00:00+00:00",
+              "side": "long",
+              "entry_price": 173.63,
+              "exit_price": 189.91131464,
+              "stop_price": 168.20289512,
+              "target_price": 189.91131464,
+              "exit_reason": "target",
+              "bars_held": 26,
+              "r_net": 2.8995,
+              "pnl_net": 451.08,
+              "fees_paid": 15.63,
+              "adx_turn_grade": "B",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2025-08-27T12:00:00+00:00",
+              "exit_time": "2025-08-29T20:00:00+00:00",
+              "side": "long",
+              "entry_price": 208.66,
+              "exit_price": 200.15817656,
+              "stop_price": 200.15817656,
+              "target_price": 234.16547033,
+              "exit_reason": "stop",
+              "bars_held": 14,
+              "r_net": -1.0721,
+              "pnl_net": -174.05,
+              "fees_paid": 11.71,
+              "adx_turn_grade": "B",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2025-09-08T20:00:00+00:00",
+              "exit_time": "2025-09-12T00:00:00+00:00",
+              "side": "long",
+              "entry_price": 214.11,
+              "exit_price": 229.98400579,
+              "stop_price": 208.81866474,
+              "target_price": 229.98400579,
+              "exit_reason": "target",
+              "bars_held": 19,
+              "r_net": 2.8741,
+              "pnl_net": 459.07,
+              "fees_paid": 20.11,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            }
+          ]
+        },
+        "IMP-4H-SHORT": {
+          "rule_version": "0.1.0",
+          "setup_id": "IMP-4H-SHORT",
+          "side": "short",
+          "timeframes": [
+            "1d",
+            "4h"
+          ],
+          "candidates": 12,
+          "full": {
+            "n_trades": 8,
+            "win_rate": 0.25,
+            "expectancy_R": -0.0717,
+            "avg_win_R": 2.921,
+            "avg_loss_R": -1.069,
+            "profit_factor": 0.883,
+            "max_drawdown_pct": 4.63,
+            "avg_trade_duration_bars": 23.25
+          },
+          "in_sample": {
+            "n_trades": 4,
+            "win_rate": 0.25,
+            "expectancy_R": -0.047,
+            "avg_win_R": 2.947,
+            "avg_loss_R": -1.045,
+            "profit_factor": 0.911,
+            "max_drawdown_pct": 4.63,
+            "avg_trade_duration_bars": 28.25
+          },
+          "out_of_sample": {
+            "n_trades": 4,
+            "win_rate": 0.25,
+            "expectancy_R": -0.0964,
+            "avg_win_R": 2.896,
+            "avg_loss_R": -1.094,
+            "profit_factor": 0.858,
+            "max_drawdown_pct": 3.29,
+            "avg_trade_duration_bars": 18.25
+          },
+          "vetoed_signals": {
+            "count": 3,
+            "by_reason": {
+              "stale_ao_cross": 3
+            },
+            "counterfactual_expectancy_R": 0.28,
+            "accepted_expectancy_R": -0.1828,
+            "window_comparison": {
+              "3": {
+                "accepted_n": 5,
+                "accepted_expectancy_R": -0.2763,
+                "vetoed_n": 7,
+                "vetoed_expectancy_R": 0.0823
+              },
+              "5": {
+                "accepted_n": 9,
+                "accepted_expectancy_R": -0.1828,
+                "vetoed_n": 3,
+                "vetoed_expectancy_R": 0.28
+              }
+            }
+          },
+          "adx_turn_grades": {
+            "A": {
+              "n_trades": 4,
+              "expectancy_R": -0.0748,
+              "win_rate": 0.25
+            },
+            "B": {
+              "n_trades": 4,
+              "expectancy_R": -0.0685,
+              "win_rate": 0.25
+            }
+          },
+          "trades": [
+            {
+              "entry_time": "2022-02-18T12:00:00+00:00",
+              "exit_time": "2022-02-21T08:00:00+00:00",
+              "side": "short",
+              "entry_price": 90.96,
+              "exit_price": 96.03167866,
+              "stop_price": 96.03167866,
+              "target_price": 75.74496402,
+              "exit_reason": "stop",
+              "bars_held": 17,
+              "r_net": -1.0553,
+              "pnl_net": -158.3,
+              "fees_paid": 8.3,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bearish",
+                "close_below_sma200",
+                "konkorde_zero_cross:down",
+                "ao_negative",
+                "ao_falling"
+              ]
+            },
+            {
+              "entry_time": "2022-06-01T20:00:00+00:00",
+              "exit_time": "2022-06-06T04:00:00+00:00",
+              "side": "short",
+              "entry_price": 40.11,
+              "exit_price": 42.74007174,
+              "stop_price": 42.74007174,
+              "target_price": 32.21978477,
+              "exit_reason": "stop",
+              "bars_held": 26,
+              "r_net": -1.0473,
+              "pnl_net": -154.6,
+              "fees_paid": 6.98,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bearish",
+                "close_below_sma200",
+                "konkorde_zero_cross:down",
+                "ao_negative",
+                "ao_falling"
+              ]
+            },
+            {
+              "entry_time": "2022-11-08T04:00:00+00:00",
+              "exit_time": "2022-11-08T16:00:00+00:00",
+              "side": "short",
+              "entry_price": 27.96,
+              "exit_price": 30.71170108,
+              "stop_price": 30.71170108,
+              "target_price": 19.70489675,
+              "exit_reason": "stop",
+              "bars_held": 3,
+              "r_net": -1.032,
+              "pnl_net": -149.95,
+              "fees_paid": 4.65,
+              "adx_turn_grade": "B",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bearish",
+                "close_below_sma200",
+                "konkorde_zero_cross:down",
+                "ao_negative",
+                "ao_falling"
+              ]
+            },
+            {
+              "entry_time": "2022-12-17T00:00:00+00:00",
+              "exit_time": "2022-12-28T04:00:00+00:00",
+              "side": "short",
+              "entry_price": 12.26,
+              "exit_price": 10.35013619,
+              "stop_price": 12.89662127,
+              "target_price": 10.35013619,
+              "exit_reason": "target",
+              "bars_held": 67,
+              "r_net": 2.9467,
+              "pnl_net": 421.55,
+              "fees_paid": 7.62,
+              "adx_turn_grade": "B",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bearish",
+                "close_below_sma200",
+                "konkorde_zero_cross:down",
+                "ao_negative",
+                "ao_falling"
+              ]
+            },
+            {
+              "entry_time": "2025-06-13T04:00:00+00:00",
+              "exit_time": "2025-06-15T12:00:00+00:00",
+              "side": "short",
+              "entry_price": 145.02,
+              "exit_price": 151.3211874,
+              "stop_price": 151.3211874,
+              "target_price": 126.11643779,
+              "exit_reason": "stop",
+              "bars_held": 14,
+              "r_net": -1.0705,
+              "pnl_net": -159.92,
+              "fees_paid": 10.54,
+              "adx_turn_grade": "B",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bearish",
+                "close_below_sma200",
+                "konkorde_zero_cross:down",
+                "ao_negative",
+                "ao_falling"
+              ]
+            },
+            {
+              "entry_time": "2026-01-19T00:00:00+00:00",
+              "exit_time": "2026-01-25T16:00:00+00:00",
+              "side": "short",
+              "entry_price": 133.94,
+              "exit_price": 122.87870195,
+              "stop_price": 137.62709935,
+              "target_price": 122.87870195,
+              "exit_reason": "target",
+              "bars_held": 40,
+              "r_net": 2.8955,
+              "pnl_net": 425.59,
+              "fees_paid": 15.36,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bearish",
+                "close_below_sma200",
+                "konkorde_zero_cross:down",
+                "ao_negative",
+                "ao_falling"
+              ]
+            },
+            {
+              "entry_time": "2026-05-23T08:00:00+00:00",
+              "exit_time": "2026-05-23T12:00:00+00:00",
+              "side": "short",
+              "entry_price": 82.31,
+              "exit_price": 84.42488833,
+              "stop_price": 84.42488833,
+              "target_price": 75.96533501,
+              "exit_reason": "stop",
+              "bars_held": 1,
+              "r_net": -1.1183,
+              "pnl_net": -171.5,
+              "fees_paid": 18.14,
+              "adx_turn_grade": "B",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bearish",
+                "close_below_sma200",
+                "konkorde_zero_cross:down",
+                "ao_negative",
+                "ao_falling"
+              ]
+            },
+            {
+              "entry_time": "2026-06-23T12:00:00+00:00",
+              "exit_time": "2026-06-26T12:00:00+00:00",
+              "side": "short",
+              "entry_price": 68.92,
+              "exit_price": 71.19617589,
+              "stop_price": 71.19617589,
+              "target_price": 62.09147234,
+              "exit_reason": "stop",
+              "bars_held": 18,
+              "r_net": -1.0923,
+              "pnl_net": -164.72,
+              "fees_paid": 13.92,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bearish",
+                "close_below_sma200",
+                "konkorde_zero_cross:down",
+                "ao_negative",
+                "ao_falling"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "BNB/USDT": {
+      "rule_version": "0.1.0",
+      "symbol": "BNB/USDT",
+      "exchange": "binance",
+      "period": {
+        "start": "2018-07-01T00:00:00+00:00",
+        "end": "2026-07-01T00:00:00+00:00",
+        "in_sample_end": "2024-02-05T09:36:00+00:00",
+        "in_sample_fraction": 0.7
+      },
+      "fee_model": {
+        "fee_rate_per_side": 0.001,
+        "slippage_per_side": 0.0005
+      },
+      "sizing": {
+        "risk_profile": "medium",
+        "atr_stop_multiplier": 1.5,
+        "target_r_multiple": 3.0,
+        "risk_per_trade_pct": 1.5,
+        "initial_capital": 10000.0
+      },
+      "setups": {
+        "PB-1D-LONG": {
+          "rule_version": "0.1.0",
+          "setup_id": "PB-1D-LONG",
+          "side": "long",
+          "timeframes": [
+            "1d"
+          ],
+          "candidates": 5,
+          "full": {
+            "n_trades": 1,
+            "win_rate": 0.0,
+            "expectancy_R": -1.0562,
+            "avg_win_R": 0.0,
+            "avg_loss_R": -1.056,
+            "profit_factor": 0.0,
+            "max_drawdown_pct": 1.58,
+            "avg_trade_duration_bars": 8.0
+          },
+          "in_sample": {
+            "n_trades": 1,
+            "win_rate": 0.0,
+            "expectancy_R": -1.0562,
+            "avg_win_R": 0.0,
+            "avg_loss_R": -1.056,
+            "profit_factor": 0.0,
+            "max_drawdown_pct": 1.58,
+            "avg_trade_duration_bars": 8.0
+          },
+          "out_of_sample": {
+            "n_trades": 0,
+            "win_rate": 0.0,
+            "expectancy_R": 0.0,
+            "avg_win_R": 0.0,
+            "avg_loss_R": 0.0,
+            "profit_factor": 0.0,
+            "max_drawdown_pct": 0.0,
+            "avg_trade_duration_bars": 0.0
+          },
+          "vetoed_signals": {
+            "count": 3,
+            "by_reason": {
+              "no_adx_turn_confirmation": 3
+            },
+            "counterfactual_expectancy_R": -1.0388,
+            "accepted_expectancy_R": -1.0529,
+            "window_comparison": {
+              "3": {
+                "accepted_n": 2,
+                "accepted_expectancy_R": -1.0529,
+                "vetoed_n": 3,
+                "vetoed_expectancy_R": -1.0388
+              },
+              "5": {
+                "accepted_n": 2,
+                "accepted_expectancy_R": -1.0529,
+                "vetoed_n": 3,
+                "vetoed_expectancy_R": -1.0388
+              }
+            }
+          },
+          "adx_turn_grades": {
+            "A": {
+              "n_trades": 0,
+              "expectancy_R": null,
+              "win_rate": null
+            },
+            "B": {
+              "n_trades": 1,
+              "expectancy_R": -1.0562,
+              "win_rate": 0.0
+            }
+          },
+          "trades": [
+            {
+              "entry_time": "2022-10-31T00:00:00+00:00",
+              "exit_time": "2022-11-08T00:00:00+00:00",
+              "side": "long",
+              "entry_price": 325.7,
+              "exit_price": 308.7524685,
+              "stop_price": 308.7524685,
+              "target_price": 376.54259449,
+              "exit_reason": "stop",
+              "bars_held": 8,
+              "r_net": -1.0562,
+              "pnl_net": -158.42,
+              "fees_paid": 8.42,
+              "adx_turn_grade": "B",
+              "support": [
+                "close_above_sma200",
+                "ema50_above_sma50",
+                "konkorde_state:positive",
+                "pullback_state",
+                "adx_level:bullish",
+                "adx_turn:up_bullish",
+                "konkorde_zero_cross:up",
+                "close_breaks_prior_high"
+              ]
+            }
+          ]
+        },
+        "PB-1D-SHORT": {
+          "rule_version": "0.1.0",
+          "setup_id": "PB-1D-SHORT",
+          "side": "short",
+          "timeframes": [
+            "1d"
+          ],
+          "candidates": 6,
+          "full": {
+            "n_trades": 3,
+            "win_rate": 0.3333,
+            "expectancy_R": 0.3118,
+            "avg_win_R": 2.975,
+            "avg_loss_R": -1.02,
+            "profit_factor": 1.407,
+            "max_drawdown_pct": 3.04,
+            "avg_trade_duration_bars": 16.33
+          },
+          "in_sample": {
+            "n_trades": 2,
+            "win_rate": 0.5,
+            "expectancy_R": 0.9824,
+            "avg_win_R": 2.975,
+            "avg_loss_R": -1.01,
+            "profit_factor": 2.819,
+            "max_drawdown_pct": 1.52,
+            "avg_trade_duration_bars": 6.5
+          },
+          "out_of_sample": {
+            "n_trades": 1,
+            "win_rate": 0.0,
+            "expectancy_R": -1.0292,
+            "avg_win_R": 0.0,
+            "avg_loss_R": -1.029,
+            "profit_factor": 0.0,
+            "max_drawdown_pct": 1.54,
+            "avg_trade_duration_bars": 36.0
+          },
+          "vetoed_signals": {
+            "count": 2,
+            "by_reason": {
+              "no_adx_turn_confirmation": 2
+            },
+            "counterfactual_expectancy_R": -1.0336,
+            "accepted_expectancy_R": -0.0187,
+            "window_comparison": {
+              "3": {
+                "accepted_n": 3,
+                "accepted_expectancy_R": 0.3118,
+                "vetoed_n": 3,
+                "vetoed_expectancy_R": -1.0258
+              },
+              "5": {
+                "accepted_n": 4,
+                "accepted_expectancy_R": -0.0187,
+                "vetoed_n": 2,
+                "vetoed_expectancy_R": -1.0336
+              }
+            }
+          },
+          "adx_turn_grades": {
+            "A": {
+              "n_trades": 1,
+              "expectancy_R": 2.975,
+              "win_rate": 1.0
+            },
+            "B": {
+              "n_trades": 2,
+              "expectancy_R": -1.0198,
+              "win_rate": 0.0
+            }
+          },
+          "trades": [
+            {
+              "entry_time": "2018-11-19T00:00:00+00:00",
+              "exit_time": "2018-11-25T00:00:00+00:00",
+              "side": "short",
+              "entry_price": 6.6844,
+              "exit_price": 4.64254325,
+              "stop_price": 7.36501892,
+              "target_price": 4.64254325,
+              "exit_reason": "target",
+              "bars_held": 6,
+              "r_net": 2.975,
+              "pnl_net": 446.26,
+              "fees_paid": 3.74,
+              "adx_turn_grade": "A",
+              "support": [
+                "close_below_sma200",
+                "ema50_below_sma50",
+                "konkorde_state:negative",
+                "rally_state",
+                "adx_level:bearish",
+                "konkorde_zero_cross:down",
+                "close_breaks_prior_low"
+              ]
+            },
+            {
+              "entry_time": "2020-03-12T00:00:00+00:00",
+              "exit_time": "2020-03-19T00:00:00+00:00",
+              "side": "short",
+              "entry_price": 9.2566,
+              "exit_price": 12.4038655,
+              "stop_price": 12.4038655,
+              "target_price": -0.18519649,
+              "exit_reason": "stop",
+              "bars_held": 7,
+              "r_net": -1.0103,
+              "pnl_net": -158.31,
+              "fees_paid": 1.62,
+              "adx_turn_grade": "B",
+              "support": [
+                "close_below_sma200",
+                "ema50_below_sma50",
+                "konkorde_state:negative",
+                "rally_state",
+                "adx_level:bearish",
+                "adx_turn:up_bearish",
+                "konkorde_zero_cross:down",
+                "close_breaks_prior_low"
+              ]
+            },
+            {
+              "entry_time": "2026-02-05T00:00:00+00:00",
+              "exit_time": "2026-03-13T00:00:00+00:00",
+              "side": "short",
+              "entry_price": 608.3,
+              "exit_price": 674.18122005,
+              "stop_price": 674.18122005,
+              "target_price": 410.65633984,
+              "exit_reason": "stop",
+              "bars_held": 36,
+              "r_net": -1.0292,
+              "pnl_net": -158.83,
+              "fees_paid": 4.51,
+              "adx_turn_grade": "B",
+              "support": [
+                "close_below_sma200",
+                "ema50_below_sma50",
+                "konkorde_state:negative",
+                "rally_state",
+                "adx_level:bearish",
+                "konkorde_zero_cross:down",
+                "close_breaks_prior_low"
+              ]
+            }
+          ]
+        },
+        "IMP-4H-LONG": {
+          "rule_version": "0.1.0",
+          "setup_id": "IMP-4H-LONG",
+          "side": "long",
+          "timeframes": [
+            "1d",
+            "4h"
+          ],
+          "candidates": 36,
+          "full": {
+            "n_trades": 10,
+            "win_rate": 0.2,
+            "expectancy_R": -0.3075,
+            "avg_win_R": 2.931,
+            "avg_loss_R": -1.117,
+            "profit_factor": 0.648,
+            "max_drawdown_pct": 9.7,
+            "avg_trade_duration_bars": 5.4
+          },
+          "in_sample": {
+            "n_trades": 7,
+            "win_rate": 0.2857,
+            "expectancy_R": 0.0335,
+            "avg_win_R": 2.931,
+            "avg_loss_R": -1.126,
+            "profit_factor": 1.011,
+            "max_drawdown_pct": 5.07,
+            "avg_trade_duration_bars": 6.71
+          },
+          "out_of_sample": {
+            "n_trades": 3,
+            "win_rate": 0.0,
+            "expectancy_R": -1.1031,
+            "avg_win_R": 0.0,
+            "avg_loss_R": -1.103,
+            "profit_factor": 0.0,
+            "max_drawdown_pct": 4.88,
+            "avg_trade_duration_bars": 2.33
+          },
+          "vetoed_signals": {
+            "count": 26,
+            "by_reason": {
+              "stale_ao_cross": 26
+            },
+            "counterfactual_expectancy_R": -0.0234,
+            "accepted_expectancy_R": -0.3075,
+            "window_comparison": {
+              "3": {
+                "accepted_n": 7,
+                "accepted_expectancy_R": 0.0543,
+                "vetoed_n": 29,
+                "vetoed_expectancy_R": -0.1401
+              },
+              "5": {
+                "accepted_n": 10,
+                "accepted_expectancy_R": -0.3075,
+                "vetoed_n": 26,
+                "vetoed_expectancy_R": -0.0234
+              }
+            }
+          },
+          "adx_turn_grades": {
+            "A": {
+              "n_trades": 4,
+              "expectancy_R": -1.1008,
+              "win_rate": 0.0
+            },
+            "B": {
+              "n_trades": 6,
+              "expectancy_R": 0.2214,
+              "win_rate": 0.3333
+            }
+          },
+          "trades": [
+            {
+              "entry_time": "2021-02-17T16:00:00+00:00",
+              "exit_time": "2021-02-19T00:00:00+00:00",
+              "side": "long",
+              "entry_price": 168.9361,
+              "exit_price": 204.12281688,
+              "stop_price": 157.20719437,
+              "target_price": 204.12281688,
+              "exit_reason": "target",
+              "bars_held": 8,
+              "r_net": 2.9523,
+              "pnl_net": 442.84,
+              "fees_paid": 7.16,
+              "adx_turn_grade": "B",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2021-10-29T20:00:00+00:00",
+              "exit_time": "2021-10-30T12:00:00+00:00",
+              "side": "long",
+              "entry_price": 530.3,
+              "exit_price": 512.37775055,
+              "stop_price": 512.37775055,
+              "target_price": 584.06674836,
+              "exit_reason": "stop",
+              "bars_held": 4,
+              "r_net": -1.0873,
+              "pnl_net": -170.31,
+              "fees_paid": 13.67,
+              "adx_turn_grade": "B",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2023-02-16T00:00:00+00:00",
+              "exit_time": "2023-02-16T20:00:00+00:00",
+              "side": "long",
+              "entry_price": 321.5,
+              "exit_price": 312.19461571,
+              "stop_price": 312.19461571,
+              "target_price": 349.41615287,
+              "exit_reason": "stop",
+              "bars_held": 5,
+              "r_net": -1.1021,
+              "pnl_net": -169.83,
+              "fees_paid": 15.74,
+              "adx_turn_grade": "B",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2023-03-13T08:00:00+00:00",
+              "exit_time": "2023-03-16T12:00:00+00:00",
+              "side": "long",
+              "entry_price": 296.9,
+              "exit_price": 328.23018949,
+              "stop_price": 286.4566035,
+              "target_price": 328.23018949,
+              "exit_reason": "target",
+              "bars_held": 19,
+              "r_net": 2.9102,
+              "pnl_net": 441.02,
+              "fees_paid": 13.61,
+              "adx_turn_grade": "B",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2023-04-11T00:00:00+00:00",
+              "exit_time": "2023-04-11T20:00:00+00:00",
+              "side": "long",
+              "entry_price": 327.4,
+              "exit_price": 323.50268352,
+              "stop_price": 323.50268352,
+              "target_price": 339.09194945,
+              "exit_reason": "stop",
+              "bars_held": 5,
+              "r_net": -1.2505,
+              "pnl_net": -197.78,
+              "fees_paid": 39.62,
+              "adx_turn_grade": "B",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2023-11-20T20:00:00+00:00",
+              "exit_time": "2023-11-21T16:00:00+00:00",
+              "side": "long",
+              "entry_price": 253.1,
+              "exit_price": 245.13968964,
+              "stop_price": 245.13968964,
+              "target_price": 276.98093109,
+              "exit_reason": "stop",
+              "bars_held": 5,
+              "r_net": -1.0939,
+              "pnl_net": -169.76,
+              "fees_paid": 14.57,
+              "adx_turn_grade": "B",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2023-12-26T12:00:00+00:00",
+              "exit_time": "2023-12-26T16:00:00+00:00",
+              "side": "long",
+              "entry_price": 296.0,
+              "exit_price": 286.69736286,
+              "stop_price": 286.69736286,
+              "target_price": 323.90791143,
+              "exit_reason": "stop",
+              "bars_held": 1,
+              "r_net": -1.094,
+              "pnl_net": -166.98,
+              "fees_paid": 14.34,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2024-05-21T04:00:00+00:00",
+              "exit_time": "2024-05-21T12:00:00+00:00",
+              "side": "long",
+              "entry_price": 630.1,
+              "exit_price": 614.95834949,
+              "stop_price": 614.95834949,
+              "target_price": 675.52495153,
+              "exit_reason": "stop",
+              "bars_held": 2,
+              "r_net": -1.1233,
+              "pnl_net": -168.66,
+              "fees_paid": 18.52,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2024-12-04T00:00:00+00:00",
+              "exit_time": "2024-12-04T16:00:00+00:00",
+              "side": "long",
+              "entry_price": 753.36,
+              "exit_price": 721.33529634,
+              "stop_price": 721.33529634,
+              "target_price": 849.43411099,
+              "exit_reason": "stop",
+              "bars_held": 4,
+              "r_net": -1.0691,
+              "pnl_net": -157.8,
+              "fees_paid": 10.2,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2025-08-22T20:00:00+00:00",
+              "exit_time": "2025-08-23T00:00:00+00:00",
+              "side": "long",
+              "entry_price": 900.21,
+              "exit_price": 877.40261385,
+              "stop_price": 877.40261385,
+              "target_price": 968.63215845,
+              "exit_reason": "stop",
+              "bars_held": 1,
+              "r_net": -1.1169,
+              "pnl_net": -162.22,
+              "fees_paid": 16.98,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            }
+          ]
+        },
+        "IMP-4H-SHORT": {
+          "rule_version": "0.1.0",
+          "setup_id": "IMP-4H-SHORT",
+          "side": "short",
+          "timeframes": [
+            "1d",
+            "4h"
+          ],
+          "candidates": 15,
+          "full": {
+            "n_trades": 6,
+            "win_rate": 0.1667,
+            "expectancy_R": -0.4332,
+            "avg_win_R": 2.856,
+            "avg_loss_R": -1.091,
+            "profit_factor": 0.498,
+            "max_drawdown_pct": 7.92,
+            "avg_trade_duration_bars": 37.5
+          },
+          "in_sample": {
+            "n_trades": 4,
+            "win_rate": 0.0,
+            "expectancy_R": -1.0888,
+            "avg_win_R": 0.0,
+            "avg_loss_R": -1.089,
+            "profit_factor": 0.0,
+            "max_drawdown_pct": 6.37,
+            "avg_trade_duration_bars": 52.5
+          },
+          "out_of_sample": {
+            "n_trades": 2,
+            "win_rate": 0.5,
+            "expectancy_R": 0.8779,
+            "avg_win_R": 2.856,
+            "avg_loss_R": -1.101,
+            "profit_factor": 2.553,
+            "max_drawdown_pct": 1.65,
+            "avg_trade_duration_bars": 7.5
+          },
+          "vetoed_signals": {
+            "count": 9,
+            "by_reason": {
+              "stale_ao_cross": 9
+            },
+            "counterfactual_expectancy_R": -0.676,
+            "accepted_expectancy_R": -0.4332,
+            "window_comparison": {
+              "3": {
+                "accepted_n": 3,
+                "accepted_expectancy_R": 0.2368,
+                "vetoed_n": 12,
+                "vetoed_expectancy_R": -0.7828
+              },
+              "5": {
+                "accepted_n": 6,
+                "accepted_expectancy_R": -0.4332,
+                "vetoed_n": 9,
+                "vetoed_expectancy_R": -0.676
+              }
+            }
+          },
+          "adx_turn_grades": {
+            "A": {
+              "n_trades": 4,
+              "expectancy_R": -0.1133,
+              "win_rate": 0.25
+            },
+            "B": {
+              "n_trades": 2,
+              "expectancy_R": -1.073,
+              "win_rate": 0.0
+            }
+          },
+          "trades": [
+            {
+              "entry_time": "2018-09-05T16:00:00+00:00",
+              "exit_time": "2018-10-05T12:00:00+00:00",
+              "side": "short",
+              "entry_price": 10.2588,
+              "exit_price": 10.70421458,
+              "stop_price": 10.70421458,
+              "target_price": 8.92255626,
+              "exit_reason": "stop",
+              "bars_held": 179,
+              "r_net": -1.0706,
+              "pnl_net": -160.59,
+              "fees_paid": 10.59,
+              "adx_turn_grade": "B",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bearish",
+                "close_below_sma200",
+                "konkorde_zero_cross:down",
+                "ao_negative",
+                "ao_falling"
+              ]
+            },
+            {
+              "entry_time": "2019-10-23T16:00:00+00:00",
+              "exit_time": "2019-10-25T08:00:00+00:00",
+              "side": "short",
+              "entry_price": 16.6928,
+              "exit_price": 17.37062733,
+              "stop_price": 17.37062733,
+              "target_price": 14.659318,
+              "exit_reason": "stop",
+              "bars_held": 10,
+              "r_net": -1.0754,
+              "pnl_net": -158.72,
+              "fees_paid": 11.13,
+              "adx_turn_grade": "B",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bearish",
+                "close_below_sma200",
+                "konkorde_zero_cross:down",
+                "ao_negative",
+                "ao_falling"
+              ]
+            },
+            {
+              "entry_time": "2019-12-01T08:00:00+00:00",
+              "exit_time": "2019-12-04T12:00:00+00:00",
+              "side": "short",
+              "entry_price": 15.1761,
+              "exit_price": 15.80500523,
+              "stop_price": 15.80500523,
+              "target_price": 13.28938431,
+              "exit_reason": "stop",
+              "bars_held": 19,
+              "r_net": -1.0739,
+              "pnl_net": -155.94,
+              "fees_paid": 10.73,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bearish",
+                "close_below_sma200",
+                "konkorde_zero_cross:down",
+                "ao_negative",
+                "ao_falling"
+              ]
+            },
+            {
+              "entry_time": "2020-01-02T20:00:00+00:00",
+              "exit_time": "2020-01-03T04:00:00+00:00",
+              "side": "short",
+              "entry_price": 13.0105,
+              "exit_price": 13.30238442,
+              "stop_price": 13.30238442,
+              "target_price": 12.13484674,
+              "exit_reason": "stop",
+              "bars_held": 2,
+              "r_net": -1.1352,
+              "pnl_net": -162.19,
+              "fees_paid": 19.32,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bearish",
+                "close_below_sma200",
+                "konkorde_zero_cross:down",
+                "ao_negative",
+                "ao_falling"
+              ]
+            },
+            {
+              "entry_time": "2025-02-25T00:00:00+00:00",
+              "exit_time": "2025-02-25T20:00:00+00:00",
+              "side": "short",
+              "entry_price": 607.05,
+              "exit_price": 625.43772466,
+              "stop_price": 625.43772466,
+              "target_price": 551.88682601,
+              "exit_reason": "stop",
+              "bars_held": 5,
+              "r_net": -1.1005,
+              "pnl_net": -154.56,
+              "fees_paid": 14.12,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bearish",
+                "close_below_sma200",
+                "konkorde_zero_cross:down",
+                "ao_negative",
+                "ao_falling"
+              ]
+            },
+            {
+              "entry_time": "2026-01-29T20:00:00+00:00",
+              "exit_time": "2026-01-31T12:00:00+00:00",
+              "side": "short",
+              "entry_price": 868.69,
+              "exit_price": 815.89290879,
+              "stop_price": 886.2890304,
+              "target_price": 815.89290879,
+              "exit_reason": "target",
+              "bars_held": 10,
+              "r_net": 2.8564,
+              "pnl_net": 394.53,
+              "fees_paid": 19.83,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bearish",
+                "close_below_sma200",
+                "konkorde_zero_cross:down",
+                "ao_negative",
+                "ao_falling"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  },
+  "thresholds": {
+    "n_trades_full_min": 30,
+    "n_trades_oos_min": 10,
+    "expectancy_full_min": 0.15,
+    "expectancy_oos_min": 0.1,
+    "profit_factor_oos_min": 1.15,
+    "max_drawdown_max": 20.0,
+    "oos_vs_is_expectancy_ratio_min": 0.5
+  }
+}

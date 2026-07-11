@@ -1,0 +1,1687 @@
+{
+  "gate": [
+    {
+      "family": "IMP-4H",
+      "symbol": "BTC/USDT",
+      "n_full": 5,
+      "n_oos": 2,
+      "expectancy_full": 0.42257999999999996,
+      "expectancy_oos": 0.8115,
+      "profit_factor_oos": 2.264,
+      "max_drawdown_pct": 3.57,
+      "checks": {
+        "n_trades_full>=30": false,
+        "n_trades_oos>=10": false,
+        "expectancy_full>=0.15R": true,
+        "expectancy_oos>=0.10R": true,
+        "profit_factor_oos>=1.15": true,
+        "max_drawdown<=20%": true,
+        "oos>=50%_of_is_expectancy": true
+      },
+      "pass": false
+    },
+    {
+      "family": "PB-1D",
+      "symbol": "BTC/USDT",
+      "n_full": 4,
+      "n_oos": 1,
+      "expectancy_full": 1.927675,
+      "expectancy_oos": 2.9311,
+      "profit_factor_oos": Infinity,
+      "max_drawdown_pct": 1.63,
+      "checks": {
+        "n_trades_full>=30": false,
+        "n_trades_oos>=10": false,
+        "expectancy_full>=0.15R": true,
+        "expectancy_oos>=0.10R": true,
+        "profit_factor_oos>=1.15": true,
+        "max_drawdown<=20%": true,
+        "oos>=50%_of_is_expectancy": true
+      },
+      "pass": false
+    },
+    {
+      "family": "IMP-4H",
+      "symbol": "ETH/USDT",
+      "n_full": 8,
+      "n_oos": 2,
+      "expectancy_full": 0.4004000000000001,
+      "expectancy_oos": 2.8965,
+      "profit_factor_oos": Infinity,
+      "max_drawdown_pct": 6.45,
+      "checks": {
+        "n_trades_full>=30": false,
+        "n_trades_oos>=10": false,
+        "expectancy_full>=0.15R": true,
+        "expectancy_oos>=0.10R": true,
+        "profit_factor_oos>=1.15": true,
+        "max_drawdown<=20%": true,
+        "oos>=50%_of_is_expectancy": false
+      },
+      "pass": false
+    },
+    {
+      "family": "PB-1D",
+      "symbol": "ETH/USDT",
+      "n_full": 0,
+      "n_oos": 0,
+      "expectancy_full": null,
+      "expectancy_oos": null,
+      "profit_factor_oos": null,
+      "max_drawdown_pct": 0.0,
+      "checks": {
+        "n_trades_full>=30": false,
+        "n_trades_oos>=10": false,
+        "expectancy_full>=0.15R": false,
+        "expectancy_oos>=0.10R": false,
+        "profit_factor_oos>=1.15": false,
+        "max_drawdown<=20%": true,
+        "oos>=50%_of_is_expectancy": false
+      },
+      "pass": false
+    },
+    {
+      "family": "IMP-4H",
+      "symbol": "SOL/USDT",
+      "n_full": 6,
+      "n_oos": 2,
+      "expectancy_full": 0.24286666666666668,
+      "expectancy_oos": 0.9012,
+      "profit_factor_oos": 2.539,
+      "max_drawdown_pct": 3.21,
+      "checks": {
+        "n_trades_full>=30": false,
+        "n_trades_oos>=10": false,
+        "expectancy_full>=0.15R": true,
+        "expectancy_oos>=0.10R": true,
+        "profit_factor_oos>=1.15": true,
+        "max_drawdown<=20%": true,
+        "oos>=50%_of_is_expectancy": false
+      },
+      "pass": false
+    },
+    {
+      "family": "PB-1D",
+      "symbol": "SOL/USDT",
+      "n_full": 2,
+      "n_oos": 0,
+      "expectancy_full": 2.9684,
+      "expectancy_oos": null,
+      "profit_factor_oos": null,
+      "max_drawdown_pct": 0.0,
+      "checks": {
+        "n_trades_full>=30": false,
+        "n_trades_oos>=10": false,
+        "expectancy_full>=0.15R": true,
+        "expectancy_oos>=0.10R": false,
+        "profit_factor_oos>=1.15": false,
+        "max_drawdown<=20%": true,
+        "oos>=50%_of_is_expectancy": false
+      },
+      "pass": false
+    }
+  ],
+  "reports": {
+    "BTC/USDT": {
+      "rule_version": "0.1.0",
+      "symbol": "BTC/USDT",
+      "exchange": "bitget",
+      "period": {
+        "start": "2024-07-01T00:00:00+00:00",
+        "end": "2026-07-01T00:00:00+00:00",
+        "in_sample_end": "2025-11-24T00:00:00+00:00",
+        "in_sample_fraction": 0.7
+      },
+      "fee_model": {
+        "fee_rate_per_side": 0.001,
+        "slippage_per_side": 0.0005
+      },
+      "sizing": {
+        "risk_profile": "medium",
+        "atr_stop_multiplier": 1.5,
+        "target_r_multiple": 3.0,
+        "risk_per_trade_pct": 1.5,
+        "initial_capital": 10000.0
+      },
+      "setups": {
+        "PB-1D-LONG": {
+          "rule_version": "0.1.0",
+          "setup_id": "PB-1D-LONG",
+          "side": "long",
+          "timeframes": [
+            "1d"
+          ],
+          "candidates": 4,
+          "full": {
+            "n_trades": 3,
+            "win_rate": 0.6667,
+            "expectancy_R": 1.5932,
+            "avg_win_R": 2.935,
+            "avg_loss_R": -1.089,
+            "profit_factor": 5.051,
+            "max_drawdown_pct": 1.63,
+            "avg_trade_duration_bars": 12.0
+          },
+          "in_sample": {
+            "n_trades": 3,
+            "win_rate": 0.6667,
+            "expectancy_R": 1.5932,
+            "avg_win_R": 2.935,
+            "avg_loss_R": -1.089,
+            "profit_factor": 5.051,
+            "max_drawdown_pct": 1.63,
+            "avg_trade_duration_bars": 12.0
+          },
+          "out_of_sample": {
+            "n_trades": 0,
+            "win_rate": 0.0,
+            "expectancy_R": 0.0,
+            "avg_win_R": 0.0,
+            "avg_loss_R": 0.0,
+            "profit_factor": 0.0,
+            "max_drawdown_pct": 0.0,
+            "avg_trade_duration_bars": 0.0
+          },
+          "vetoed_signals": {
+            "count": 0,
+            "by_reason": {},
+            "counterfactual_expectancy_R": null,
+            "accepted_expectancy_R": 0.9221,
+            "window_comparison": {
+              "3": {
+                "accepted_n": 2,
+                "accepted_expectancy_R": 0.9238,
+                "vetoed_n": 2,
+                "vetoed_expectancy_R": 0.9203
+              },
+              "5": {
+                "accepted_n": 4,
+                "accepted_expectancy_R": 0.9221,
+                "vetoed_n": 0,
+                "vetoed_expectancy_R": null
+              }
+            }
+          },
+          "adx_turn_grades": {
+            "A": {
+              "n_trades": 2,
+              "expectancy_R": 0.9238,
+              "win_rate": 0.5
+            },
+            "B": {
+              "n_trades": 1,
+              "expectancy_R": 2.932,
+              "win_rate": 1.0
+            }
+          },
+          "trades": [
+            {
+              "entry_time": "2024-11-10T00:00:00+00:00",
+              "exit_time": "2024-11-13T00:00:00+00:00",
+              "side": "long",
+              "entry_price": 80346.1,
+              "exit_price": 91729.20898103,
+              "stop_price": 76551.73033966,
+              "target_price": 91729.20898103,
+              "exit_reason": "target",
+              "bars_held": 3,
+              "r_net": 2.932,
+              "pnl_net": 439.8,
+              "fees_paid": 10.2,
+              "adx_turn_grade": "B",
+              "support": [
+                "close_above_sma200",
+                "ema50_above_sma50",
+                "konkorde_state:positive",
+                "pullback_state",
+                "adx_level:bullish",
+                "adx_turn:up_bullish",
+                "konkorde_zero_cross:up",
+                "close_breaks_prior_high"
+              ]
+            },
+            {
+              "entry_time": "2025-04-25T00:00:00+00:00",
+              "exit_time": "2025-05-21T00:00:00+00:00",
+              "side": "long",
+              "entry_price": 94639.73,
+              "exit_price": 109230.76820763,
+              "stop_price": 89776.05059746,
+              "target_price": 109230.76820763,
+              "exit_reason": "target",
+              "bars_held": 26,
+              "r_net": 2.9371,
+              "pnl_net": 459.94,
+              "fees_paid": 9.85,
+              "adx_turn_grade": "A",
+              "support": [
+                "close_above_sma200",
+                "ema50_above_sma50",
+                "konkorde_state:positive",
+                "pullback_state",
+                "adx_turn:up_bullish",
+                "konkorde_zero_cross:up",
+                "close_breaks_prior_high"
+              ]
+            },
+            {
+              "entry_time": "2025-10-03T00:00:00+00:00",
+              "exit_time": "2025-10-10T00:00:00+00:00",
+              "side": "long",
+              "entry_price": 122243.01,
+              "exit_price": 118210.58543777,
+              "stop_price": 118210.58543777,
+              "target_price": 134340.28368668,
+              "exit_reason": "stop",
+              "bars_held": 7,
+              "r_net": -1.0894,
+              "pnl_net": -178.12,
+              "fees_paid": 14.62,
+              "adx_turn_grade": "A",
+              "support": [
+                "close_above_sma200",
+                "ema50_above_sma50",
+                "konkorde_state:positive",
+                "pullback_state",
+                "adx_turn:up_bullish",
+                "konkorde_zero_cross:up",
+                "close_breaks_prior_high"
+              ]
+            }
+          ]
+        },
+        "PB-1D-SHORT": {
+          "rule_version": "0.1.0",
+          "setup_id": "PB-1D-SHORT",
+          "side": "short",
+          "timeframes": [
+            "1d"
+          ],
+          "candidates": 2,
+          "full": {
+            "n_trades": 1,
+            "win_rate": 1.0,
+            "expectancy_R": 2.9311,
+            "avg_win_R": 2.931,
+            "avg_loss_R": 0.0,
+            "profit_factor": Infinity,
+            "max_drawdown_pct": 0.0,
+            "avg_trade_duration_bars": 3.0
+          },
+          "in_sample": {
+            "n_trades": 0,
+            "win_rate": 0.0,
+            "expectancy_R": 0.0,
+            "avg_win_R": 0.0,
+            "avg_loss_R": 0.0,
+            "profit_factor": 0.0,
+            "max_drawdown_pct": 0.0,
+            "avg_trade_duration_bars": 0.0
+          },
+          "out_of_sample": {
+            "n_trades": 1,
+            "win_rate": 1.0,
+            "expectancy_R": 2.9311,
+            "avg_win_R": 2.931,
+            "avg_loss_R": 0.0,
+            "profit_factor": Infinity,
+            "max_drawdown_pct": 0.0,
+            "avg_trade_duration_bars": 3.0
+          },
+          "vetoed_signals": {
+            "count": 1,
+            "by_reason": {
+              "no_adx_turn_confirmation": 1
+            },
+            "counterfactual_expectancy_R": -1.0509,
+            "accepted_expectancy_R": 2.9311,
+            "window_comparison": {
+              "3": {
+                "accepted_n": 0,
+                "accepted_expectancy_R": null,
+                "vetoed_n": 2,
+                "vetoed_expectancy_R": 0.9401
+              },
+              "5": {
+                "accepted_n": 1,
+                "accepted_expectancy_R": 2.9311,
+                "vetoed_n": 1,
+                "vetoed_expectancy_R": -1.0509
+              }
+            }
+          },
+          "adx_turn_grades": {
+            "A": {
+              "n_trades": 1,
+              "expectancy_R": 2.9311,
+              "win_rate": 1.0
+            },
+            "B": {
+              "n_trades": 0,
+              "expectancy_R": null,
+              "win_rate": null
+            }
+          },
+          "trades": [
+            {
+              "entry_time": "2026-06-01T00:00:00+00:00",
+              "exit_time": "2026-06-04T00:00:00+00:00",
+              "side": "short",
+              "entry_price": 71412.0,
+              "exit_price": 62656.05833652,
+              "stop_price": 74330.64722116,
+              "target_price": 62656.05833652,
+              "exit_reason": "target",
+              "bars_held": 3,
+              "r_net": 2.9311,
+              "pnl_net": 439.66,
+              "fees_paid": 10.34,
+              "adx_turn_grade": "A",
+              "support": [
+                "close_below_sma200",
+                "ema50_below_sma50",
+                "konkorde_state:negative",
+                "rally_state",
+                "adx_level:bearish",
+                "konkorde_zero_cross:down",
+                "close_breaks_prior_low"
+              ]
+            }
+          ]
+        },
+        "IMP-4H-LONG": {
+          "rule_version": "0.1.0",
+          "setup_id": "IMP-4H-LONG",
+          "side": "long",
+          "timeframes": [
+            "1d",
+            "4h"
+          ],
+          "candidates": 15,
+          "full": {
+            "n_trades": 3,
+            "win_rate": 0.3333,
+            "expectancy_R": 0.1633,
+            "avg_win_R": 2.89,
+            "avg_loss_R": -1.2,
+            "profit_factor": 1.165,
+            "max_drawdown_pct": 3.57,
+            "avg_trade_duration_bars": 9.33
+          },
+          "in_sample": {
+            "n_trades": 3,
+            "win_rate": 0.3333,
+            "expectancy_R": 0.1633,
+            "avg_win_R": 2.89,
+            "avg_loss_R": -1.2,
+            "profit_factor": 1.165,
+            "max_drawdown_pct": 3.57,
+            "avg_trade_duration_bars": 9.33
+          },
+          "out_of_sample": {
+            "n_trades": 0,
+            "win_rate": 0.0,
+            "expectancy_R": 0.0,
+            "avg_win_R": 0.0,
+            "avg_loss_R": 0.0,
+            "profit_factor": 0.0,
+            "max_drawdown_pct": 0.0,
+            "avg_trade_duration_bars": 0.0
+          },
+          "vetoed_signals": {
+            "count": 12,
+            "by_reason": {
+              "stale_ao_cross": 12
+            },
+            "counterfactual_expectancy_R": 1.1339,
+            "accepted_expectancy_R": 0.1633,
+            "window_comparison": {
+              "3": {
+                "accepted_n": 2,
+                "accepted_expectancy_R": 0.8838,
+                "vetoed_n": 13,
+                "vetoed_expectancy_R": 0.9484
+              },
+              "5": {
+                "accepted_n": 3,
+                "accepted_expectancy_R": 0.1633,
+                "vetoed_n": 12,
+                "vetoed_expectancy_R": 1.1339
+              }
+            }
+          },
+          "adx_turn_grades": {
+            "A": {
+              "n_trades": 1,
+              "expectancy_R": -1.1223,
+              "win_rate": 0.0
+            },
+            "B": {
+              "n_trades": 2,
+              "expectancy_R": 0.8061,
+              "win_rate": 0.5
+            }
+          },
+          "trades": [
+            {
+              "entry_time": "2024-11-06T04:00:00+00:00",
+              "exit_time": "2024-11-10T04:00:00+00:00",
+              "side": "long",
+              "entry_price": 73362.21,
+              "exit_price": 79615.49621178,
+              "stop_price": 71277.78126274,
+              "target_price": 79615.49621178,
+              "exit_reason": "target",
+              "bars_held": 24,
+              "r_net": 2.8899,
+              "pnl_net": 433.49,
+              "fees_paid": 16.51,
+              "adx_turn_grade": "B",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2024-12-05T08:00:00+00:00",
+              "exit_time": "2024-12-05T16:00:00+00:00",
+              "side": "long",
+              "entry_price": 102541.0,
+              "exit_price": 100056.08700477,
+              "stop_price": 100056.08700477,
+              "target_price": 109995.7389857,
+              "exit_reason": "stop",
+              "bars_held": 2,
+              "r_net": -1.1223,
+              "pnl_net": -175.64,
+              "fees_paid": 19.14,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2025-09-30T00:00:00+00:00",
+              "exit_time": "2025-09-30T08:00:00+00:00",
+              "side": "long",
+              "entry_price": 114373.08,
+              "exit_price": 113144.40899952,
+              "stop_price": 113144.40899952,
+              "target_price": 118059.09300145,
+              "exit_reason": "stop",
+              "bars_held": 2,
+              "r_net": -1.2778,
+              "pnl_net": -196.61,
+              "fees_paid": 42.74,
+              "adx_turn_grade": "B",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            }
+          ]
+        },
+        "IMP-4H-SHORT": {
+          "rule_version": "0.1.0",
+          "setup_id": "IMP-4H-SHORT",
+          "side": "short",
+          "timeframes": [
+            "1d",
+            "4h"
+          ],
+          "candidates": 6,
+          "full": {
+            "n_trades": 2,
+            "win_rate": 0.5,
+            "expectancy_R": 0.8115,
+            "avg_win_R": 2.817,
+            "avg_loss_R": -1.194,
+            "profit_factor": 2.264,
+            "max_drawdown_pct": 1.79,
+            "avg_trade_duration_bars": 21.5
+          },
+          "in_sample": {
+            "n_trades": 0,
+            "win_rate": 0.0,
+            "expectancy_R": 0.0,
+            "avg_win_R": 0.0,
+            "avg_loss_R": 0.0,
+            "profit_factor": 0.0,
+            "max_drawdown_pct": 0.0,
+            "avg_trade_duration_bars": 0.0
+          },
+          "out_of_sample": {
+            "n_trades": 2,
+            "win_rate": 0.5,
+            "expectancy_R": 0.8115,
+            "avg_win_R": 2.817,
+            "avg_loss_R": -1.194,
+            "profit_factor": 2.264,
+            "max_drawdown_pct": 1.79,
+            "avg_trade_duration_bars": 21.5
+          },
+          "vetoed_signals": {
+            "count": 4,
+            "by_reason": {
+              "stale_ao_cross": 4
+            },
+            "counterfactual_expectancy_R": 2.8281,
+            "accepted_expectancy_R": 0.8115,
+            "window_comparison": {
+              "3": {
+                "accepted_n": 0,
+                "accepted_expectancy_R": null,
+                "vetoed_n": 6,
+                "vetoed_expectancy_R": 2.1559
+              },
+              "5": {
+                "accepted_n": 2,
+                "accepted_expectancy_R": 0.8115,
+                "vetoed_n": 4,
+                "vetoed_expectancy_R": 2.8281
+              }
+            }
+          },
+          "adx_turn_grades": {
+            "A": {
+              "n_trades": 0,
+              "expectancy_R": null,
+              "win_rate": null
+            },
+            "B": {
+              "n_trades": 2,
+              "expectancy_R": 0.8115,
+              "win_rate": 0.5
+            }
+          },
+          "trades": [
+            {
+              "entry_time": "2026-05-16T12:00:00+00:00",
+              "exit_time": "2026-05-23T04:00:00+00:00",
+              "side": "short",
+              "entry_price": 78238.04,
+              "exit_price": 74491.96204491,
+              "stop_price": 79486.7326517,
+              "target_price": 74491.96204491,
+              "exit_reason": "target",
+              "bars_held": 40,
+              "r_net": 2.8165,
+              "pnl_net": 422.48,
+              "fees_paid": 27.52,
+              "adx_turn_grade": "B",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bearish",
+                "close_below_sma200",
+                "konkorde_zero_cross:down",
+                "ao_negative",
+                "ao_falling"
+              ]
+            },
+            {
+              "entry_time": "2026-05-23T04:00:00+00:00",
+              "exit_time": "2026-05-23T16:00:00+00:00",
+              "side": "short",
+              "entry_price": 74609.44,
+              "exit_price": 75775.08391576,
+              "stop_price": 75775.08391576,
+              "target_price": 71112.50825271,
+              "exit_reason": "stop",
+              "bars_held": 3,
+              "r_net": -1.1935,
+              "pnl_net": -186.59,
+              "fees_paid": 30.25,
+              "adx_turn_grade": "B",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bearish",
+                "close_below_sma200",
+                "konkorde_zero_cross:down",
+                "ao_negative",
+                "ao_falling"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "ETH/USDT": {
+      "rule_version": "0.1.0",
+      "symbol": "ETH/USDT",
+      "exchange": "bitget",
+      "period": {
+        "start": "2024-07-01T00:00:00+00:00",
+        "end": "2026-07-01T00:00:00+00:00",
+        "in_sample_end": "2025-11-24T00:00:00+00:00",
+        "in_sample_fraction": 0.7
+      },
+      "fee_model": {
+        "fee_rate_per_side": 0.001,
+        "slippage_per_side": 0.0005
+      },
+      "sizing": {
+        "risk_profile": "medium",
+        "atr_stop_multiplier": 1.5,
+        "target_r_multiple": 3.0,
+        "risk_per_trade_pct": 1.5,
+        "initial_capital": 10000.0
+      },
+      "setups": {
+        "PB-1D-LONG": {
+          "rule_version": "0.1.0",
+          "setup_id": "PB-1D-LONG",
+          "side": "long",
+          "timeframes": [
+            "1d"
+          ],
+          "candidates": 0,
+          "full": {
+            "n_trades": 0,
+            "win_rate": 0.0,
+            "expectancy_R": 0.0,
+            "avg_win_R": 0.0,
+            "avg_loss_R": 0.0,
+            "profit_factor": 0.0,
+            "max_drawdown_pct": 0.0,
+            "avg_trade_duration_bars": 0.0
+          },
+          "in_sample": {
+            "n_trades": 0,
+            "win_rate": 0.0,
+            "expectancy_R": 0.0,
+            "avg_win_R": 0.0,
+            "avg_loss_R": 0.0,
+            "profit_factor": 0.0,
+            "max_drawdown_pct": 0.0,
+            "avg_trade_duration_bars": 0.0
+          },
+          "out_of_sample": {
+            "n_trades": 0,
+            "win_rate": 0.0,
+            "expectancy_R": 0.0,
+            "avg_win_R": 0.0,
+            "avg_loss_R": 0.0,
+            "profit_factor": 0.0,
+            "max_drawdown_pct": 0.0,
+            "avg_trade_duration_bars": 0.0
+          },
+          "vetoed_signals": {
+            "count": 0,
+            "by_reason": {},
+            "counterfactual_expectancy_R": null,
+            "accepted_expectancy_R": null,
+            "window_comparison": {
+              "3": {
+                "accepted_n": 0,
+                "accepted_expectancy_R": null,
+                "vetoed_n": 0,
+                "vetoed_expectancy_R": null
+              },
+              "5": {
+                "accepted_n": 0,
+                "accepted_expectancy_R": null,
+                "vetoed_n": 0,
+                "vetoed_expectancy_R": null
+              }
+            }
+          },
+          "adx_turn_grades": {
+            "A": {
+              "n_trades": 0,
+              "expectancy_R": null,
+              "win_rate": null
+            },
+            "B": {
+              "n_trades": 0,
+              "expectancy_R": null,
+              "win_rate": null
+            }
+          },
+          "trades": []
+        },
+        "PB-1D-SHORT": {
+          "rule_version": "0.1.0",
+          "setup_id": "PB-1D-SHORT",
+          "side": "short",
+          "timeframes": [
+            "1d"
+          ],
+          "candidates": 1,
+          "full": {
+            "n_trades": 0,
+            "win_rate": 0.0,
+            "expectancy_R": 0.0,
+            "avg_win_R": 0.0,
+            "avg_loss_R": 0.0,
+            "profit_factor": 0.0,
+            "max_drawdown_pct": 0.0,
+            "avg_trade_duration_bars": 0.0
+          },
+          "in_sample": {
+            "n_trades": 0,
+            "win_rate": 0.0,
+            "expectancy_R": 0.0,
+            "avg_win_R": 0.0,
+            "avg_loss_R": 0.0,
+            "profit_factor": 0.0,
+            "max_drawdown_pct": 0.0,
+            "avg_trade_duration_bars": 0.0
+          },
+          "out_of_sample": {
+            "n_trades": 0,
+            "win_rate": 0.0,
+            "expectancy_R": 0.0,
+            "avg_win_R": 0.0,
+            "avg_loss_R": 0.0,
+            "profit_factor": 0.0,
+            "max_drawdown_pct": 0.0,
+            "avg_trade_duration_bars": 0.0
+          },
+          "vetoed_signals": {
+            "count": 1,
+            "by_reason": {
+              "no_adx_turn_confirmation": 1
+            },
+            "counterfactual_expectancy_R": 2.9703,
+            "accepted_expectancy_R": null,
+            "window_comparison": {
+              "3": {
+                "accepted_n": 0,
+                "accepted_expectancy_R": null,
+                "vetoed_n": 1,
+                "vetoed_expectancy_R": 2.9703
+              },
+              "5": {
+                "accepted_n": 0,
+                "accepted_expectancy_R": null,
+                "vetoed_n": 1,
+                "vetoed_expectancy_R": 2.9703
+              }
+            }
+          },
+          "adx_turn_grades": {
+            "A": {
+              "n_trades": 0,
+              "expectancy_R": null,
+              "win_rate": null
+            },
+            "B": {
+              "n_trades": 0,
+              "expectancy_R": null,
+              "win_rate": null
+            }
+          },
+          "trades": []
+        },
+        "IMP-4H-LONG": {
+          "rule_version": "0.1.0",
+          "setup_id": "IMP-4H-LONG",
+          "side": "long",
+          "timeframes": [
+            "1d",
+            "4h"
+          ],
+          "candidates": 8,
+          "full": {
+            "n_trades": 5,
+            "win_rate": 0.2,
+            "expectancy_R": -0.3001,
+            "avg_win_R": 2.91,
+            "avg_loss_R": -1.103,
+            "profit_factor": 0.648,
+            "max_drawdown_pct": 6.45,
+            "avg_trade_duration_bars": 19.8
+          },
+          "in_sample": {
+            "n_trades": 5,
+            "win_rate": 0.2,
+            "expectancy_R": -0.3001,
+            "avg_win_R": 2.91,
+            "avg_loss_R": -1.103,
+            "profit_factor": 0.648,
+            "max_drawdown_pct": 6.45,
+            "avg_trade_duration_bars": 19.8
+          },
+          "out_of_sample": {
+            "n_trades": 0,
+            "win_rate": 0.0,
+            "expectancy_R": 0.0,
+            "avg_win_R": 0.0,
+            "avg_loss_R": 0.0,
+            "profit_factor": 0.0,
+            "max_drawdown_pct": 0.0,
+            "avg_trade_duration_bars": 0.0
+          },
+          "vetoed_signals": {
+            "count": 3,
+            "by_reason": {
+              "stale_ao_cross": 3
+            },
+            "counterfactual_expectancy_R": 0.2117,
+            "accepted_expectancy_R": -0.3001,
+            "window_comparison": {
+              "3": {
+                "accepted_n": 4,
+                "accepted_expectancy_R": -0.0951,
+                "vetoed_n": 4,
+                "vetoed_expectancy_R": -0.1212
+              },
+              "5": {
+                "accepted_n": 5,
+                "accepted_expectancy_R": -0.3001,
+                "vetoed_n": 3,
+                "vetoed_expectancy_R": 0.2117
+              }
+            }
+          },
+          "adx_turn_grades": {
+            "A": {
+              "n_trades": 3,
+              "expectancy_R": -1.1037,
+              "win_rate": 0.0
+            },
+            "B": {
+              "n_trades": 2,
+              "expectancy_R": 0.9054,
+              "win_rate": 0.5
+            }
+          },
+          "trades": [
+            {
+              "entry_time": "2024-11-21T16:00:00+00:00",
+              "exit_time": "2024-11-30T04:00:00+00:00",
+              "side": "long",
+              "entry_price": 3347.66,
+              "exit_price": 3702.00882035,
+              "stop_price": 3229.54372655,
+              "target_price": 3702.00882035,
+              "exit_reason": "target",
+              "bars_held": 51,
+              "r_net": 2.9105,
+              "pnl_net": 436.57,
+              "fees_paid": 13.43,
+              "adx_turn_grade": "B",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2024-12-04T20:00:00+00:00",
+              "exit_time": "2024-12-05T20:00:00+00:00",
+              "side": "long",
+              "entry_price": 3837.89,
+              "exit_price": 3723.98371255,
+              "stop_price": 3723.98371255,
+              "target_price": 4179.60886234,
+              "exit_reason": "stop",
+              "bars_held": 6,
+              "r_net": -1.0996,
+              "pnl_net": -172.14,
+              "fees_paid": 15.59,
+              "adx_turn_grade": "B",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2025-06-10T00:00:00+00:00",
+              "exit_time": "2025-06-12T20:00:00+00:00",
+              "side": "long",
+              "entry_price": 2688.62,
+              "exit_price": 2622.20375708,
+              "stop_price": 2622.20375708,
+              "target_price": 2887.86872876,
+              "exit_reason": "stop",
+              "bars_held": 17,
+              "r_net": -1.1199,
+              "pnl_net": -172.43,
+              "fees_paid": 18.47,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2025-07-03T00:00:00+00:00",
+              "exit_time": "2025-07-04T16:00:00+00:00",
+              "side": "long",
+              "entry_price": 2560.75,
+              "exit_price": 2494.64405556,
+              "stop_price": 2494.64405556,
+              "target_price": 2759.06783333,
+              "exit_reason": "stop",
+              "bars_held": 10,
+              "r_net": -1.1147,
+              "pnl_net": -168.74,
+              "fees_paid": 17.36,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2025-08-22T16:00:00+00:00",
+              "exit_time": "2025-08-25T04:00:00+00:00",
+              "side": "long",
+              "entry_price": 4832.06,
+              "exit_price": 4646.40556201,
+              "stop_price": 4646.40556201,
+              "target_price": 5389.02331398,
+              "exit_reason": "stop",
+              "bars_held": 15,
+              "r_net": -1.0766,
+              "pnl_net": -160.25,
+              "fees_paid": 11.4,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            }
+          ]
+        },
+        "IMP-4H-SHORT": {
+          "rule_version": "0.1.0",
+          "setup_id": "IMP-4H-SHORT",
+          "side": "short",
+          "timeframes": [
+            "1d",
+            "4h"
+          ],
+          "candidates": 8,
+          "full": {
+            "n_trades": 3,
+            "win_rate": 0.6667,
+            "expectancy_R": 1.5679,
+            "avg_win_R": 2.897,
+            "avg_loss_R": -1.089,
+            "profit_factor": 5.344,
+            "max_drawdown_pct": 1.63,
+            "avg_trade_duration_bars": 10.67
+          },
+          "in_sample": {
+            "n_trades": 1,
+            "win_rate": 0.0,
+            "expectancy_R": -1.0895,
+            "avg_win_R": 0.0,
+            "avg_loss_R": -1.089,
+            "profit_factor": 0.0,
+            "max_drawdown_pct": 1.63,
+            "avg_trade_duration_bars": 11.0
+          },
+          "out_of_sample": {
+            "n_trades": 2,
+            "win_rate": 1.0,
+            "expectancy_R": 2.8965,
+            "avg_win_R": 2.897,
+            "avg_loss_R": 0.0,
+            "profit_factor": Infinity,
+            "max_drawdown_pct": 0.0,
+            "avg_trade_duration_bars": 10.5
+          },
+          "vetoed_signals": {
+            "count": 5,
+            "by_reason": {
+              "stale_ao_cross": 5
+            },
+            "counterfactual_expectancy_R": 0.4784,
+            "accepted_expectancy_R": 1.5679,
+            "window_comparison": {
+              "3": {
+                "accepted_n": 3,
+                "accepted_expectancy_R": 1.5679,
+                "vetoed_n": 5,
+                "vetoed_expectancy_R": 0.4784
+              },
+              "5": {
+                "accepted_n": 3,
+                "accepted_expectancy_R": 1.5679,
+                "vetoed_n": 5,
+                "vetoed_expectancy_R": 0.4784
+              }
+            }
+          },
+          "adx_turn_grades": {
+            "A": {
+              "n_trades": 3,
+              "expectancy_R": 1.5679,
+              "win_rate": 0.6667
+            },
+            "B": {
+              "n_trades": 0,
+              "expectancy_R": null,
+              "win_rate": null
+            }
+          },
+          "trades": [
+            {
+              "entry_time": "2025-06-06T00:00:00+00:00",
+              "exit_time": "2025-06-07T20:00:00+00:00",
+              "side": "short",
+              "entry_price": 2455.56,
+              "exit_price": 2539.30378507,
+              "stop_price": 2539.30378507,
+              "target_price": 2204.32864478,
+              "exit_reason": "stop",
+              "bars_held": 11,
+              "r_net": -1.0895,
+              "pnl_net": -163.42,
+              "fees_paid": 13.42,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bearish",
+                "close_below_sma200",
+                "konkorde_zero_cross:down",
+                "ao_negative",
+                "ao_falling"
+              ]
+            },
+            {
+              "entry_time": "2026-01-29T20:00:00+00:00",
+              "exit_time": "2026-01-31T12:00:00+00:00",
+              "side": "short",
+              "entry_price": 2822.58,
+              "exit_price": 2566.77068706,
+              "stop_price": 2907.84977098,
+              "target_price": 2566.77068706,
+              "exit_reason": "target",
+              "bars_held": 10,
+              "r_net": 2.9052,
+              "pnl_net": 428.66,
+              "fees_paid": 13.99,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bearish",
+                "close_below_sma200",
+                "konkorde_zero_cross:down",
+                "ao_negative",
+                "ao_falling"
+              ]
+            },
+            {
+              "entry_time": "2026-06-23T16:00:00+00:00",
+              "exit_time": "2026-06-25T12:00:00+00:00",
+              "side": "short",
+              "entry_price": 1662.41,
+              "exit_price": 1534.14678317,
+              "stop_price": 1705.16440561,
+              "target_price": 1534.14678317,
+              "exit_reason": "target",
+              "bars_held": 11,
+              "r_net": 2.8879,
+              "pnl_net": 444.67,
+              "fees_paid": 17.27,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bearish",
+                "close_below_sma200",
+                "konkorde_zero_cross:down",
+                "ao_negative",
+                "ao_falling"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "SOL/USDT": {
+      "rule_version": "0.1.0",
+      "symbol": "SOL/USDT",
+      "exchange": "bitget",
+      "period": {
+        "start": "2024-07-01T00:00:00+00:00",
+        "end": "2026-07-01T00:00:00+00:00",
+        "in_sample_end": "2025-11-24T00:00:00+00:00",
+        "in_sample_fraction": 0.7
+      },
+      "fee_model": {
+        "fee_rate_per_side": 0.001,
+        "slippage_per_side": 0.0005
+      },
+      "sizing": {
+        "risk_profile": "medium",
+        "atr_stop_multiplier": 1.5,
+        "target_r_multiple": 3.0,
+        "risk_per_trade_pct": 1.5,
+        "initial_capital": 10000.0
+      },
+      "setups": {
+        "PB-1D-LONG": {
+          "rule_version": "0.1.0",
+          "setup_id": "PB-1D-LONG",
+          "side": "long",
+          "timeframes": [
+            "1d"
+          ],
+          "candidates": 2,
+          "full": {
+            "n_trades": 1,
+            "win_rate": 1.0,
+            "expectancy_R": 2.9554,
+            "avg_win_R": 2.955,
+            "avg_loss_R": 0.0,
+            "profit_factor": Infinity,
+            "max_drawdown_pct": 0.0,
+            "avg_trade_duration_bars": 10.0
+          },
+          "in_sample": {
+            "n_trades": 1,
+            "win_rate": 1.0,
+            "expectancy_R": 2.9554,
+            "avg_win_R": 2.955,
+            "avg_loss_R": 0.0,
+            "profit_factor": Infinity,
+            "max_drawdown_pct": 0.0,
+            "avg_trade_duration_bars": 10.0
+          },
+          "out_of_sample": {
+            "n_trades": 0,
+            "win_rate": 0.0,
+            "expectancy_R": 0.0,
+            "avg_win_R": 0.0,
+            "avg_loss_R": 0.0,
+            "profit_factor": 0.0,
+            "max_drawdown_pct": 0.0,
+            "avg_trade_duration_bars": 0.0
+          },
+          "vetoed_signals": {
+            "count": 0,
+            "by_reason": {},
+            "counterfactual_expectancy_R": null,
+            "accepted_expectancy_R": 2.9552,
+            "window_comparison": {
+              "3": {
+                "accepted_n": 2,
+                "accepted_expectancy_R": 2.9552,
+                "vetoed_n": 0,
+                "vetoed_expectancy_R": null
+              },
+              "5": {
+                "accepted_n": 2,
+                "accepted_expectancy_R": 2.9552,
+                "vetoed_n": 0,
+                "vetoed_expectancy_R": null
+              }
+            }
+          },
+          "adx_turn_grades": {
+            "A": {
+              "n_trades": 1,
+              "expectancy_R": 2.9554,
+              "win_rate": 1.0
+            },
+            "B": {
+              "n_trades": 0,
+              "expectancy_R": null,
+              "win_rate": null
+            }
+          },
+          "trades": [
+            {
+              "entry_time": "2024-11-08T00:00:00+00:00",
+              "exit_time": "2024-11-18T00:00:00+00:00",
+              "side": "long",
+              "entry_price": 199.85,
+              "exit_price": 244.73119293,
+              "stop_price": 184.88960236,
+              "target_price": 244.73119293,
+              "exit_reason": "target",
+              "bars_held": 10,
+              "r_net": 2.9554,
+              "pnl_net": 443.31,
+              "fees_paid": 6.69,
+              "adx_turn_grade": "A",
+              "support": [
+                "close_above_sma200",
+                "ema50_above_sma50",
+                "konkorde_state:positive",
+                "pullback_state",
+                "adx_turn:up_bullish",
+                "konkorde_zero_cross:up",
+                "close_breaks_prior_high"
+              ]
+            }
+          ]
+        },
+        "PB-1D-SHORT": {
+          "rule_version": "0.1.0",
+          "setup_id": "PB-1D-SHORT",
+          "side": "short",
+          "timeframes": [
+            "1d"
+          ],
+          "candidates": 4,
+          "full": {
+            "n_trades": 1,
+            "win_rate": 1.0,
+            "expectancy_R": 2.9814,
+            "avg_win_R": 2.981,
+            "avg_loss_R": 0.0,
+            "profit_factor": Infinity,
+            "max_drawdown_pct": 0.0,
+            "avg_trade_duration_bars": 91.0
+          },
+          "in_sample": {
+            "n_trades": 1,
+            "win_rate": 1.0,
+            "expectancy_R": 2.9814,
+            "avg_win_R": 2.981,
+            "avg_loss_R": 0.0,
+            "profit_factor": Infinity,
+            "max_drawdown_pct": 0.0,
+            "avg_trade_duration_bars": 91.0
+          },
+          "out_of_sample": {
+            "n_trades": 0,
+            "win_rate": 0.0,
+            "expectancy_R": 0.0,
+            "avg_win_R": 0.0,
+            "avg_loss_R": 0.0,
+            "profit_factor": 0.0,
+            "max_drawdown_pct": 0.0,
+            "avg_trade_duration_bars": 0.0
+          },
+          "vetoed_signals": {
+            "count": 3,
+            "by_reason": {
+              "no_adx_turn_confirmation": 3
+            },
+            "counterfactual_expectancy_R": 1.6394,
+            "accepted_expectancy_R": 2.9814,
+            "window_comparison": {
+              "3": {
+                "accepted_n": 1,
+                "accepted_expectancy_R": 2.9814,
+                "vetoed_n": 3,
+                "vetoed_expectancy_R": 1.6394
+              },
+              "5": {
+                "accepted_n": 1,
+                "accepted_expectancy_R": 2.9814,
+                "vetoed_n": 3,
+                "vetoed_expectancy_R": 1.6394
+              }
+            }
+          },
+          "adx_turn_grades": {
+            "A": {
+              "n_trades": 1,
+              "expectancy_R": 2.9814,
+              "win_rate": 1.0
+            },
+            "B": {
+              "n_trades": 0,
+              "expectancy_R": null,
+              "win_rate": null
+            }
+          },
+          "trades": [
+            {
+              "entry_time": "2025-11-04T00:00:00+00:00",
+              "exit_time": "2026-02-04T00:00:00+00:00",
+              "side": "short",
+              "entry_price": 155.04,
+              "exit_price": 94.53537037,
+              "stop_price": 175.20820988,
+              "target_price": 94.53537037,
+              "exit_reason": "target",
+              "bars_held": 91,
+              "r_net": 2.9814,
+              "pnl_net": 447.22,
+              "fees_paid": 2.78,
+              "adx_turn_grade": "A",
+              "support": [
+                "close_below_sma200",
+                "ema50_below_sma50",
+                "konkorde_state:negative",
+                "rally_state",
+                "adx_turn:up_bearish",
+                "konkorde_zero_cross:down",
+                "close_breaks_prior_low"
+              ]
+            }
+          ]
+        },
+        "IMP-4H-LONG": {
+          "rule_version": "0.1.0",
+          "setup_id": "IMP-4H-LONG",
+          "side": "long",
+          "timeframes": [
+            "1d",
+            "4h"
+          ],
+          "candidates": 7,
+          "full": {
+            "n_trades": 4,
+            "win_rate": 0.25,
+            "expectancy_R": -0.0863,
+            "avg_win_R": 2.899,
+            "avg_loss_R": -1.082,
+            "profit_factor": 0.868,
+            "max_drawdown_pct": 3.21,
+            "avg_trade_duration_bars": 20.75
+          },
+          "in_sample": {
+            "n_trades": 4,
+            "win_rate": 0.25,
+            "expectancy_R": -0.0863,
+            "avg_win_R": 2.899,
+            "avg_loss_R": -1.082,
+            "profit_factor": 0.868,
+            "max_drawdown_pct": 3.21,
+            "avg_trade_duration_bars": 20.75
+          },
+          "out_of_sample": {
+            "n_trades": 0,
+            "win_rate": 0.0,
+            "expectancy_R": 0.0,
+            "avg_win_R": 0.0,
+            "avg_loss_R": 0.0,
+            "profit_factor": 0.0,
+            "max_drawdown_pct": 0.0,
+            "avg_trade_duration_bars": 0.0
+          },
+          "vetoed_signals": {
+            "count": 3,
+            "by_reason": {
+              "stale_ao_cross": 3
+            },
+            "counterfactual_expectancy_R": -1.0828,
+            "accepted_expectancy_R": -0.0863,
+            "window_comparison": {
+              "3": {
+                "accepted_n": 3,
+                "accepted_expectancy_R": 0.2428,
+                "vetoed_n": 4,
+                "vetoed_expectancy_R": -1.0805
+              },
+              "5": {
+                "accepted_n": 4,
+                "accepted_expectancy_R": -0.0863,
+                "vetoed_n": 3,
+                "vetoed_expectancy_R": -1.0828
+              }
+            }
+          },
+          "adx_turn_grades": {
+            "A": {
+              "n_trades": 1,
+              "expectancy_R": -1.0739,
+              "win_rate": 0.0
+            },
+            "B": {
+              "n_trades": 3,
+              "expectancy_R": 0.2428,
+              "win_rate": 0.3333
+            }
+          },
+          "trades": [
+            {
+              "entry_time": "2025-01-02T08:00:00+00:00",
+              "exit_time": "2025-01-08T00:00:00+00:00",
+              "side": "long",
+              "entry_price": 208.55,
+              "exit_price": 201.64409168,
+              "stop_price": 201.64409168,
+              "target_price": 229.26772497,
+              "exit_reason": "stop",
+              "bars_held": 34,
+              "r_net": -1.0891,
+              "pnl_net": -163.36,
+              "fees_paid": 13.36,
+              "adx_turn_grade": "B",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2025-07-16T20:00:00+00:00",
+              "exit_time": "2025-07-21T04:00:00+00:00",
+              "side": "long",
+              "entry_price": 173.63,
+              "exit_price": 189.8869994,
+              "stop_price": 168.2110002,
+              "target_price": 189.8869994,
+              "exit_reason": "target",
+              "bars_held": 26,
+              "r_net": 2.8994,
+              "pnl_net": 427.8,
+              "fees_paid": 14.85,
+              "adx_turn_grade": "B",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2025-08-13T00:00:00+00:00",
+              "exit_time": "2025-08-14T12:00:00+00:00",
+              "side": "long",
+              "entry_price": 197.75,
+              "exit_price": 190.62640896,
+              "stop_price": 190.62640896,
+              "target_price": 219.12077311,
+              "exit_reason": "stop",
+              "bars_held": 9,
+              "r_net": -1.0818,
+              "pnl_net": -166.56,
+              "fees_paid": 12.59,
+              "adx_turn_grade": "B",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            },
+            {
+              "entry_time": "2025-08-23T08:00:00+00:00",
+              "exit_time": "2025-08-25T16:00:00+00:00",
+              "side": "long",
+              "entry_price": 201.99,
+              "exit_price": 193.95154356,
+              "stop_price": 193.95154356,
+              "target_price": 226.10536931,
+              "exit_reason": "stop",
+              "bars_held": 14,
+              "r_net": -1.0739,
+              "pnl_net": -162.66,
+              "fees_paid": 11.19,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bullish",
+                "close_above_sma200",
+                "konkorde_zero_cross:up",
+                "ao_positive",
+                "ao_rising"
+              ]
+            }
+          ]
+        },
+        "IMP-4H-SHORT": {
+          "rule_version": "0.1.0",
+          "setup_id": "IMP-4H-SHORT",
+          "side": "short",
+          "timeframes": [
+            "1d",
+            "4h"
+          ],
+          "candidates": 7,
+          "full": {
+            "n_trades": 2,
+            "win_rate": 0.5,
+            "expectancy_R": 0.9012,
+            "avg_win_R": 2.895,
+            "avg_loss_R": -1.093,
+            "profit_factor": 2.539,
+            "max_drawdown_pct": 1.64,
+            "avg_trade_duration_bars": 29.0
+          },
+          "in_sample": {
+            "n_trades": 0,
+            "win_rate": 0.0,
+            "expectancy_R": 0.0,
+            "avg_win_R": 0.0,
+            "avg_loss_R": 0.0,
+            "profit_factor": 0.0,
+            "max_drawdown_pct": 0.0,
+            "avg_trade_duration_bars": 0.0
+          },
+          "out_of_sample": {
+            "n_trades": 2,
+            "win_rate": 0.5,
+            "expectancy_R": 0.9012,
+            "avg_win_R": 2.895,
+            "avg_loss_R": -1.093,
+            "profit_factor": 2.539,
+            "max_drawdown_pct": 1.64,
+            "avg_trade_duration_bars": 29.0
+          },
+          "vetoed_signals": {
+            "count": 5,
+            "by_reason": {
+              "stale_ao_cross": 5
+            },
+            "counterfactual_expectancy_R": 1.315,
+            "accepted_expectancy_R": 0.9012,
+            "window_comparison": {
+              "3": {
+                "accepted_n": 1,
+                "accepted_expectancy_R": -1.0927,
+                "vetoed_n": 6,
+                "vetoed_expectancy_R": 1.5784
+              },
+              "5": {
+                "accepted_n": 2,
+                "accepted_expectancy_R": 0.9012,
+                "vetoed_n": 5,
+                "vetoed_expectancy_R": 1.315
+              }
+            }
+          },
+          "adx_turn_grades": {
+            "A": {
+              "n_trades": 2,
+              "expectancy_R": 0.9012,
+              "win_rate": 0.5
+            },
+            "B": {
+              "n_trades": 0,
+              "expectancy_R": null,
+              "win_rate": null
+            }
+          },
+          "trades": [
+            {
+              "entry_time": "2026-01-19T00:00:00+00:00",
+              "exit_time": "2026-01-25T16:00:00+00:00",
+              "side": "short",
+              "entry_price": 133.93,
+              "exit_price": 122.91691814,
+              "stop_price": 137.60102729,
+              "target_price": 122.91691814,
+              "exit_reason": "target",
+              "bars_held": 40,
+              "r_net": 2.8951,
+              "pnl_net": 434.26,
+              "fees_paid": 15.74,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bearish",
+                "close_below_sma200",
+                "konkorde_zero_cross:down",
+                "ao_negative",
+                "ao_falling"
+              ]
+            },
+            {
+              "entry_time": "2026-06-23T12:00:00+00:00",
+              "exit_time": "2026-06-26T12:00:00+00:00",
+              "side": "short",
+              "entry_price": 68.92,
+              "exit_price": 71.18691568,
+              "stop_price": 71.18691568,
+              "target_price": 62.11925297,
+              "exit_reason": "stop",
+              "bars_held": 18,
+              "r_net": -1.0927,
+              "pnl_net": -171.02,
+              "fees_paid": 14.51,
+              "adx_turn_grade": "A",
+              "support": [
+                "bbwp_regime",
+                "adx_turn:up_bearish",
+                "close_below_sma200",
+                "konkorde_zero_cross:down",
+                "ao_negative",
+                "ao_falling"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  },
+  "thresholds": {
+    "n_trades_full_min": 30,
+    "n_trades_oos_min": 10,
+    "expectancy_full_min": 0.15,
+    "expectancy_oos_min": 0.1,
+    "profit_factor_oos_min": 1.15,
+    "max_drawdown_max": 20.0,
+    "oos_vs_is_expectancy_ratio_min": 0.5
+  }
+}
