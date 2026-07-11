@@ -5,7 +5,7 @@
 | **rule_version** | `0.1.0-draft` |
 | **Status** | Draft for backend implementation — pending owner confirmation of [§D Open Questions](#d-open-questions-for-the-owner) |
 | **Audience** | `backend` (implements `SetupService` + multi-TF backtest), reviewer: trading analyst |
-| **Date** | 2026-07-06 (includes the owner's same-night refinements: timeframe bands §0.3 and false-entry vetoes §B.3) |
+| **Date** | 2026-07-06 (includes the owner's same-night refinements: timeframe bands §0.3 and false-entry vetoes §B.3); owner addenda 2026-07-07 (§G, E5 zones) and 2026-07-11 (M1 monitor §B.3.1, E1/E3-E4/E5 addenda, investor profiles §H, Q13-Q17) |
 | **Council decision** | F0→F3 roadmap: setups are **declarative, versioned rules with numeric golden cases**. Paper-first: nothing trades real money without a passing multi-TF backtest AND audited paper trading. |
 
 This document specifies, in implementable numeric terms, the owner's 5 strategy
@@ -1134,6 +1134,32 @@ correct (each maps to a **[calibrable]** default above):
     spec's provisional choice) or against the **maximum** wave (`ratio_max`,
     more conservative)? And confirm the adaptive-EMA approximation for wave
     resets (provisional: KAMA(10); simplest alternative EMA(20)).
+
+### D.2 — Open questions added 2026-07-11
+
+13. **Minor vs major ADX turn (E1 addendum 2026-07-11)**: quantify "giro
+    menor con forma V" vs "giro mayor" — amplitude in ADX points around the
+    pivot, duration in bars, origin level, or a combination? And does the
+    ~20-point ambiguity zone (continuation vs false breakout) tighten the
+    A-grade origin band `[12, 20]` (e.g. to `[12, 18]`)? 2-3 chart examples
+    of each class would let us calibrate.
+14. **"Abrupt" BBWP color change threshold (E5 addendum 2026-07-11)**: is
+    `zone_jump` (≥ 2 zones in ONE closed candle) the right quantifier of
+    "brusco", or does a fast 1-zone change (e.g. within ≤ 2 candles) or a
+    points-per-candle rate (e.g. ≥ 25 BBWP pts/candle) also count?
+15. **Konkorde volume "media alta" (E3/E4 addendum 2026-07-11)**: define the
+    high-mean zone — current rolling percentile (q=80, lookback 100) vs
+    mean-relative (`x >= k · rolling_mean(x, n)`, e.g. k=1.5, n=50) vs a
+    fixed level on the re-centred scale. Which matches your chart read?
+16. **M1 monitor TF scope (§B.3.1)**: does `false_entry_watch` run on all
+    four operative TFs (1h/4h/1d/1w, §H) or only the lower ones (1h/4h)
+    where false AO crosses are most frequent? Provisional: all four, alert
+    severity weighted by TF.
+17. **The 70% (§B.3.1)**: is `p_false_prior = 0.70` fixed doctrine or a
+    prior to CALIBRATE? Analyst recommendation: treat it as an owner prior —
+    the F0 backtest measures the realized false-entry rate per TF and setup
+    family (`RESOLVED_FALSE` / adjudicated watches) and reports it next to
+    0.70; replace the prior only with n ≥ 30 adjudications per TF.
 
 ---
 
