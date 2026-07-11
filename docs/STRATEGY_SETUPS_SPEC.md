@@ -402,6 +402,44 @@ for invalidation / no-new-entries / tighten-stops, never as an entry trigger.
 | E4-G3 | `[60, 72, 84, 76, 70, 75, 83, 72]` | `w_turn_high = true` | pivots P1=idx2 (84), P2=idx6 (83), both ≥70; distance 4 ∈ [3,12]; \|83−84\|=1 ≤ 5; trough min(76,70,75)=70, depth min(84,83)−70=**13** ≥ 5; fires idx 7 |
 | E4-G4 | `[60, 72, 84, 76, 70, 80, 95, 90]` | `w_turn_high = false` | \|95−84\|=11 > 5 — second peak is fresh expansion, not a double test |
 
+#### E3/E4 addendum (2026-07-11) — Konkorde volume doctrine: enter near zero, exit on high-mean turns
+
+**Owner's words (2026-07-11)**: "Cruce de 0 = empezar compras (arriba) /
+ventas (abajo). Volumen en media ALTA con giros V/W = terminación del
+impulso. Salida de la media con giros abruptos desde volumen; entrada al
+punto 0 o cerca."
+
+1. **Zero cross RATIFIED (E3 unchanged)**: crossing 0 upward = start
+   building buys; downward = start building sells. "Empezar compras"
+   confirms E3's **event** (campaign-start) semantics over the legacy
+   level/state vote.
+2. **Impulse termination = volume at HIGH MEAN + V/W turn (E4-on-Konkorde,
+   refined)**: the Konkorde volume curves riding HIGH relative to their own
+   average and printing a V/W turn = the impulse is terminating. This is the
+   E4 Konkorde-source variant already specified (high zone = rolling
+   percentile q=80 / lookback 100) — but the owner's "media alta" suggests a
+   MEAN-relative zone (e.g. `x >= k · rolling_mean(x, n)`) instead of, or
+   besides, the percentile. Formulation = **Q15**; the percentile stays the
+   provisional default.
+3. **Entries at/near the zero point** (interpretation, marked): the best
+   entries occur while the volume curves sit at or near zero — the crowd has
+   not piled in yet, the impulse is being born; by the time volume is
+   stretched at the high mean, entering is late and exiting is the topic.
+   Candidate QUALITY dimension for triggers (like the `adx_turn` A/B grade):
+   `konkorde_near_zero` = `|konkorde_verde[-1]| <= near_zero_band` with
+   `near_zero_band = rolling_percentile(|verde|, 100, q=30)` **[calibrable]**
+   → quality bonus at trigger time; stretched-at-high-mean at trigger →
+   quality penalty. PARKED as backtest stratification first — never a hard
+   gate in v0.1.x.
+4. **"Salida de la media con giros abruptos"** (interpretation, marked): an
+   abrupt turn that LEAVES the high-mean region — the confirming close of
+   the E4 V-turn on the volume curve — is the exit/termination trigger. This
+   reinforces E4-on-Konkorde as invalidation evidence on `high_tf` (already
+   wired in PB-1D's invalidations: `vol_turn` on `konkorde_marron`); no new
+   detector needed.
+
+Applies on the `high_tf` band only (Konkorde ban below 4h, §0.3, unchanged).
+
 ---
 
 ### E5 — `bbwp_regime`: volatility above 50
