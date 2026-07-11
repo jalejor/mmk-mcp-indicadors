@@ -474,6 +474,60 @@ bbwp_regime_on = bbwp[-1] > 50.0        (strict; on the closed candle of the set
 **Golden cases**: `bbwp[-1] = 50.0` → `false` (strict). `bbwp[-1] = 50.1` →
 `true`. `bbwp[-1] = 49.9` → `false`.
 
+#### E5 addendum (2026-07-11) — abrupt color change, the 50% cross, low-zone ignition turns
+
+Extends the 2026-07-07 color-zone + zone-jump addenda (end of §G). Owner
+doctrine, 2026-07-11: an **ABRUPT (brusco) color change = high volatility**
+("tenemos que tener claros los colores"); **crossing 50% = high volatility /
+trend termination with V or M turns**; **volatility-ignition turns in short
+ranges with V/W shapes**.
+
+1. **Abrupt color change**: the zone taxonomy (blue/green/yellow/red) is
+   first-class — detectors must reason in zones, not only in raw BBWP. The
+   existing `zone_jump` event (skip ≥ 2 zones in one closed candle) is the
+   provisional quantifier of "abrupt"; whether a fast 1-zone change also
+   qualifies is **Q14**.
+2. **The 50% cross** (the green↔yellow boundary, already emitted as a
+   `bbwp_zone_change`): crossing 50 marks high volatility, and it is
+   **trend-termination evidence when accompanied by V or M turns** (M = the
+   two-peak M/W family of E4). Interpretation (marked): the termination
+   reading applies to the cross in the CONTEXT of a high-zone turn —
+   typically the DOWNWARD 50-cross after `v_turn_high`/`w_turn_high` fired
+   (volatility rolled over from the top and is leaving the tradeable regime:
+   the red→yellow→green collapse path), while the plain UPWARD cross remains
+   E5 regime ignition. Composite event for setups (invalidation-grade, like
+   E4): `bbwp_50_cross_down` within `turn_confluence_window = 5` closed
+   candles **[calibrable]** of a high-zone V/W turn.
+3. **Low-zone ignition turns (`v_turn_low` / `w_turn_low`) — NEW detector
+   variants**: "giros de inicio de volatilidad en rangos cortos con formas
+   V/W" — V/W turns in the LOW zone ("rangos cortos" read as short/tight
+   price ranges = compressed BBWP [interpretation]) marking the START of
+   volatility. Strict mirrors of E4's high-zone geometry, flipped:
+
+   ```
+   v_turn_low = x[-2] < x[-3]                  (was falling into the trough)
+                AND x[-2] < x[-1]              (trough confirmed by the next close)
+                AND x[-2] <= low_zone_abs
+                AND (x[-1] - x[-2]) >= min_rise
+   w_turn_low = double test of the low zone (mirror of w_turn_high: pivot
+                LOWS, both <= low_zone_abs, a real bump between the tests)
+   ```
+
+   | Param | Default | Notes |
+   |---|---|---|
+   | `low_zone_abs` (BBWP) | 30 | blue + lower green **[calibrable]** |
+   | `min_rise` | 5.0 | BBWP points, mirror of `min_drop` **[calibrable]** |
+
+   Semantics: **expansion-ignition evidence** — a context/quality component
+   for impulse setups (natural confluence with the blue→green `zone_change`
+   and §G's "awakening after compression" trigger candidate), NEVER an entry
+   trigger by itself. Source: `bbwp` only; both bands.
+
+   Golden cases: `bbwp = [45, 30, 18, 12, 24]` → `v_turn_low = true`
+   (12 < 18 falling, 12 < 24 confirmed, 12 ≤ 30, rise 24−12 = **12** ≥ 5).
+   `bbwp = [45, 30, 18, 12, 14]` → `false` (rise 2 < 5). `w_turn_low`
+   goldens land with the implementation (pattern: E4-G3/G4 mirrored).
+
 ---
 
 ### E6 — `trend_speed`: wave-speed impulse strength — **CANDIDATE (parked, post-F0 gate)**
