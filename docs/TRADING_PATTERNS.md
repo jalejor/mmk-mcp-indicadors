@@ -16,6 +16,32 @@ lado los principales patterns de trading que tradeamos: canal alcista,
 bajista, hombro cabeza hombro también el invertido, divergencias,
 convergencias".
 
+## 0. Operating principle — patterns × impulse (owner, 2026-07-11 late)
+
+**Owner's words (verbatim)**: "todos los patterns son cruzados con el
+análisis de impulso — SOLO OPERAMOS IMPULSOS. Retrocesos es para saber, en
+tendencia de semanal o 4hrs 1hr, salida de movimiento y cambio de
+perspectiva para esperar el nuevo impulso."
+
+This is the keystone that subordinates every section below:
+
+1. **Patterns never trade alone.** A pattern (channel, H&S, divergence) is
+   CONTEXT/quality — the only tradeable event is the **impulse** (E1
+   `adx_turn` ignition confirmed with AO, the engine's trigger family).
+   Every "Confluences" block in this catalog reads in that direction:
+   pattern × impulse, never pattern → entry.
+2. **Retracements are NEVER entries.** A retracement serves exactly three
+   purposes: (a) locate position within the 1w / 4h / 1h trend; (b) signal
+   **movement exit** — this is the §F guardian-ladder read (guardian TF
+   retracement = leave); (c) **perspective reset**: after the exit, stand
+   aside and WAIT for the next impulse (the M1 §B.3.1 watch state is the
+   formalisation of that waiting).
+3. Note for PB-1D naming: the "pullback" setup does NOT trade the pullback —
+   it waits through the retracement and triggers on the **impulse being
+   born at its end** (the E1 turn). Same doctrine, consistent.
+
+---
+
 **How to read each entry**: owner doctrine → proposed operable definition
 (pivot-based, params **[calibrable]**) → applicable TFs → what it emits
 (journal tag TODAY, detector candidate LATER) → confluences with E1–E7 →
@@ -35,6 +61,26 @@ long at the floor while the channel holds; the ceiling is take-profit /
 rejection territory. The BREAK of the channel is itself an event: it
 projects a measured move ("saldo mínimo", spec E7 addendum — first objective
 = channel width, full objective = traveled span).
+
+**Owner addendum (2026-07-11 late) — the points ARE the pattern**: "los
+puntos son lo importante: un canal alcista son puntos mínimos más seguido
+con puntos de máximos menores, y con un impulso lo más cerca del canal, va
+a la dirección del impulso."
+
+* **Pivots are first-class**: the channel IS its touch points — validation
+  reasons over pivots, not over the drawn lines.
+* **Touch asymmetry** [interpretation]: in a bull channel the FLOOR
+  (minimums) prints touches more often/consecutively than the ceiling
+  ("máximos menores" read as FEWER ceiling touches — price rides the demand
+  line). Alternative reading ("lower highs") would describe a wedge, not a
+  channel — flagged under OQ1. Provisional expectation: floor touches ≥
+  ceiling touches, exact ratio **[calibrable]**.
+* **Entry rule**: when an impulse is born **nearest the channel line**, it
+  goes in the direction of that impulse — proximity-to-line at impulse
+  ignition is a QUALITY dimension (the further from the line the impulse
+  starts, the worse the entry) **[calibrable: distance as ATR-fraction]**.
+  This composes §0 (impulse is the trigger) with E1-at-the-touch and the M1
+  false-bounce guard.
 
 **Operable definition** (this is spec **§E7 CANDIDATE** — referenced, not
 duplicated): fractal pivots (strength 2, closed bars) → linear regression
@@ -84,7 +130,9 @@ against.
 
 Strict geometric mirror of `bull_channel` (both regression slopes < 0; trade
 shorts off the ceiling while it holds; floor = cover/TP territory). Same
-primitives, same params, same risks — everything in §1 applies mirrored.
+primitives, same params, same risks — everything in §1 applies mirrored,
+including the 2026-07-11 points addendum (touch asymmetry on the CEILING;
+impulse born nearest the ceiling goes in the impulse's direction).
 
 **Owner-specific doctrine** (spec E7 addendum + addendum 2, from the live
 BTC 15m case): a **counter-trend ascending channel INSIDE a bearish macro
@@ -277,10 +325,13 @@ Rules:
 
 ## Open questions (owner)
 
-1. **OQ1 — channel validity**: E7 requires ≥ 3 respected touches total. Is
-   3 the number, and does it need a distribution across both lines (e.g. at
-   least 2 on the line you trade and 1 on the opposite), or do 3 touches on
-   one line alone validate the channel?
+1. **OQ1 — channel validity** (PARTIALLY ANSWERED 2026-07-11 late: the
+   POINTS are what matters, and asymmetric touch distribution is EXPECTED —
+   more floor touches in a bull channel). Remaining to quantify: minimum
+   touches per line for validity (e.g. ≥ 2 on the traded line + ≥ 1
+   opposite?), the asymmetry ratio, and whether "máximos menores" means
+   fewer ceiling touches (provisional reading) or shrinking highs (would be
+   a wedge — different pattern).
 2. **OQ2 — H&S timeframe floor**: catalog proposes H&S / inverted H&S on
    **4h and up only** (structure size + the Konkorde volume leg is banned
    below 4h per §0.3). Confirm, or should Snipper (1h, §H) also tag/trade
