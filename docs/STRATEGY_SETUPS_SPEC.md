@@ -748,6 +748,168 @@ konkorde_marron = [-0.3, 0.9]
 Expected: **no entry signal**; `veto_reasons = ["no_adx_turn_confirmation"]` —
 freshness alone is not enough, the move must be "bien marcado".
 
+### B.3.1 — M1 `false_entry_watch`: AO×ADX false-entry monitor (owner addendum, 2026-07-11)
+
+**Owner's words (verbatim, 2026-07-11)**: "El AO pasa de su punto 0; si no
+hay giro condicionado de ADX para confirmar impulso, confirma falsa entrada.
+Le damos 5 velas de giro: si cambió y el ADX no giró favorable confirmando,
+le damos ~70% de probabilidades de impulso contrario y de vuelta a pasar el
+punto cero. O sea: viene y pasó 0 alcista pero el ADX no tuvo 90 grados de
+giro; si el AO sigue con velas verdes y no gira apenas complete las primeras
+2 velas seguidas, lo más seguro es que el giro sería para impulso bajista y
+fue falsa. **Es lo que más monitoreamos.** Esto podemos orientarlo."
+
+**What this is**: the V2 doctrine (an AO zero-cross not confirmed by an ADX
+turn is not tradable) promoted from a passive entry veto to an **active,
+alertable monitor**. V1/V2 only speak when a setup trigger fires; M1 watches
+EVERY AO zero-cross on the monitored TFs and adjudicates it. This is the
+owner's primary chart-watching activity, so it is a first-class **F1 watcher
+requirement** — same tier as guardian-retracement alerts (§F).
+
+**Evidence context (F0 gate, 2026-07-11 — `docs/F0_GATE_ANALYSIS.md` §3)**:
+the ADX-confirmation doctrine (V2) is the veto the PB-1D counterfactual
+VALIDATED (w5 vetoed subset −0.46R vs accepted +0.51R). The freshness veto
+(V1) INVERTED on IMP-4H — chasing fresh AO crosses is that family's failure
+mode. M1 formalises exactly the doctrine with evidence behind it, and its
+per-TF false-entry rates are the calibration data Q17 asks for.
+
+**Inputs** (per symbol × TF × direction; closed candles only): `ao`, `adx14`,
+`plus_di`, `minus_di`. Every state is derivable **statelessly** from the
+series at evaluation time — no persisted watch state, matching the engine's
+recompute pattern.
+
+**Definitions** (bullish case; bearish is the strict mirror):
+
+* **cross** — `ao_zero_cross_up` fired at closed candle `t0`
+  (`zero_cross_age(ao, direction="up", confirm_bars=1)`, §E2 semantics).
+* **favorable turn** — `adx_turn_up_bullish` (E1, grade A or B) firing on any
+  closed candle `c` with `t0 <= c <= t0 + confirm_candles`. Note the window
+  runs FORWARD from the cross; V2's `confirm_window` runs backward from the
+  trigger candle — related but distinct checks.
+* **AO green candle** — `ao_rising` on that closed candle (`ao[i] > ao[i-1]`)
+  [interpretation: TradingView paints the AO bar green when it rises, which
+  is the color the owner reads]. Post-cross candles only — the cross candle
+  itself does not count toward the 2-candle checkpoint [interpretation].
+
+**State machine** (evaluated at every closed candle):
+
+| State | Condition | Emits |
+|---|---|---|
+| `WATCHING` | cross fired, `event_age < confirm_candles`, no favorable turn yet, AO has not re-crossed zero | — |
+| `WATCHING` + `early_warning` | the first `early_warning_candles = 2` **consecutive** green AO closed candles post-cross complete (earliest at age 2) AND still no favorable turn — the owner's "apenas complete las primeras 2 velas seguidas": momentum keeps printing but strength is not igniting | `false_entry_watch` alert, severity `early` |
+| `CONFIRMED` (terminal) | favorable turn fired within the window | info event; V2 is simultaneously satisfied for any setup trigger |
+| `FALSE_ENTRY_PROBABLE` (terminal for the watch; opens outcome tracking) | `event_age == confirm_candles` (5) reached with no favorable turn | `false_entry_watch` alert, severity `adjudicated`, `p_false = 0.70` — expected outcome: contrary impulse and AO re-cross of zero |
+| `WHIPSAW` (terminal) | AO re-crossed zero (opposite direction) at age `< confirm_candles`, before adjudication | counted only — a de-facto false entry that already resolved; no prediction value |
+
+Outcome tracking after `FALSE_ENTRY_PROBABLE` (backtest/calibration only —
+no live alerts):
+
+| Resolution | Condition (within `resolution_horizon` closed candles) | Meaning |
+|---|---|---|
+| `RESOLVED_FALSE` | AO re-crosses zero | prediction HIT |
+| `RESOLVED_LATE_CONFIRM` | favorable turn fires late | prediction MISS (late impulse) |
+| `EXPIRED` | horizon elapses, neither happened | prediction MISS (chop, no contrary impulse) |
+
+**Directional table**:
+
+| Cross | Favorable turn (confirmation) | Contrary prediction on failure |
+|---|---|---|
+| `ao_zero_cross_up` | `adx_turn_up_bullish` | bearish impulse, AO re-cross down |
+| `ao_zero_cross_down` | `adx_turn_up_bearish` | bullish impulse, AO re-cross up |
+
+(For a bearish cross the confirmation is ADX **igniting** with −DI dominant —
+`adx_turn_up_bearish`. `adx_turn_down` is strength collapsing and never
+confirms anything.)
+
+**Parameters**:
+
+| Param | Default | Notes |
+|---|---|---|
+| `confirm_candles` | 5 | owner-fixed ("le damos 5 velas de giro"). Deliberately equal to V2 `confirm_window = 5` (§E Q10) — keep the two coupled unless the backtest shows they should diverge **[calibrable]** |
+| `early_warning_candles` | 2 | owner ("las primeras 2 velas seguidas"); consecutive same-direction AO candles post-cross |
+| `p_false_prior` | 0.70 | owner PRIOR, not a measured statistic — see Q17 |
+| `resolution_horizon` | 10 | closed candles; analyst provisional, outcome resolution only **[calibrable]** |
+| `confirm_bars` (cross) | 1 | same zero-cross event semantics as E2/E3 |
+
+**TF scope**: provisionally ALL four operative TFs (`1h/4h/1d/1w`, §H). AO
+and ADX are both-band elements (§0.3), so the band table permits M1
+everywhere. See Q16.
+
+**Emissions**:
+
+1. **As veto — nothing new**: V2 already encodes the passive side. A setup
+   trigger landing while M1 has no favorable turn is vetoed by V2 exactly as
+   before; M1 adds no second veto (no double counting in `veto_reasons[]`).
+2. **As alert (F1 watcher)** — event `false_entry_watch` on transitions to
+   `early_warning`, `FALSE_ENTRY_PROBABLE` and `CONFIRMED`. Payload:
+   `{symbol, timeframe, direction, state, severity, cross_ts, event_age,
+   consecutive_ao_candles, adx_turn: {fired, age, grade} | null, p_false,
+   rule_version}`.
+3. **Candidate orientation ("esto podemos orientarlo")**: an adjudicated
+   `FALSE_ENTRY_PROBABLE` is candidate *evidence* for an OPPOSITE-side setup
+   (contrary impulse expected, p≈0.70). PARKED: never a standalone trigger;
+   requires its own backtest gate like every other rule.
+
+**Mapping to existing primitives** (`src/controllers/metrics/setup_service.py`):
+
+| Need | Primitive | Status |
+|---|---|---|
+| cross detection + age (the watch clock) | `zero_cross_age(series, direction, confirm_bars)` :366 | exists |
+| favorable turn + A/B grade | `adx_turn_fired_within(...)` :160 | exists, but its window is measured BACKWARD from the evaluation candle; M1 needs the forward-from-cross variant (turn fired at `c ∈ [t0, t0+5]`) — small extension |
+| AO candle color | `ao_rising` :354 / `ao_falling` :358 | exists; needs an "n consecutive post-cross" counter on top |
+| state derivation | — | missing: `false_entry_state(ao, adx14, plus_di, minus_di, direction, params) -> state + payload`, a pure function of closed series |
+| alert plumbing | — | missing: the F1 watcher does not exist yet; M1 is a primary requirement for it |
+| calibration counters | — | missing in `BacktestService`: per-state counts + realized false-entry rate (`RESOLVED_FALSE` / adjudicated) vs `p_false_prior`, stratified by TF and setup family (Q17) |
+
+**Golden cases** (defaults above; `adx14` series have `plus_di > minus_di`
+throughout; all series end on the same closed candle):
+
+**M1-G1 — the owner's canonical case → FALSE_ENTRY_PROBABLE**
+
+```
+ao    = [-0.5, 0.4, 0.8, 1.1, 1.3, 1.6, 1.8]
+adx14 = [24.6, 24.7, 24.8, 24.9, 25.0, 25.1, 25.2, 25.3, 25.4]
+```
+
+* Cross up at index 1; evaluated at index 6 → `event_age = 5`.
+* ADX constant slope 0.1 pts/bar → bend 0 → no turn ever fires (level 25.4
+  is irrelevant: level ≠ turn, FE-G1 doctrine).
+* `early_warning` fired at index 3 (indexes 2 and 3 both rising = the first
+  2 consecutive green candles post-cross, age 2).
+* At age 5: **state = `FALSE_ENTRY_PROBABLE`**, `p_false = 0.70` → alert.
+
+**M1-G2 — confirmed impulse → CONFIRMED**
+
+```
+ao    = [-0.5, 0.4, 0.8, 1.1, 1.3]
+adx14 = [18, 18, 18, 18, 18, 18, 18.5, 21.5, 24.5]   (plus_di 28 / minus_di 15)
+```
+
+* Cross up at index 1 (age 3 at evaluation); `adx_turn_up_bullish` (= E1-G1)
+  fires on the last closed candle = 3 candles after the cross ≤ 5.
+* **State = `CONFIRMED`** — info event only; a setup trigger here would pass V2.
+
+**M1-G3 — fast whipsaw → WHIPSAW**
+
+```
+ao = [-0.5, 0.3, 0.1, -0.2, -0.6]
+```
+
+* Cross up at index 1; re-cross down at index 3 (age 2 < 5) → **state =
+  `WHIPSAW`** — counted as de-facto false entry, no adjudication alert.
+
+**M1-G4 — early warning isolate (watch still open)**
+
+```
+ao    = [-0.5, 0.4, 0.9, 1.5]
+adx14 = [20, 20, 20, 20, 20, 20, 20, 20, 20]
+```
+
+* Cross at index 1; at index 3 the first 2 consecutive green candles
+  complete (age 2 < 5), no turn yet → **state = `WATCHING`,
+  `early_warning = true`** — `severity: early` alert fired, adjudication
+  still pending.
+
 ---
 
 ## C. Phase-0 gate: what the multi-TF backtest must report
