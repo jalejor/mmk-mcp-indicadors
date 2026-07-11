@@ -155,6 +155,42 @@ complementary context condition.
 | E1-G3 | `[15, 15, 15, 15, 15, 15, 15.3, 15.6, 16.2]` | 20 / 18 | `adx_turn_up = false` | slope_recent=(16.2−15)/3=**0.4**<1.0 — bend too weak |
 | E1-G4 | `[32, 31.5, 31, 30.5, 30, 29.5, 28, 25, 22]` | 15 / 28 | `adx_turn_down = true` | slope_recent=(22−29.5)/3=**−2.5**≤−1.0; slope_prior=(29.5−32)/5=**−0.5**; delta=(−0.5)−(−2.5)=**2.0**≥1.5 |
 
+#### E1 addendum (2026-07-11) — turn taxonomy: minor V / inverted V vs major turns
+
+**Owner's words**: ADX reads **impulses and retracements**. 90-degree turns
+that are **MINOR with a V shape** = start of an impulse; **inverted V** (Λ) =
+termination of the impulse. **MAJOR turns** = trend continuation, OR a false
+breakout when the ADX sits around **~20 points**.
+
+Interpretation (analyst — confirm via Q13):
+
+* **V shape** = ADX pivot low + sharp rise → maps to `adx_turn_up`; the
+  pivot is the `origin_level` already graded A/B by the 2026-07-06
+  refinement (§E).
+* **Inverted V** = ADX peak + sharp fall → maps to `adx_turn_down` = impulse
+  termination. Already used by the setups' invalidations; this addendum
+  names it doctrine ("terminación"), not just a cancel condition.
+* **MINOR vs MAJOR** is provisionally read as **turn amplitude** (ADX points
+  travelled around the pivot): minor = a small, sharp bend after a shallow
+  dip (strength briefly resets, then a new impulse leg is born); major = a
+  deep, long bend. Alternative readings — duration in bars, or origin
+  level — are plausible; the classifier dimension is Q13 and no detector
+  changes until it is quantified.
+* **The ~20-point ambiguity**: a MAJOR turn originating around 20 does not
+  disambiguate continuation from false breakout by itself — require
+  confluence before trusting it (E5 regime ON, Konkorde state agreeing, M1
+  §B.3.1 not in `FALSE_ENTRY_PROBABLE` on the same TF).
+* **Tension flagged**: the A-grade origin band is `[12, 20]` (sweet spot 16,
+  §E 2026-07-06), while this dictation marks ~20 as the ambiguous zone. If
+  Q13 lands on amplitude+origin classes, the A-grade upper edge may need
+  tightening (e.g. `[12, 18]`) — a `rule_version` bump with its own backtest
+  A/B, not a change now (the A/B-grade stratification is currently
+  inconclusive anyway, `docs/F0_GATE_ANALYSIS.md` §4).
+
+No change to the `adx_turn` detector in this addendum — it already fires on
+both shapes; what is missing is the **minor/major classification dimension**,
+parked until Q13 quantifies it.
+
 ---
 
 ### E2 — `ao_divergence` / `ao_convergence`: AO vs price
