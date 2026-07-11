@@ -1,5 +1,8 @@
 # Trading Patterns Catalog — price structures the owner trades
 
+> **Source of truth**: the LIVE, editable pattern catalog resides in **mmk-api** (`GET/PATCH /v1/patterns`, collection `patterns` in mmk-db) — that is what the owner feeds and what the journal validates tags against. This document is the **detection-engineering annex**: how each pattern maps to engine primitives and what it would take to detect it. Owner decision 2026-07-11.
+
+
 | | |
 |---|---|
 | **catalog_version** | `0.1.0` |
