@@ -1336,3 +1336,49 @@ stronger than a normal one-step transition: treat blue->yellow/red as explosive
 expansion ignition (top-grade awakening signal), and yellow/red->blue collapse
 as regime death. Golden case: 15 -> 62 in one candle emits zone_jump
 blue->yellow (not two sequential changes).
+
+---
+
+## H. ORCHESTRATOR — INVESTOR PROFILES (owner, 2026-07-11)
+
+mmk is an **orchestrator of trading**: one strategy engine (this spec),
+multiple brokers, multiple investor **profiles**. A profile binds a leverage
+tier to a timeframe zoom. Owner's rule, verbatim: "entre más grande el zoom,
+menos apalancamiento" — the wider the timeframe, the lower the leverage.
+
+| Profile | Leverage | Operating TF | Horizon | Guardian TF (§F) |
+|---|---|---|---|---|
+| **Ancient** | 0x (spot) | 1d / 1w | long | 1w (for 1d trades) |
+| **Pro** | 5x | 4h | medium | 1d |
+| **Snipper** | 10x | 1h | short | 4h |
+
+* **Operative TF set = `{1h, 4h, 1d, 1w}`.** 1h formally ENTERS the
+  operative set (until now only 4h/1d carried setups). This settles the
+  operational side of Q6: 1h IS operated — but the band rules (§0.3) are
+  UNCHANGED: on 1h only low-band elements apply (BBWP + AO + ADX, no
+  Konkorde) unless the 1h-full+E6 variant C (§E, 2026-07-06 late) later
+  validates through its own gate. Snipper therefore requires a `low_tf` 1h
+  rule set to be specified and gated — the first real consumer of the band
+  machinery shipped in F0. No such family exists yet.
+* **Brokers**: Bitget + Bitunix. The broker × asset availability/fee matrix
+  is being assembled by devops → `docs/BROKER_MATRIX.md` (pending; reference
+  it, do not duplicate it here). The backtest fee/slippage configs (§E Q9)
+  must pick up per-broker numbers from that matrix when it lands.
+* **Universe**: BTC, ETH, SOL, gold, silver, SP500, USD/COP, oil. Crypto
+  flows through ccxt; the non-crypto assets REQUIRE the multi-market
+  DataProvider abstraction (§G item 3) — promoted from "phase-2 idea" to a
+  structural dependency of this section. Execution on non-crypto markets
+  stays out of scope until a broker in the matrix covers it.
+* **Gates UNCHANGED (hard rule)**: the council's F0→F3 gates apply per
+  profile AND per setup family. **Any leverage > 0x is an F3+ decision
+  behind the live-tiny gate**: Pro/Snipper run F0 backtest → F1 alerts → F2
+  paper with SIMULATED leverage (funding and liquidation modelled — §E7
+  variant D discipline) before any real margin. Ancient (0x spot) is the
+  only profile that can reach live first. Leverage never changes signal
+  logic — same rules, same vetoes — it only changes sizing/risk via
+  `sizing_profiles` (live↔backtest parity preserved).
+* **Status vs gates (2026-07-11)**: PB-1D majors (Ancient territory) is the
+  only family with a ratified path to F1 (modified gate,
+  `docs/F0_GATE_ANALYSIS.md`). Nothing Pro or Snipper would trade has passed
+  any gate (IMP-4H parked pending trigger redesign; no 1h family specified).
+  **The profile table is a target topology, not a green light.**
