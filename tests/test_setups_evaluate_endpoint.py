@@ -306,3 +306,37 @@ def test_m1_monitor_runs_on_1h_frame(monkeypatch):
     # cross candle close = open of the cross candle + 1h.
     expected_close = (index[-1 - 5] + pd.Timedelta(hours=1)).isoformat()
     assert up_1h["cross_candle_ts"] == expected_close
+
+
+def test_m1_stale_false_entry_with_recent_recross_is_not_emitted(monkeypatch):
+    # Old up cross adjudicated long ago (terminal_age >> 6) BUT a recent
+    # non-whipsaw down re-cross set whipsaw_age. The emit gate must key off the
+    # FALSE_ENTRY_PROBABLE terminal age (event_age - 5), not whipsaw_age.
+    n = 60
+    index = pd.date_range("2026-03-01", periods=n, freq="1h", tz="UTC")
+    ao = np.full(n, 1.0)          # long positive stretch (old up cross ~age 40)
+    ao[:20] = -0.5               # the up cross is far back
+    ao[-3:] = [-0.2, 0.3, 0.5]   # a fresh down dip then back up (recent re-cross)
+    adx = np.full(n, 20.0)
+    frame_1h = pd.DataFrame(
+        {
+            "open": 100.0, "high": 100.5, "low": 99.5, "close": 100.0, "volume": 1000.0,
+            "sma200": 90.0, "sma50": 95.0, "ema50": 96.0, "ema200": 92.0,
+            "adx14": adx, "plus_di": 28.0, "minus_di": 15.0,
+            "ao": ao, "bbwp": 60.0, "atr14": 2.0, "konkorde_marron": 5.0,
+        },
+        index=index,
+    )
+    frames = {"1d": _frame_1d(), "4h": _frame_4h(stale_ao=False), "1h": frame_1h}
+    monkeypatch.setattr(
+        SetupEvaluationService, "_enriched_frame",
+        lambda self, timeframe: frames[timeframe],
+    )
+    client = _client(monkeypatch)
+    monitors = _m1(client.get(
+        "/v1/setups/evaluate", params={"symbol": "BTC/USDT"}, headers={"X-API-Key": API_KEY}
+    ).json())
+    up_1h = monitors.get(("1h", "up"))
+    # Either absent, or if present it must not be a stale FALSE_ENTRY_PROBABLE.
+    if up_1h is not None:
+        assert not (up_1h["state"] == "FALSE_ENTRY_PROBABLE" and up_1h["event_age"] > 11)

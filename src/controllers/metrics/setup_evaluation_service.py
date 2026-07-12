@@ -35,7 +35,9 @@ from .market_data_service import DEFAULT_EXCHANGE, MarketDataService
 from .setup_definitions import Condition, SetupDefinition
 from .setup_service import (
     FALSE_ENTRY_DEFAULTS,
+    FE_CONFIRMED,
     FE_WATCHING,
+    FE_WHIPSAW,
     TIMEFRAME_SECONDS,
     SetupEvaluation,
     SetupService,
@@ -181,14 +183,18 @@ class SetupEvaluationService:
     @staticmethod
     def _m1_should_emit(fe) -> bool:
         """Active watches always; terminal states only while fresh (so the 4h
-        scheduler catches the adjudication and stale crosses drop off)."""
+        scheduler catches the adjudication and stale crosses drop off).
+
+        The terminal age is derived from the state itself — a FALSE_ENTRY_PROBABLE
+        with an old cross must NOT look fresh just because a late (non-whipsaw)
+        opposite re-cross set `whipsaw_age`."""
         if fe.state == FE_WATCHING:
             return True
-        if fe.adx_turn is not None:                      # CONFIRMED
-            terminal_age = fe.adx_turn["age"]
-        elif fe.whipsaw_age is not None:                 # WHIPSAW
-            terminal_age = fe.whipsaw_age
-        else:                                            # FALSE_ENTRY_PROBABLE
+        if fe.state == FE_CONFIRMED:
+            terminal_age = fe.adx_turn["age"] if fe.adx_turn else 0
+        elif fe.state == FE_WHIPSAW:
+            terminal_age = fe.whipsaw_age if fe.whipsaw_age is not None else 0
+        else:  # FALSE_ENTRY_PROBABLE: adjudicated confirm_candles after the cross
             terminal_age = fe.event_age - FALSE_ENTRY_DEFAULTS.confirm_candles
         return terminal_age <= _M1_TERMINAL_MAX_AGE
 
