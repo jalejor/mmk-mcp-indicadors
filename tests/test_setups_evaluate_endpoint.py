@@ -308,6 +308,39 @@ def test_m1_monitor_runs_on_1h_frame(monkeypatch):
     assert up_1h["cross_candle_ts"] == expected_close
 
 
+def test_m1_monitor_runs_on_30m_frame(monkeypatch):
+    # 30m entered the operative set (owner 2026-07-12); same M1-G1 behaviour
+    # as 1h (low band: BBWP+AO+ADX, no Konkorde).
+    n = 40
+    index = pd.date_range("2026-03-01", periods=n, freq="30min", tz="UTC")
+    ao = np.full(n, -0.5)
+    ao[-6:] = [0.4, 0.8, 1.1, 1.3, 1.6, 1.8]   # cross up at age 5, all rising
+    adx = np.linspace(24.6, 25.4, n)            # constant slope -> no turn
+    frame_30m = pd.DataFrame(
+        {
+            "open": 100.0, "high": 100.5, "low": 99.5, "close": 100.0, "volume": 1000.0,
+            "sma200": 90.0, "sma50": 95.0, "ema50": 96.0, "ema200": 92.0,
+            "adx14": adx, "plus_di": 28.0, "minus_di": 15.0,
+            "ao": ao, "bbwp": 60.0, "atr14": 2.0, "konkorde_marron": 5.0,
+        },
+        index=index,
+    )
+    frames = {"1d": _frame_1d(), "4h": _frame_4h(stale_ao=False), "30m": frame_30m}
+    monkeypatch.setattr(
+        SetupEvaluationService, "_enriched_frame",
+        lambda self, timeframe: frames[timeframe],
+    )
+    client = _client(monkeypatch)
+    body = _get(client).json()
+
+    up_30m = _m1(body)[("30m", "up")]
+    assert up_30m["state"] == "FALSE_ENTRY_PROBABLE"
+    assert up_30m["event_age"] == 5
+    assert up_30m["p_false"] == 0.70
+    expected_close = (index[-1 - 5] + pd.Timedelta(minutes=30)).isoformat()
+    assert up_30m["cross_candle_ts"] == expected_close
+
+
 def test_m1_stale_false_entry_with_recent_recross_is_not_emitted(monkeypatch):
     # Old up cross adjudicated long ago (terminal_age >> 6) BUT a recent
     # non-whipsaw down re-cross set whipsaw_age. The emit gate must key off the

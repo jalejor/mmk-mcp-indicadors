@@ -45,9 +45,10 @@ from .setup_service import (
     _EVENT_STALE_REASON,
 )
 
-# M1 runs on the four operative TFs (spec §B.3.1 / §H). AO and ADX are
-# both-band elements, so the band table permits M1 everywhere.
-_M1_OPERATIVE_TFS = ("1h", "4h", "1d", "1w")
+# M1 runs on the five operative TFs (spec §B.3.1 / §H; 30m entered the
+# operative set, owner 2026-07-12). AO and ADX are both-band elements, so the
+# band table permits M1 everywhere (30m is low band: BBWP+AO+ADX, no Konkorde).
+_M1_OPERATIVE_TFS = ("30m", "1h", "4h", "1d", "1w")
 # Keep a terminal monitor visible for a few candles after adjudication so the
 # 4h scheduler (max gap 4 candles on 1h) never misses it; the F1 watcher
 # dedups by cross_candle_ts, so re-emitting is harmless.
