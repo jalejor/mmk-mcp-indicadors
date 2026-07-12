@@ -120,3 +120,50 @@ def test_backtest_no_overlapping_trades(monkeypatch):
         open_count += delta
         assert open_count <= svc.max_concurrent_positions
         assert open_count >= 0
+
+
+# ---------------------------------------------------------------------------
+# E13 — legacy backtest pagination must use limit=200 (bitget history-candles)
+# ---------------------------------------------------------------------------
+
+class _FakeExchange:
+    """Records the `limit` used and serves `since`-anchored windows."""
+
+    def __init__(self, candles: List[list]):
+        self._candles = candles
+        self.limits_seen: List[int] = []
+
+    def fetch_ohlcv(self, symbol, timeframe, since, limit):
+        self.limits_seen.append(limit)
+        window = [row for row in self._candles if row[0] >= since]
+        return window[:limit]
+
+
+class _FakeMarketSvc:
+    def __init__(self, exchange):
+        self.exchange = exchange
+
+
+def test_e13_backtest_pagination_uses_limit_200_gap_free(monkeypatch):
+    base = int(datetime(2025, 1, 1, tzinfo=timezone.utc).timestamp() * 1000)
+    step = 3_600_000  # 1h in ms
+    candles = [[base + i * step, 100.0, 101.0, 99.0, 100.0, 10.0] for i in range(500)]
+    exchange = _FakeExchange(candles)
+
+    start = datetime.fromtimestamp(candles[0][0] / 1000, tz=timezone.utc)
+    end = datetime.fromtimestamp(candles[-1][0] / 1000, tz=timezone.utc) + timedelta(seconds=1)
+    svc = BacktestService(
+        symbol="BTC/USDT", timeframe="1h", exchange="bitget",
+        start=start, end=end, initial_capital=10000.0,
+        risk_per_trade_pct=1.5, warmup_bars=10,
+    )
+
+    df = svc._fetch_paginated(_FakeMarketSvc(exchange), start)
+
+    # The fix: every page requests 200, never 1000.
+    assert exchange.limits_seen, "pagination never called the exchange"
+    assert all(limit == 200 for limit in exchange.limits_seen)
+    assert len(exchange.limits_seen) >= 3  # 500 rows / 200 => >= 3 pages
+    # Gap-free: every candle collected, in order.
+    assert len(df) == 500
+    assert list(df["timestamp"]) == [row[0] for row in candles]

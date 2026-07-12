@@ -456,7 +456,13 @@ class BacktestService:
         timeframe_ms = _TIMEFRAME_MS.get(self.timeframe, 60 * 60_000)
         since_ms = int(since_dt.timestamp() * 1000)
         end_ms = int(self.end.timestamp() * 1000)
-        limit = 1000  # ccxt safe upper bound for most exchanges
+        # 200, NOT 1000 (known-errors E13): for ranges beyond its recent
+        # window bitget routes `since` to the history-candles endpoint, which
+        # serves at most 200 rows ending at `since + limit * duration`. With
+        # limit=1000 that silently ignores `since` (returns only the latest
+        # ~200 candles) or opens a gap; with limit=200 bitget honours `since`
+        # exactly, so forward pagination is gap-free (matches SetupBacktestService).
+        limit = 200
         all_rows: List[List[Any]] = []
         cursor = since_ms
 
