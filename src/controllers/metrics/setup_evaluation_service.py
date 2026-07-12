@@ -34,11 +34,22 @@ from .indicators_service import IndicatorsService
 from .market_data_service import DEFAULT_EXCHANGE, MarketDataService
 from .setup_definitions import Condition, SetupDefinition
 from .setup_service import (
+    FALSE_ENTRY_DEFAULTS,
+    FE_WATCHING,
     TIMEFRAME_SECONDS,
     SetupEvaluation,
     SetupService,
+    false_entry_state,
     _EVENT_STALE_REASON,
 )
+
+# M1 runs on the four operative TFs (spec §B.3.1 / §H). AO and ADX are
+# both-band elements, so the band table permits M1 everywhere.
+_M1_OPERATIVE_TFS = ("1h", "4h", "1d", "1w")
+# Keep a terminal monitor visible for a few candles after adjudication so the
+# 4h scheduler (max gap 4 candles on 1h) never misses it; the F1 watcher
+# dedups by cross_candle_ts, so re-emitting is harmless.
+_M1_TERMINAL_MAX_AGE = 6
 
 # Same depth as /v1/metrics: enough warmup for sma200 and the Konkorde
 # EMA(255)/rolling(90) stack while staying inside one ccxt page.
@@ -105,7 +116,81 @@ class SetupEvaluationService:
             "rule_version": setups[0].rule_version,
             "evaluated_at": datetime.now(tz=timezone.utc).isoformat(),
             "setups": [self._evaluate_one(setup, frames) for setup in setups],
+            # ADDITIVE (spec §B.3.1): does not touch `setups`. Existing consumers
+            # (dashboard /estrategia, F1 watcher) keep parsing `setups` as before.
+            "monitors": {"false_entry_watch": self._false_entry_monitors(frames)},
         }
+
+    # ------------------------------------------------------------------
+    # M1 false_entry_watch monitor (spec §B.3.1)
+    # ------------------------------------------------------------------
+    def _false_entry_monitors(self, frames: Dict[str, pd.DataFrame]) -> List[Dict[str, Any]]:
+        """One entry per (operative TF, direction) with an active or freshly
+        adjudicated AO zero-cross watch. Never raises — a missing/short TF frame
+        is skipped so M1 can never break the evaluate contract."""
+        entries: List[Dict[str, Any]] = []
+        for tf in _M1_OPERATIVE_TFS:
+            try:
+                frame = frames.get(tf)
+                if frame is None:
+                    frame = self._enriched_frame(tf)
+                    frames[tf] = frame  # memoise within this evaluate() call
+                if frame.empty:
+                    continue
+                for direction in ("up", "down"):
+                    entry = self._false_entry_entry(tf, direction, frame)
+                    if entry is not None:
+                        entries.append(entry)
+            except Exception:  # pragma: no cover - defensive: bad/short TF data
+                continue
+        return entries
+
+    def _false_entry_entry(
+        self, timeframe: str, direction: str, frame: pd.DataFrame
+    ) -> Optional[Dict[str, Any]]:
+        fe = false_entry_state(
+            frame.get("ao"),
+            frame.get("adx14"),
+            frame.get("plus_di"),
+            frame.get("minus_di"),
+            direction=direction,
+            params=FALSE_ENTRY_DEFAULTS,
+        )
+        if fe.state is None:
+            return None
+        if not self._m1_should_emit(fe):
+            return None
+
+        # cross close time: the tail is NaN-free after warmup, so the cross's
+        # position from the end equals event_age on both the full and dropna'd
+        # series. The index holds candle OPEN times; close = open + duration.
+        cross_open = frame.index[-1 - fe.event_age]
+        cross_close = cross_open + pd.Timedelta(seconds=TIMEFRAME_SECONDS[timeframe])
+        return {
+            "timeframe": timeframe,
+            "direction": direction,
+            "state": fe.state,
+            "early_warning": fe.early_warning,
+            "event_age": fe.event_age,
+            "consecutive_ao_candles": fe.consecutive_ao_candles,
+            "adx_turn": fe.adx_turn,
+            "p_false": fe.p_false,
+            "cross_candle_ts": cross_close.isoformat(),
+        }
+
+    @staticmethod
+    def _m1_should_emit(fe) -> bool:
+        """Active watches always; terminal states only while fresh (so the 4h
+        scheduler catches the adjudication and stale crosses drop off)."""
+        if fe.state == FE_WATCHING:
+            return True
+        if fe.adx_turn is not None:                      # CONFIRMED
+            terminal_age = fe.adx_turn["age"]
+        elif fe.whipsaw_age is not None:                 # WHIPSAW
+            terminal_age = fe.whipsaw_age
+        else:                                            # FALSE_ENTRY_PROBABLE
+            terminal_age = fe.event_age - FALSE_ENTRY_DEFAULTS.confirm_candles
+        return terminal_age <= _M1_TERMINAL_MAX_AGE
 
     # ------------------------------------------------------------------
     # Per-setup evaluation + serialisation

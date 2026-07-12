@@ -21,7 +21,7 @@ from controllers.metrics.setup_evaluation_service import SetupEvaluationService
 
 API_KEY = "test-key"
 
-TOP_LEVEL_KEYS = {"symbol", "rule_version", "evaluated_at", "setups"}
+TOP_LEVEL_KEYS = {"symbol", "rule_version", "evaluated_at", "setups", "monitors"}
 SETUP_KEYS = {
     "setup_id", "side", "band", "context_tf", "trigger_tf", "status",
     "conditions", "vetoes", "adx_turn_grade", "evidence",
@@ -30,6 +30,11 @@ CONDITION_KEYS = {"name", "passed", "value"}
 VETO_KEYS = {"name", "hit", "detail"}
 EVIDENCE_KEYS = {"price", "bbwp", "ao", "adx", "konkorde_marron"}
 STATUSES = {"no_context", "context_ok", "triggered", "vetoed", "invalidated"}
+MONITOR_KEYS = {
+    "timeframe", "direction", "state", "early_warning", "event_age",
+    "consecutive_ao_candles", "adx_turn", "p_false", "cross_candle_ts",
+}
+M1_STATES = {"WATCHING", "CONFIRMED", "FALSE_ENTRY_PROBABLE", "WHIPSAW"}
 
 
 # ---------------------------------------------------------------------------
@@ -146,6 +151,10 @@ def test_contract_shape_is_complete(monkeypatch):
     evaluated_at = pd.Timestamp(body["evaluated_at"])
     assert evaluated_at.tzinfo is not None
 
+    # monitors is additive and always present (may be empty).
+    assert set(body["monitors"].keys()) == {"false_entry_watch"}
+    assert isinstance(body["monitors"]["false_entry_watch"], list)
+
     assert [s["setup_id"] for s in body["setups"]] == [
         "PB-1D-LONG", "PB-1D-SHORT", "IMP-4H-LONG", "IMP-4H-SHORT",
     ]
@@ -220,3 +229,80 @@ def test_imp_4h_long_vetoed_on_stale_ao_cross(monkeypatch):
     assert vetoes["no_adx_turn_confirmation"]["hit"] is False
     # V2 still ran and found the confirming turn (grade survives the veto).
     assert imp["adx_turn_grade"] == "A"
+
+
+# ---------------------------------------------------------------------------
+# M1 false_entry_watch monitor (spec §B.3.1) — additive `monitors` block
+# ---------------------------------------------------------------------------
+
+def _m1(body):
+    return {(m["timeframe"], m["direction"]): m for m in body["monitors"]["false_entry_watch"]}
+
+
+def test_m1_monitor_shape_and_confirmed_on_fresh_market(monkeypatch):
+    # Fresh 4h AO cross (age 2) + E1-G1 ADX turn on the last candle -> the turn
+    # lands inside [t0, t0+5] -> CONFIRMED (V2 satisfied, IMP-4H-LONG triggers).
+    _patch_frames(monkeypatch, stale_ao=False)
+    client = _client(monkeypatch)
+    body = _get(client).json()
+
+    monitors = body["monitors"]["false_entry_watch"]
+    assert monitors, "expected at least the 4h up watch"
+    for m in monitors:
+        assert set(m.keys()) == MONITOR_KEYS
+        assert m["timeframe"] in ("1h", "4h", "1d", "1w")
+        assert m["direction"] in ("up", "down")
+        assert m["state"] in M1_STATES
+        assert pd.Timestamp(m["cross_candle_ts"]).tzinfo is not None
+
+    up_4h = _m1(body)[("4h", "up")]
+    assert up_4h["state"] == "CONFIRMED"
+    assert up_4h["adx_turn"] == {"fired": True, "age": 0, "grade": "A"}
+    assert up_4h["p_false"] is None
+
+
+def test_m1_monitor_false_entry_probable_on_stale_cross(monkeypatch):
+    # AO crossed up 7 candles ago; the ADX turn (age 0) is 7 candles after the
+    # cross, OUTSIDE the 5-candle window -> not confirming -> FALSE_ENTRY_PROBABLE.
+    _patch_frames(monkeypatch, stale_ao=True)
+    client = _client(monkeypatch)
+    body = _get(client).json()
+
+    up_4h = _m1(body)[("4h", "up")]
+    assert up_4h["state"] == "FALSE_ENTRY_PROBABLE"
+    assert up_4h["event_age"] == 7
+    assert up_4h["p_false"] == 0.70
+    assert up_4h["adx_turn"] is None  # the late turn does not count
+
+
+def test_m1_monitor_runs_on_1h_frame(monkeypatch):
+    # Engineer a 1h frame as the owner's canonical M1-G1 false entry.
+    n = 40
+    index = pd.date_range("2026-03-01", periods=n, freq="1h", tz="UTC")
+    ao = np.full(n, -0.5)
+    ao[-6:] = [0.4, 0.8, 1.1, 1.3, 1.6, 1.8]   # cross up at age 5, all rising
+    adx = np.linspace(24.6, 25.4, n)            # constant slope -> no turn
+    frame_1h = pd.DataFrame(
+        {
+            "open": 100.0, "high": 100.5, "low": 99.5, "close": 100.0, "volume": 1000.0,
+            "sma200": 90.0, "sma50": 95.0, "ema50": 96.0, "ema200": 92.0,
+            "adx14": adx, "plus_di": 28.0, "minus_di": 15.0,
+            "ao": ao, "bbwp": 60.0, "atr14": 2.0, "konkorde_marron": 5.0,
+        },
+        index=index,
+    )
+    frames = {"1d": _frame_1d(), "4h": _frame_4h(stale_ao=False), "1h": frame_1h}
+    monkeypatch.setattr(
+        SetupEvaluationService, "_enriched_frame",
+        lambda self, timeframe: frames[timeframe],
+    )
+    client = _client(monkeypatch)
+    body = _get(client).json()
+
+    up_1h = _m1(body)[("1h", "up")]
+    assert up_1h["state"] == "FALSE_ENTRY_PROBABLE"
+    assert up_1h["event_age"] == 5
+    assert up_1h["p_false"] == 0.70
+    # cross candle close = open of the cross candle + 1h.
+    expected_close = (index[-1 - 5] + pd.Timedelta(hours=1)).isoformat()
+    assert up_1h["cross_candle_ts"] == expected_close
