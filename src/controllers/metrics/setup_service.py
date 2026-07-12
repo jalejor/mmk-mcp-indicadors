@@ -206,6 +206,51 @@ def adx_turn_fired_within(
     return None
 
 
+def adx_turn_fired_between(
+    adx: pd.Series,
+    plus_di: Optional[pd.Series],
+    minus_di: Optional[pd.Series],
+    *,
+    variant: str,
+    age_lo: int,
+    age_hi: int,
+    params: AdxTurnParams = ADX_TURN_DEFAULTS,
+) -> Optional[AdxTurnFire]:
+    """Most recent `adx_turn` fire of `variant` at an age in `[age_lo, age_hi]`.
+
+    Forward-from-cross variant used by M1 (spec §B.3.1): the favorable turn
+    must fire on a candle `c` with `t0 <= c <= t0 + confirm_candles`. In
+    age-from-last coordinates that window is `[age_cross - confirm_candles,
+    age_cross]`, clamped to `>= 0`. Unlike `adx_turn_fired_within` (which
+    always scans from age 0), this scans an arbitrary age band. Returns the
+    fire closest to the last candle (smallest age) or None.
+    """
+    age_lo = max(0, age_lo)
+    if age_hi < age_lo:
+        return None
+    for age in range(age_lo, age_hi + 1):
+        end = len(adx) - age
+        if end < params.turn_window + params.base_window + 1:
+            continue
+        result = adx_turn(
+            adx.iloc[:end],
+            plus_di.iloc[:end] if plus_di is not None else None,
+            minus_di.iloc[:end] if minus_di is not None else None,
+            params,
+        )
+        fired = {
+            "up": result.turn_up,
+            "down": result.turn_down,
+            "up_bullish": result.turn_up_bullish,
+            "up_bearish": result.turn_up_bearish,
+        }.get(variant)
+        if fired is None:
+            raise ValueError(f"Unknown adx_turn variant: {variant}")
+        if fired:
+            return AdxTurnFire(age=age, grade=result.grade, origin_level=result.origin_level)
+    return None
+
+
 # ---------------------------------------------------------------------------
 # E2 — AO divergence / convergence + zero-cross events
 # ---------------------------------------------------------------------------
@@ -398,6 +443,156 @@ def konkorde_positive(marron: pd.Series) -> bool:
 def konkorde_negative(marron: pd.Series) -> bool:
     values = marron.dropna()
     return len(values) > 0 and float(values.iloc[-1]) < 0
+
+
+# ---------------------------------------------------------------------------
+# M1 — false_entry_watch: AO x ADX false-entry monitor (spec §B.3.1)
+# ---------------------------------------------------------------------------
+#
+# The V2 doctrine (an AO zero-cross NOT confirmed by an ADX turn is not
+# tradable) promoted from a passive entry veto to an active, alertable
+# monitor. Pure function over closed series (stateless, recomputable): given
+# `ao/adx14/plus_di/minus_di` right-aligned on the same last candle, it
+# adjudicates the most recent AO zero-cross of `direction`.
+
+FE_WATCHING = "WATCHING"
+FE_CONFIRMED = "CONFIRMED"
+FE_FALSE_ENTRY_PROBABLE = "FALSE_ENTRY_PROBABLE"
+FE_WHIPSAW = "WHIPSAW"
+
+
+@dataclass(frozen=True)
+class FalseEntryParams:
+    confirm_candles: int = 5          # owner-fixed ("le damos 5 velas de giro")
+    early_warning_candles: int = 2    # "las primeras 2 velas seguidas"
+    p_false_prior: float = 0.70       # owner PRIOR, not a measured stat (Q17)
+    confirm_bars: int = 1             # zero-cross event semantics (E2/E3)
+    resolution_horizon: int = 10      # outcome resolution only (calibration)
+
+
+FALSE_ENTRY_DEFAULTS = FalseEntryParams()
+
+# direction -> (cross dir, opposite dir, favorable adx_turn variant, ao "green" test)
+_FE_DIRECTION = {
+    # bullish cross: green AO candle = rising; confirmation = adx igniting bullish.
+    "up": ("up", "down", "up_bullish", "rising"),
+    # bearish cross: green = falling; confirmation = adx igniting bearish
+    # (adx_turn_up_bearish). adx_turn_down is strength collapse, NEVER confirms.
+    "down": ("down", "up", "up_bearish", "falling"),
+}
+
+
+@dataclass(frozen=True)
+class FalseEntryState:
+    state: Optional[str]              # None (no active cross) | one of FE_*
+    direction: str
+    early_warning: bool
+    event_age: Optional[int]          # closed candles since the cross (0 = last)
+    consecutive_ao_candles: int       # initial run of same-direction AO candles
+    adx_turn: Optional[Dict[str, Any]]  # {"fired": True, "age", "grade"} | None
+    whipsaw_age: Optional[int]        # age of the opposite re-cross, if any
+    p_false: Optional[float]          # p_false_prior only for FALSE_ENTRY_PROBABLE
+
+
+def _ao_consecutive_run_after(ao: pd.Series, cross_age: int, *, kind: str) -> int:
+    """Length of the initial run of same-direction AO candles after the cross.
+
+    Post-cross candles only (the cross candle itself is excluded). `kind` is
+    "rising" (bullish green) or "falling" (bearish green). Stops at the first
+    candle that breaks the run — the owner reads "the FIRST 2 in a row".
+    """
+    n = len(ao)
+    cross_idx = n - 1 - cross_age
+    run = 0
+    for i in range(cross_idx + 1, n):
+        prev, cur = float(ao.iloc[i - 1]), float(ao.iloc[i])
+        stepped = cur > prev if kind == "rising" else cur < prev
+        if stepped:
+            run += 1
+        else:
+            break
+    return run
+
+
+def false_entry_state(
+    ao: pd.Series,
+    adx14: Optional[pd.Series] = None,
+    plus_di: Optional[pd.Series] = None,
+    minus_di: Optional[pd.Series] = None,
+    *,
+    direction: str = "up",
+    params: FalseEntryParams = FALSE_ENTRY_DEFAULTS,
+) -> FalseEntryState:
+    """Adjudicate the most recent AO zero-cross of `direction` (spec §B.3.1).
+
+    Stateless: every state is derived from the series at the evaluation
+    candle. Series must be right-aligned (same last closed candle); ao and
+    the adx trio may have different lengths (age is measured from the end).
+
+    States: None (no cross) | WATCHING (+early_warning) | CONFIRMED |
+    FALSE_ENTRY_PROBABLE | WHIPSAW.
+    """
+    if direction not in _FE_DIRECTION:
+        raise ValueError(f"Unknown false_entry direction: {direction}")
+    cross_dir, opposite_dir, adx_variant, ao_kind = _FE_DIRECTION[direction]
+
+    ao_clean = ao.dropna()
+    cross_age = zero_cross_age(ao_clean, direction=cross_dir, confirm_bars=params.confirm_bars)
+    if cross_age is None:
+        return FalseEntryState(
+            state=None, direction=direction, early_warning=False, event_age=None,
+            consecutive_ao_candles=0, adx_turn=None, whipsaw_age=None, p_false=None,
+        )
+
+    # Favorable turn anywhere in the forward window [t0, t0 + confirm_candles].
+    turn: Optional[AdxTurnFire] = None
+    if adx14 is not None:
+        turn = adx_turn_fired_between(
+            adx14, plus_di, minus_di,
+            variant=adx_variant,
+            age_lo=cross_age - params.confirm_candles,
+            age_hi=cross_age,
+        )
+    adx_turn_payload = (
+        {"fired": True, "age": turn.age, "grade": turn.grade} if turn is not None else None
+    )
+
+    # Opposite re-cross AFTER t0 (more recent than the cross).
+    opposite_age = zero_cross_age(ao_clean, direction=opposite_dir, confirm_bars=params.confirm_bars)
+    recrossed = opposite_age is not None and opposite_age < cross_age
+    whipsaw_age = opposite_age if recrossed else None
+
+    run = _ao_consecutive_run_after(ao_clean, cross_age, kind=ao_kind)
+
+    # Adjudication order: confirmation wins (impulse ignited); else a pre-
+    # adjudication re-cross is a resolved whipsaw; else the 5-candle clock.
+    if turn is not None:
+        state = FE_CONFIRMED
+        early = False
+        p_false = None
+    elif recrossed and (cross_age - opposite_age) < params.confirm_candles:
+        state = FE_WHIPSAW
+        early = False
+        p_false = None
+    elif cross_age >= params.confirm_candles:
+        state = FE_FALSE_ENTRY_PROBABLE
+        early = False
+        p_false = params.p_false_prior
+    else:
+        state = FE_WATCHING
+        early = run >= params.early_warning_candles
+        p_false = None
+
+    return FalseEntryState(
+        state=state,
+        direction=direction,
+        early_warning=early,
+        event_age=cross_age,
+        consecutive_ao_candles=run,
+        adx_turn=adx_turn_payload,
+        whipsaw_age=whipsaw_age,
+        p_false=p_false,
+    )
 
 
 # ---------------------------------------------------------------------------
