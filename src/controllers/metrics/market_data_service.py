@@ -9,11 +9,12 @@ closes, so a cache hit can never return a repainted/stale candle — the
 entry simply becomes unreachable and a fresh fetch happens.
 
 There is one cache *per timeframe*, each carrying its own TTL (the candle
-duration).  A single shared cache would inherit the TTL of whichever
-timeframe was requested *first* — a 1d/1w first request would then keep
-lower-TF data alive for hours/days (the P0 that left the M1 monitor blind
-for ~11h on 2026-07-13).  The candle-bound key makes staleness impossible
-regardless; the per-timeframe TTL just keeps eviction sensible.
+duration, capped at 6h).  A single shared cache would inherit the TTL of
+whichever timeframe was requested *first* — a 1d/1w first request would then
+keep lower-TF data alive for hours/days (the P0 that left the M1 monitor
+blind for ~11h on 2026-07-13).  The candle-bound key prevents staleness as
+long as the grid anchors below match the exchanges' real candle grids; the
+TTL cap bounds the damage if one ever drifts.
 
 A per-key `asyncio.Lock` would be ideal but ccxt is sync, so we settle for
 a coarse-grained `threading.Lock` to keep the cache thread-safe.  Cache
@@ -53,6 +54,32 @@ _TIMEFRAME_TO_SECONDS: Dict[str, int] = {
     "1w": 7 * 24 * 60 * 60,
 }
 
+# Candle grids are epoch-aligned for every intraday timeframe and for 1d
+# (verified empirically on both supported exchanges, 2026-07-14), but NOT for
+# every higher timeframe:
+#   - 1w opens Monday 00:00 UTC on binance and bitget (ccxt 4.2.97 maps bitget
+#     spot 1w -> 1Wutc). Epoch day zero (1970-01-01) was a Thursday, so the
+#     weekly grid is offset from the epoch by 4 days.
+#   - 3d is epoch-aligned on bitget (3Dutc) but offset by 1 day on binance.
+# A wrong anchor rotates the cache key at the wrong instant and lets a cache
+# hit serve a repainted candle until the TTL cap kicks in — keep this table in
+# sync with the exchanges' real grids.
+_GRID_ANCHOR_OFFSET_MS: Dict[str, int] = {
+    "1w": 4 * 24 * 60 * 60 * 1000,  # epoch Thursday -> Monday
+}
+_EXCHANGE_GRID_ANCHOR_OFFSET_MS: Dict[Tuple[str, str], int] = {
+    ("binance", "3d"): 24 * 60 * 60 * 1000,
+}
+
+
+def _grid_offset_ms(timeframe: str, exchange: Optional[str]) -> int:
+    """Grid anchor offset for ``timeframe`` (per-exchange override first)."""
+    if exchange is not None:
+        override = _EXCHANGE_GRID_ANCHOR_OFFSET_MS.get((exchange, timeframe))
+        if override is not None:
+            return override
+    return _GRID_ANCHOR_OFFSET_MS.get(timeframe, 0)
+
 
 class _CacheEntry:
     __slots__ = ("df", "lock")
@@ -68,17 +95,19 @@ def _now() -> float:
 
 
 def expected_last_closed_candle_ts(
-    timeframe: str, now: Optional[float] = None
+    timeframe: str, now: Optional[float] = None, exchange: Optional[str] = None
 ) -> Optional[int]:
     """Open timestamp (ms) of the most recent candle that has CLOSED at ``now``.
 
-    Exchange candles are epoch-aligned to their duration ``D``: a candle opened
-    at ``k*D`` closes at ``(k+1)*D``.  At wall-clock ``now`` the forming candle
-    opened at ``floor(now/D)*D``, so the last closed candle opened one duration
-    earlier.  This value is stable for the whole life of a candle and steps
-    forward the instant the next candle closes — exactly what a cache key needs
-    to self-invalidate.  Returns ``None`` for unknown timeframes (no alignment
-    to bind to).
+    Exchange candles live on a fixed grid of duration ``D`` anchored at offset
+    ``off`` (0 for epoch-aligned grids; see ``_GRID_ANCHOR_OFFSET_MS`` — e.g.
+    the weekly grid opens Monday 00:00 UTC, 4 days off the epoch).  At
+    wall-clock ``now`` the forming candle opened at
+    ``floor((now - off)/D)*D + off``, so the last closed candle opened one
+    duration earlier.  This value is stable for the whole life of a candle and
+    steps forward the instant the next candle closes — exactly what a cache
+    key needs to self-invalidate.  Returns ``None`` for unknown timeframes
+    (no grid to bind to).
     """
     duration_s = _TIMEFRAME_TO_SECONDS.get(timeframe)
     if duration_s is None:
@@ -86,8 +115,9 @@ def expected_last_closed_candle_ts(
     if now is None:
         now = _now()
     duration_ms = duration_s * 1000
+    offset_ms = _grid_offset_ms(timeframe, exchange)
     now_ms = int(now * 1000)
-    forming_open_ms = (now_ms // duration_ms) * duration_ms
+    forming_open_ms = ((now_ms - offset_ms) // duration_ms) * duration_ms + offset_ms
     return forming_open_ms - duration_ms
 
 
@@ -110,6 +140,11 @@ class MarketDataService:
     # (each with its own correct TTL); every cache is capped at 256 keys to
     # avoid unbounded memory growth in long-running processes.
     _CACHE_MAXSIZE = 256
+    # Belt-and-braces TTL cap: staleness is normally prevented by the
+    # candle-bound key, but if a grid anchor in _GRID_ANCHOR_OFFSET_MS were
+    # ever wrong for some exchange/timeframe, a stale entry could only outlive
+    # its candle until this cap — hours, never days.
+    _CACHE_TTL_CAP_S = 6 * 60 * 60
     _CACHES: Dict[str, "TTLCache[Tuple[str, str, str, int, Optional[int]], _CacheEntry]"] = {}
     _CACHE_LOCK = threading.Lock()
 
@@ -130,18 +165,18 @@ class MarketDataService:
     def _get_cache(cls, timeframe: str) -> Optional[Any]:
         """Return the shared TTL cache for ``timeframe``, lazily instantiated.
 
-        Each timeframe gets its own cache whose TTL is the candle duration, so
-        an entry is evicted about when the next candle closes.  Staleness is
-        prevented independently by binding the cache key to the expected
-        last-closed candle (see :meth:`get_ohlcv` / :func:`expected_last_closed_candle_ts`),
-        so even a generous TTL can never return a repainted candle.
+        Each timeframe gets its own cache whose TTL is the candle duration
+        (capped at ``_CACHE_TTL_CAP_S``), so an entry is evicted about when
+        the next candle closes.  Staleness is prevented independently by
+        binding the cache key to the expected last-closed candle (see
+        :meth:`get_ohlcv` / :func:`expected_last_closed_candle_ts`).
         """
         if TTLCache is None:
             return None
         with cls._CACHE_LOCK:
             cache = cls._CACHES.get(timeframe)
             if cache is None:
-                ttl = max(_TIMEFRAME_TO_SECONDS.get(timeframe, 3600), 60)
+                ttl = max(min(_TIMEFRAME_TO_SECONDS.get(timeframe, 3600), cls._CACHE_TTL_CAP_S), 60)
                 cache = TTLCache(maxsize=cls._CACHE_MAXSIZE, ttl=ttl)
                 cls._CACHES[timeframe] = cache
             return cache
@@ -179,8 +214,9 @@ class MarketDataService:
         # Bind the key to the candle that *should* be the last closed one right
         # now: the moment a new candle closes this component steps forward, the
         # previous entry becomes unreachable, and we re-fetch instead of serving
-        # a stale candle.
-        candle_ts = expected_last_closed_candle_ts(timeframe)
+        # a stale candle. The exchange matters: some grids (binance 3d) are
+        # anchored differently per exchange.
+        candle_ts = expected_last_closed_candle_ts(timeframe, exchange=self.exchange_name)
         key = (self.exchange_name, symbol, timeframe, int(limit), candle_ts)
         cache = self._get_cache(timeframe) if use_cache else None
 

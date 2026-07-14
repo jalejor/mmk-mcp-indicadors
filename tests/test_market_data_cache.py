@@ -115,6 +115,60 @@ def test_stale_candle_not_reused_after_close_despite_long_ttl(monkeypatch):
     assert fake.calls == calls_after_1d + 2
 
 
+def test_weekly_key_steps_at_monday_close_not_epoch_thursday():
+    """Weekly candles are NOT epoch-aligned: epoch day zero (1970-01-01) was a
+    Thursday, but binance and bitget (1Wutc) weekly candles open Monday
+    00:00 UTC. Without the Monday grid anchor the key buckets rotate on
+    Thursdays, so a frame cached on the weekend would keep serving a repainted
+    weekly candle for up to 3 days after the real Monday close (review finding
+    on the 2026-07-13 P0 fix). Timestamps below are real exchange weekly
+    candle opens (bitget 1Wutc == binance 1w).
+    """
+    from controllers.metrics.market_data_service import expected_last_closed_candle_ts
+
+    MON_2026_06_29 = 1782691200000  # real weekly open (ms)
+    MON_2026_07_06 = 1783296000000  # real weekly open (ms)
+
+    saturday = 1783765200.0       # Sat 2026-07-11 10:20 UTC — candle forming
+    sunday_late = 1783897200.0    # Sun 2026-07-12 23:00 UTC — still forming
+    monday_after = 1783900860.0   # Mon 2026-07-13 00:01 UTC — candle closed
+
+    # Inside the same week the key component is constant...
+    assert expected_last_closed_candle_ts("1w", saturday) == MON_2026_06_29
+    assert expected_last_closed_candle_ts("1w", sunday_late) == MON_2026_06_29
+    # ...and it steps exactly at the real Monday 00:00 UTC close, to the real
+    # open of the candle that just closed (Monday-anchored, not Thursday).
+    assert expected_last_closed_candle_ts("1w", monday_after) == MON_2026_07_06
+
+
+def test_daily_and_3d_grids_match_real_exchange_candles():
+    """1d is epoch-aligned on both exchanges (bitget 1Dutc == binance). 3d is
+    epoch-aligned on bitget (3Dutc) but binance's 3d grid is offset by one day
+    — the per-exchange anchor must bind to each exchange's real candle opens.
+    All timestamps are real candle opens observed on 2026-07-14."""
+    from controllers.metrics.market_data_service import expected_last_closed_candle_ts
+
+    monday_noon = 1783944000.0  # Mon 2026-07-13 12:00 UTC
+
+    # 1d: real opens Sun 07-12 / Mon 07-13, midnight UTC (epoch-aligned).
+    SUN_1D = 1783814400000
+    MON_1D = 1783900800000
+    assert MON_1D % 86_400_000 == 0
+    assert expected_last_closed_candle_ts("1d", monday_noon) == SUN_1D
+
+    # bitget 3d (3Dutc): real opens Jul-06 / Jul-09 / Jul-12 — epoch-aligned.
+    THU_3D_BITGET = 1783555200000
+    SUN_3D_BITGET = 1783814400000
+    assert SUN_3D_BITGET % 259_200_000 == 0
+    assert expected_last_closed_candle_ts("3d", monday_noon, exchange="bitget") == THU_3D_BITGET
+
+    # binance 3d: real opens Jul-07 / Jul-10 / Jul-13 — grid offset = 1 day.
+    FRI_3D_BINANCE = 1783641600000
+    MON_3D_BINANCE = 1783900800000
+    assert MON_3D_BINANCE % 259_200_000 == 86_400_000
+    assert expected_last_closed_candle_ts("3d", monday_noon, exchange="binance") == FRI_3D_BINANCE
+
+
 def test_expected_last_closed_candle_ts_steps_at_candle_close():
     from controllers.metrics.market_data_service import expected_last_closed_candle_ts
 
