@@ -1822,3 +1822,118 @@ E4.1 zone constants are trusted in the replay.
     hierarchy weights (`+0.10/+0.15/+0.20`, cap 0.90) and the E4.1
     `high_zone = 70` / `min_drop_cum = 10` constants can be trusted. **This is a
     prerequisite of the §I.6 replay.**
+
+---
+
+## ADDENDUM v0.2.0-b — Sub-1h band: polishing the 1h profile (owner, 2026-07-14)
+
+Owner verbatim: "La idea es PULIR EL DE 1HR — necesitas temporalidades mas bajas."
++ precision: "Ahi la estrategia yo haria MAS GIROS DE VOLATILIDAD (BBWP) y tambien
+GIROS DE ADX, porque el AO PUEDE TARDAR."
+
+### 0.3.1 — Band table extension: `micro` band (15m/30m)
+| Band | TFs | Component mix |
+|---|---|---|
+| micro (NEW) | 15m, 30m | ADX turns (E1) + BBWP turns/expansion (E4.1) carry the weight; AO = late confirmation, NEVER a requirement. Konkorde: not evaluable (unchanged, <4h rule) |
+| low | 1h | unchanged: BBWP + AO + ADX, all required (operated TF — the entry needs AO) |
+| high | 4h/1d/1w | unchanged |
+
+Within-TF validity weights (alignment.py), micro band only: ADX 45 / VOL 40 / AO 15
+(vs 60/40 ADX/AO elsewhere). TF weight for 15m = 5 (ladder: 1w 30 / 1d 25 / 4h 20 /
+1h 15 / 30m 10 / 15m 5; renormalization rule unchanged).
+
+TF selection decision: 15m IN (exact fit with */15 watcher cadence — 15m candles
+close ON every tick; completes the mirror 15m->30m->1h; warmup fits FETCH_LIMIT=500).
+5m OUT/parked (scalping territory — SCALP-5M stays a separate parked family with its
+own fees gate; AO(34) on 5m spans 2.8h = permanent whipsaw; */15 cadence would
+evaluate 2 of 3 5m candles late; extra ccxt pressure on the P0 cache path). Operative
+set becomes 6 TFs: 15m/30m/1h/4h/1d/1w. 15m is NOT a new profile — Snipper
+sub-structure. Emission discipline: 15m M1 states are H1/C1/M2 INPUTS only — the F1
+watcher does NOT persist M1-FE alert docs for 15m and never pushes them.
+
+### B.3.3 (extension) — H1 ladder below 1h
+Ladder extends downward 15m->30m->1h(->4h), same precedence: (1) M1/M1m CONFIRMED on
+30m OR 1h same direction -> a 15m watch must NOT adjudicate false by timeout -> state
+CONFIRMED_BY_HIGHER_TF. (2) vol_turn_rounded on 1h implies retracement of the 1h move
+-> p_false += 0.05 on 15m/30m watches only that oppose it (4h +0.10 / 1d +0.15 /
+1w +0.20 rows unchanged). Never overrides rule 1. M2 ladder trigger (b) extends:
+contrary CONFIRMED on same TF or one band up = 15m -> 30m. Downward ignition flag:
+a 1h watch in WATCHING with BOTH 15m and 30m M1 CONFIRMED same direction (fresh,
+terminal age <= 6) gains `ignition_from_below: true` in payload — flag only, does NOT
+auto-confirm the 1h; replay (Q21) decides any upgrade.
+
+**Golden H1-G3 — 15m timeout suppressed by 30m confirmation**:
+15m: ao = [-0.4, 0.5, 0.8, 1.0, 1.2, 1.4, 1.5] (cross idx1, age 5 at last), adx14
+slope 0.1 (no turn; series len >= 9), plus_di > minus_di. 30m (same last close):
+state CONFIRMED, adx_turn {age 1, grade A}, dir up. -> 15m state =
+CONFIRMED_BY_HIGHER_TF (NOT FALSE_ENTRY_PROBABLE), source_tf=30m.
+
+### B.3.5 — M1m: ADX-anchored false-ignition monitor (micro band)
+Rationale: in 15m/30m the AO arrives late, so the AO zero-cross is the wrong watch
+anchor — t0 moves to the E1 ADX turn. The watch inverts M1's question: strength
+ignited — does the move get body behind it?
+* t0 = adx_turn_up_<dir> fire (grade A or B) on a closed candle.
+* CONFIRMED: within m1m_confirm_candles closed candles after t0, AO crosses zero in
+  dir OR (bbwp rising >= 3 consecutive closes AND DI color = dir throughout).
+* FALSE_IGNITION_PROBABLE (terminal): window elapses with neither ->
+  p_false_ignition = 0.65 [analyst provisional; calibrable Q21].
+* WHIPSAW: opposite E1 turn (or DI color flip against dir) before adjudication.
+* M2 unchanged: FALSE_IGNITION feeds the same contrary orientation (k_contrary=5,
+  ladder rule (b) included).
+
+Anchors per TF: 15m -> AO-anchored M1 OFF / M1m ON. 30m -> M1 ON (unchanged) / M1m
+SHADOW (computed + logged, never alerted). >=1h -> M1 ON / M1m OFF. The replay
+compares false-adjudication rates of both anchors on 30m; v0.3.0 decides which owns
+30m. Timeouts: AO-anchored confirm_candles=5 stays on 30m/1h; m1m_confirm_candles=8
+on 15m (=2h wall-clock; 5x15m=75min too short for AO follow-through) and 6 on
+30m-shadow [calibrable 6-12]. H1 ladder, not longer timeouts, protects slow ignitions.
+
+**Golden M1m-G1 — ignition confirmed** (evaluate at last candle):
+adx14 = [15.8, 15.9, 16.0, 16.1, 16.2, 16.3, 17.5, 19.2, 21.0] (plus_di > minus_di);
+ao = [-1.2, -1.0, -0.8, -0.5, -0.2, 0.3]. E1 up_bullish fires at adx idx 8 (slope
+1.75, base 0.1, delta 1.65, origin 16.3 -> grade A); AO crosses up 5 closed candles
+later (5 <= 8). -> state = CONFIRMED, ao_followed = true, follow_age = 5.
+**Golden M1m-G2 — ignition without body**: same adx14;
+ao = [-1.2, -1.1, -1.15, -1.1, -1.12, -1.1, -1.13, -1.1, -1.12] (never crosses);
+bbwp = [31, 30, 31, 30, 31, 30, 31, 30, 31] (never 3 rising). At t0+8:
+FALSE_IGNITION_PROBABLE, p_false_ignition = 0.65.
+
+### B.4.1 — C1 micro window {15m, 30m, 1h} -> Snipper entry
+* Micro-TF alignment(d) (15m/30m): adx_component(d) AND bbwp_expansion both
+  MANDATORY; ao_component(d) is a BONUS (adds its 15% to validity, never gates).
+* 1h alignment(d): full 3/3 including AO (unchanged — operated TF needs entry-grade).
+* Fire: 15m aligned + 30m aligned + 1h full, same d, same run -> SNIPPER entry call
+  + annotation "4h probablemente en retroceso"; if 4h AO carries same sign, tag
+  companion_ok and raise validity. EXIT use inherited from B.4 (confluence against an
+  open trade = primary exit; SL/TP remain protection).
+* Consolidation: overlaps IMPULSE_WINDOWS SNIPPER (30m+1h confirmed + 4h AO) — both
+  run during calibration; dedup max one Snipper entry call per symbol+direction per
+  1h candle (finer window wins; coarser absorbed as escalation evidence). Q20: does
+  the owner want {30m,1h,4h} as an additional PRO-polish window? Default OFF.
+
+**Golden C1micro-G1**: 15m: E1 turn fresh (age 2) + bbwp 58 rising, ao -0.2 (bonus
+missing) -> aligned (2/2 mandatory, score 85/100). 30m: adx rising + DI color d +
+bbwp 61>50 + ao +0.1 bonus -> aligned 100. 1h: 3/3 full. -> C1-SNIPPER fires dir d.
+
+### ENG-15M — engineering notes + gate impact
+1. `_M1_OPERATIVE_TFS` += "15m" (setup_evaluation_service.py); verify
+   setup_service.TIMEFRAME_SECONDS has "15m". FETCH_LIMIT=500 sufficient.
+2. Monitor-only TFs (15m/30m/1h) only need calculate_oscillators()+bbwp (no
+   Konkorde/MFI) — cheaper enrichment.
+3. Per-band params live in this rule document (versioned data, not env vars).
+4. PRECONDITION dura: the P0 TTLCache fix (market_data_service.py:90-104) lands
+   BEFORE or WITH 15m — otherwise the micro band inherits hours-stale candles and
+   this addendum is dead on arrival. Post-fix TTL for 15m = 7.5 min.
+5. Notification: 15m NEVER pushes (micro band = journal/brain/alerts collection
+   only). mmk-api indicators_client._SPAN_BY_TF: add "15m": "2d".
+6. Replay/gate: matrix 120d x {BTC,ETH,SOL,BNB} x 6 TFs (15m history MUST paginate —
+   use the F0 backtest fetcher path, never legacy E13); stratified outputs: 15m
+   adjudication accuracy, confirm_candles sweep {5,6,8} on 15m/30m (Q21), C1-micro
+   vs IMPULSE_WINDOWS overlap/precision, simulated 15m alert volume/day, one-off 5m
+   exploratory replay (offline) to close the 5m question with data. Same gate rules
+   (n>=30 per band-family, IS/OOS 70/30, fees); ships in the SAME rule_version 0.2.0.
+
+### Open questions (owner)
+* Q20: additional PRO-polish window {30m,1h,4h}? (default OFF)
+* Q21: owner prior for p_false_ignition (0.65 provisional) + confirm_candles per-TF
+* Q22: confirm 15m never pushes even with an open trade (current spec: input-only)
