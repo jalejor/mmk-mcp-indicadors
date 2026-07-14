@@ -152,8 +152,14 @@ def test_contract_shape_is_complete(monkeypatch):
     assert evaluated_at.tzinfo is not None
 
     # monitors is additive and always present (may be empty).
-    assert set(body["monitors"].keys()) == {"false_entry_watch"}
+    assert set(body["monitors"].keys()) == {"false_entry_watch", "tf_status"}
     assert isinstance(body["monitors"]["false_entry_watch"], list)
+    # tf_status maps every operative TF to ok | failed:<reason>.
+    tf_status = body["monitors"]["tf_status"]
+    assert isinstance(tf_status, dict)
+    for tf, status in tf_status.items():
+        assert tf in ("30m", "1h", "4h", "1d", "1w")
+        assert status == "ok" or status.startswith("failed:")
 
     assert [s["setup_id"] for s in body["setups"]] == [
         "PB-1D-LONG", "PB-1D-SHORT", "IMP-4H-LONG", "IMP-4H-SHORT",
@@ -339,6 +345,34 @@ def test_m1_monitor_runs_on_30m_frame(monkeypatch):
     assert up_30m["p_false"] == 0.70
     expected_close = (index[-1 - 5] + pd.Timedelta(minutes=30)).isoformat()
     assert up_30m["cross_candle_ts"] == expected_close
+
+
+def test_tf_status_reports_ok_and_failed_timeframes(monkeypatch):
+    # The M1 monitor was blind on 30m/1h for ~11h while eval_errors=0 (P0,
+    # 2026-07-13): a bad/short TF was silently swallowed. tf_status must now
+    # surface that so the watcher can count blind timeframes. Here every
+    # operative TF resolves except 1h, which raises like short/missing data.
+    good = {
+        "30m": _frame_1d(), "1h": _frame_1d(), "4h": _frame_4h(stale_ao=False),
+        "1d": _frame_1d(), "1w": _frame_1d(),
+    }
+
+    def fake_enriched(self, timeframe):
+        if timeframe == "1h":
+            raise ValueError("no closed 1h candles")
+        return good[timeframe]
+
+    monkeypatch.setattr(SetupEvaluationService, "_enriched_frame", fake_enriched)
+    client = _client(monkeypatch)
+    body = _get(client).json()
+
+    tf_status = body["monitors"]["tf_status"]
+    # The healthy TFs report ok...
+    for tf in ("30m", "4h", "1d", "1w"):
+        assert tf_status[tf] == "ok", (tf, tf_status[tf])
+    # ...and the broken one is reported (not silently skipped) with its reason.
+    assert tf_status["1h"].startswith("failed:")
+    assert "no closed 1h candles" in tf_status["1h"]
 
 
 def test_m1_stale_false_entry_with_recent_recross_is_not_emitted(monkeypatch):

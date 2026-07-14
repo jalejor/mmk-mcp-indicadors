@@ -121,17 +121,34 @@ class SetupEvaluationService:
             "setups": [self._evaluate_one(setup, frames) for setup in setups],
             # ADDITIVE (spec §B.3.1): does not touch `setups`. Existing consumers
             # (dashboard /estrategia, F1 watcher) keep parsing `setups` as before.
-            "monitors": {"false_entry_watch": self._false_entry_monitors(frames)},
+            "monitors": self._monitors(frames),
         }
+
+    def _monitors(self, frames: Dict[str, pd.DataFrame]) -> Dict[str, Any]:
+        """Assemble the additive `monitors` block.
+
+        `tf_status` maps every operative TF to `ok` or `failed:<reason>` so the
+        F1 watcher can count/report blind timeframes. Previously a bad/short TF
+        was swallowed silently, so the watcher saw `eval_errors=0` while the M1
+        monitor was blind (P0, 2026-07-13)."""
+        entries, tf_status = self._false_entry_monitors(frames)
+        return {"false_entry_watch": entries, "tf_status": tf_status}
 
     # ------------------------------------------------------------------
     # M1 false_entry_watch monitor (spec §B.3.1)
     # ------------------------------------------------------------------
-    def _false_entry_monitors(self, frames: Dict[str, pd.DataFrame]) -> List[Dict[str, Any]]:
+    def _false_entry_monitors(
+        self, frames: Dict[str, pd.DataFrame]
+    ) -> tuple[List[Dict[str, Any]], Dict[str, str]]:
         """One entry per (operative TF, direction) with an active or freshly
-        adjudicated AO zero-cross watch. Never raises — a missing/short TF frame
-        is skipped so M1 can never break the evaluate contract."""
+        adjudicated AO zero-cross watch, plus a per-TF status map.
+
+        Never raises — a missing/short TF frame is caught so M1 can never break
+        the evaluate contract. But instead of the old silent skip, every failure
+        is recorded in `tf_status` (`ok` | `failed:<reason>`) so the F1 watcher
+        can see and count a blind timeframe."""
         entries: List[Dict[str, Any]] = []
+        tf_status: Dict[str, str] = {}
         for tf in _M1_OPERATIVE_TFS:
             try:
                 frame = frames.get(tf)
@@ -139,14 +156,18 @@ class SetupEvaluationService:
                     frame = self._enriched_frame(tf)
                     frames[tf] = frame  # memoise within this evaluate() call
                 if frame.empty:
+                    tf_status[tf] = "failed:empty_frame"
                     continue
                 for direction in ("up", "down"):
                     entry = self._false_entry_entry(tf, direction, frame)
                     if entry is not None:
                         entries.append(entry)
-            except Exception:  # pragma: no cover - defensive: bad/short TF data
+                tf_status[tf] = "ok"
+            except Exception as exc:  # defensive: bad/short TF data must not break evaluate
+                reason = f"{type(exc).__name__}: {exc}".replace("\n", " ").strip()
+                tf_status[tf] = f"failed:{reason}"
                 continue
-        return entries
+        return entries, tf_status
 
     def _false_entry_entry(
         self, timeframe: str, direction: str, frame: pd.DataFrame
