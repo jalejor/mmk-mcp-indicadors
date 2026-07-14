@@ -3,8 +3,17 @@
 Public exchange OHLCV calls are inherently rate-limited and a single
 request can take hundreds of milliseconds, so we keep the most recent N
 candles in a `cachetools.TTLCache` keyed by `(exchange, symbol, timeframe,
-limit)`.  The TTL is half of the timeframe duration: half a minute for 1m
-bars, half an hour for 1h bars, etc.
+limit, expected_last_closed_candle_ts)`.  The last component binds every
+entry to the candle it represents: it changes the instant a new candle
+closes, so a cache hit can never return a repainted/stale candle — the
+entry simply becomes unreachable and a fresh fetch happens.
+
+There is one cache *per timeframe*, each carrying its own TTL (the candle
+duration).  A single shared cache would inherit the TTL of whichever
+timeframe was requested *first* — a 1d/1w first request would then keep
+lower-TF data alive for hours/days (the P0 that left the M1 monitor blind
+for ~11h on 2026-07-13).  The candle-bound key makes staleness impossible
+regardless; the per-timeframe TTL just keeps eviction sensible.
 
 A per-key `asyncio.Lock` would be ideal but ccxt is sync, so we settle for
 a coarse-grained `threading.Lock` to keep the cache thread-safe.  Cache
@@ -53,6 +62,35 @@ class _CacheEntry:
         self.lock = threading.Lock()
 
 
+def _now() -> float:
+    """Wall-clock seconds. A seam so tests can freeze time deterministically."""
+    return time.time()
+
+
+def expected_last_closed_candle_ts(
+    timeframe: str, now: Optional[float] = None
+) -> Optional[int]:
+    """Open timestamp (ms) of the most recent candle that has CLOSED at ``now``.
+
+    Exchange candles are epoch-aligned to their duration ``D``: a candle opened
+    at ``k*D`` closes at ``(k+1)*D``.  At wall-clock ``now`` the forming candle
+    opened at ``floor(now/D)*D``, so the last closed candle opened one duration
+    earlier.  This value is stable for the whole life of a candle and steps
+    forward the instant the next candle closes — exactly what a cache key needs
+    to self-invalidate.  Returns ``None`` for unknown timeframes (no alignment
+    to bind to).
+    """
+    duration_s = _TIMEFRAME_TO_SECONDS.get(timeframe)
+    if duration_s is None:
+        return None
+    if now is None:
+        now = _now()
+    duration_ms = duration_s * 1000
+    now_ms = int(now * 1000)
+    forming_open_ms = (now_ms // duration_ms) * duration_ms
+    return forming_open_ms - duration_ms
+
+
 # Default exchange for every endpoint/service. Binance geo-blocks US IPs
 # (HTTP 451), and every cloud deployment lives in a US region, so the safe
 # code default is bitget — binance can still be selected explicitly via the
@@ -68,10 +106,11 @@ class MarketDataService:
         "bitget": ccxt.bitget,
     }
 
-    # Class-level cache so all instances share data.  Capped at 256 keys to
+    # Class-level caches so all instances share data.  One cache per timeframe
+    # (each with its own correct TTL); every cache is capped at 256 keys to
     # avoid unbounded memory growth in long-running processes.
     _CACHE_MAXSIZE = 256
-    _CACHE: Optional["TTLCache[Tuple[str, str, str, int], _CacheEntry]"] = None
+    _CACHES: Dict[str, "TTLCache[Tuple[str, str, str, int, Optional[int]], _CacheEntry]"] = {}
     _CACHE_LOCK = threading.Lock()
 
     def __init__(self, exchange_name: str = DEFAULT_EXCHANGE) -> None:
@@ -88,27 +127,30 @@ class MarketDataService:
     # Cache helpers
     # ------------------------------------------------------------------
     @classmethod
-    def _get_cache(cls, ttl_seconds: int) -> Optional[Any]:
-        """Return the shared TTL cache, lazily instantiated.
+    def _get_cache(cls, timeframe: str) -> Optional[Any]:
+        """Return the shared TTL cache for ``timeframe``, lazily instantiated.
 
-        We use the *largest* TTL ever requested as the cache TTL: ccxt
-        responses are immutable for the lifetime of the candle, so a longer
-        TTL only delays eviction, never returns stale data — each entry is
-        timestamp-bound by the candle it represents.
+        Each timeframe gets its own cache whose TTL is the candle duration, so
+        an entry is evicted about when the next candle closes.  Staleness is
+        prevented independently by binding the cache key to the expected
+        last-closed candle (see :meth:`get_ohlcv` / :func:`expected_last_closed_candle_ts`),
+        so even a generous TTL can never return a repainted candle.
         """
         if TTLCache is None:
             return None
         with cls._CACHE_LOCK:
-            if cls._CACHE is None:
-                cls._CACHE = TTLCache(maxsize=cls._CACHE_MAXSIZE, ttl=max(ttl_seconds, 60))
-            return cls._CACHE
+            cache = cls._CACHES.get(timeframe)
+            if cache is None:
+                ttl = max(_TIMEFRAME_TO_SECONDS.get(timeframe, 3600), 60)
+                cache = TTLCache(maxsize=cls._CACHE_MAXSIZE, ttl=ttl)
+                cls._CACHES[timeframe] = cache
+            return cache
 
     @classmethod
     def clear_cache(cls) -> None:
         """Drop every cached entry — useful in tests."""
         with cls._CACHE_LOCK:
-            if cls._CACHE is not None:
-                cls._CACHE.clear()
+            cls._CACHES.clear()
 
     # ------------------------------------------------------------------
     # Public API
@@ -134,9 +176,13 @@ class MarketDataService:
         filter is applied on the returned copy, so cached data can serve both
         modes.
         """
-        key = (self.exchange_name, symbol, timeframe, int(limit))
-        ttl = max(_TIMEFRAME_TO_SECONDS.get(timeframe, 3600) // 2, 60)
-        cache = self._get_cache(ttl) if use_cache else None
+        # Bind the key to the candle that *should* be the last closed one right
+        # now: the moment a new candle closes this component steps forward, the
+        # previous entry becomes unreachable, and we re-fetch instead of serving
+        # a stale candle.
+        candle_ts = expected_last_closed_candle_ts(timeframe)
+        key = (self.exchange_name, symbol, timeframe, int(limit), candle_ts)
+        cache = self._get_cache(timeframe) if use_cache else None
 
         if cache is not None:
             entry = cache.get(key)
@@ -173,7 +219,7 @@ class MarketDataService:
             return df
         last_open_ms = int(df["timestamp"].iloc[-1])
         close_ms = last_open_ms + duration_s * 1000
-        now_ms = time.time() * 1000.0
+        now_ms = _now() * 1000.0
         if close_ms > now_ms:
             return df.iloc[:-1]
         return df

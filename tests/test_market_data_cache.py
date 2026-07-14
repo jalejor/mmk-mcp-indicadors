@@ -75,3 +75,55 @@ def test_cache_keyed_by_symbol_timeframe_and_limit():
     svc.get_ohlcv("BTC/USDT", "5m", 2)
     svc.get_ohlcv("BTC/USDT", "1h", 3)
     assert fake.calls == 4
+
+
+def test_stale_candle_not_reused_after_close_despite_long_ttl(monkeypatch):
+    """P0 (2026-07-13): the shared cache took the TTL of the FIRST request, so a
+    1d/1w first request kept 30m data alive for hours — the M1 monitor read the
+    same stale 30m candle for ~11h. The entry must self-invalidate the instant
+    the 30m candle closes, *regardless* of any long TTL a prior request set.
+    """
+    from controllers.metrics import market_data_service as mds
+
+    # t0 sits 1200s into a 30m (1800s) candle, i.e. 600s before its close.
+    clock = {"t": 900_000 * 1800 + 1200.0}
+    monkeypatch.setattr(mds, "_now", lambda: clock["t"])
+
+    svc = MarketDataService(exchange_name="binance")
+    fake = _FakeExchange([[i * 60_000, 1, 1, 1, 1, 1] for i in range(50)])
+    svc.exchange = fake
+
+    # First-ever request is 1d: in the old shared-cache code this pinned the
+    # cache TTL at half a day, and every later timeframe inherited it.
+    svc.get_ohlcv("BTC/USDT", "1d", 5)
+    calls_after_1d = fake.calls
+
+    # 30m request: fetched once, then a same-candle repeat is a cache hit.
+    svc.get_ohlcv("BTC/USDT", "30m", 5)
+    svc.get_ohlcv("BTC/USDT", "30m", 5)
+    assert fake.calls == calls_after_1d + 1  # only one 30m fetch so far
+
+    # Advance 700s: past the NEXT 30m close (t0 + 600s) but far inside the long
+    # TTL the 1d request would have imposed. The candle bucket changed, so the
+    # entry must be considered stale and re-fetched — not served from cache.
+    clock["t"] += 700
+    svc.get_ohlcv("BTC/USDT", "30m", 5)
+    assert fake.calls == calls_after_1d + 2  # re-fetched: stale entry NOT reused
+
+    # And within the same (new) candle it caches again.
+    svc.get_ohlcv("BTC/USDT", "30m", 5)
+    assert fake.calls == calls_after_1d + 2
+
+
+def test_expected_last_closed_candle_ts_steps_at_candle_close():
+    from controllers.metrics.market_data_service import expected_last_closed_candle_ts
+
+    # 30m candle: within one candle the value is constant; across a close it steps.
+    base = 900_000 * 1800  # aligned to a 30m boundary (seconds)
+    inside = expected_last_closed_candle_ts("30m", base + 100.0)
+    later_same = expected_last_closed_candle_ts("30m", base + 1799.0)
+    after_close = expected_last_closed_candle_ts("30m", base + 1801.0)
+    assert inside == later_same
+    assert after_close == inside + 1800 * 1000  # advanced exactly one candle
+    # Unknown timeframes have no alignment to bind to.
+    assert expected_last_closed_candle_ts("??", base) is None
