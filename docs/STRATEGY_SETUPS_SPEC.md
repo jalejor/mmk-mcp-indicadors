@@ -1408,3 +1408,417 @@ menos apalancamiento" — the wider the timeframe, the lower the leverage.
   `docs/F0_GATE_ANALYSIS.md`). Nothing Pro or Snipper would trade has passed
   any gate (IMP-4H parked pending trigger redesign; no 1h family specified).
   **The profile table is a target topology, not a green light.**
+
+---
+
+## I. RULE SPEC v0.2.0 — CANDIDATE
+
+| | |
+|---|---|
+| **rule_version (target)** | `0.2.0` |
+| **Status** | **CANDIDATE — PENDING REPLAY GATE (F0) — NOT ACTIVE** |
+| **Dictated** | 2026-07-13 (owner) |
+| **Designed** | 2026-07-14 (trading analysis) |
+| **Scope** | Additive to v0.1.0: two new monitor states/machines (M1.1, M2), one hierarchy override (H1), one new detector (E4.1), one new composite setup (C1). **Nothing here activates until the §I.6 replay A/B passes and `/mmk-council` gates the `rule_version` bump.** |
+
+> **HARD GATE.** Everything in §I is a **CANDIDATE**. It does not vote, does not
+> alert, does not veto and does not trade until: (1) the §I.6 validation replay
+> shows the required improvements, AND (2) the council explicitly ratifies the
+> `rule_version` 0.2.0 bump (§0.4). Until then the live/backtest engine runs
+> v0.1.0 rules only. Section labels below (B.3.2, B.3.2b, B.3.3, E4.1, B.4)
+> mark where each rule would slot into the active numbering **on promotion**;
+> they are not active section numbers today.
+>
+> **Operative TF set for v0.2.0 = `{30m, 1h, 4h, 1d, 1w}`** — 30m formally
+> joins the monitor set (5 TFs; §H had 4). Band rules (§0.3) are unchanged:
+> 30m/1h are `low_tf` (BBWP+AO+ADX only, no Konkorde); 4h/1d/1w are `high_tf`.
+
+---
+
+### I.1 — (B.3.2) M1.1 `color_flip` adjudication — early false-entry confirmation by DI color
+
+**Owner's words (2026-07-13)**: the AO can keep printing green after the cross,
+but if the **DI color flips** against the cross before the ADX ever turns
+favorable, the false entry is already confirmed — you do not need to wait the
+full 5 candles. Reading the colors early is the point ("tener claros los
+colores", §E5 addendum 2026-07-11).
+
+**What this is**: a **stronger, earlier** terminal verdict layered onto the M1
+`false_entry_watch` machine (§B.3.1). M1 adjudicates `FALSE_ENTRY_PROBABLE`
+(`p_false = 0.70`) only at timeout (`event_age == confirm_candles = 5`). M1.1
+adjudicates `FALSE_ENTRY_CONFIRMED` (`p_false = 0.80`) as soon as the DI color
+flips against the cross inside a tight early window, still with no favorable
+ADX turn. Higher confidence, earlier — because a color flip is affirmative
+contrary evidence, not just absence of confirmation.
+
+**DI color** (the single new primitive; closed candle only):
+
+```
+di_color(t) = "bearish"  iff  minus_di[t] > plus_di[t]
+            = "bullish"  iff  plus_di[t]  > minus_di[t]     (tie -> unchanged/neutral, no flip)
+```
+
+* **color aligned with the cross**: `bullish` for an `ao_zero_cross_up`,
+  `bearish` for an `ao_zero_cross_down`.
+* **color flip against the cross**: at post-cross age `a` the color has become
+  the OPPOSITE of the cross direction, having been aligned (or neutral) at the
+  cross candle `t0`.
+
+**Additional state** (extends the §B.3.1 machine; bullish case, bearish mirror):
+
+| State | Condition | Emits |
+|---|---|---|
+| `FALSE_ENTRY_CONFIRMED` (terminal; supersedes a would-be `FALSE_ENTRY_PROBABLE`) | DI color flips against the cross at post-cross age `a ∈ [color_min_age, color_max_age] = [2, 4]` AND no favorable `adx_turn` (E1, grade A/B) fired in `[t0, t0+a]` | `false_entry_watch` alert, severity `adjudicated_color`, `p_false = 0.80` |
+
+Precedence inside the machine: `CONFIRMED` (favorable turn) still wins if the
+turn fires — a real impulse overrides the color flip. A flip **before**
+`color_min_age = 2` does NOT adjudicate (too early — that is the WATCHING
+window, see M11-G2); a flip **after** `color_max_age = 4` falls through to the
+ordinary age-5 timeout adjudication (`FALSE_ENTRY_PROBABLE`, 0.70). Whipsaw
+(AO re-cross) still short-circuits to `WHIPSAW` if it happens first.
+
+**Parameters** (extend §B.3.1):
+
+| Param | Default | Notes |
+|---|---|---|
+| `color_min_age` | 2 | closed candles post-cross; earliest a flip adjudicates. Below this the flip is noise inside the WATCHING window **[calibrable]** |
+| `color_max_age` | 4 | closed candles post-cross; latest a flip adjudicates as `adjudicated_color`. Above this the age-5 timeout path (0.70) governs **[calibrable]** |
+| `p_false_color` | 0.80 | owner PRIOR (stronger than the 0.70 no-turn timeout because the flip is affirmative contrary evidence) — CALIBRATE like `p_false_prior`, see Q17 |
+
+**Directional table** (color aligned vs flip):
+
+| Cross | Aligned color | Flip color (adjudicates) | Contrary prediction |
+|---|---|---|---|
+| `ao_zero_cross_up` | `plus_di > minus_di` | `minus_di > plus_di` | bearish impulse, AO re-cross down |
+| `ao_zero_cross_down` | `minus_di > plus_di` | `plus_di > minus_di` | bullish impulse, AO re-cross up |
+
+**Golden cases** (defaults above; `confirm_candles = 5`; all series end on the
+same closed candle):
+
+**M11-G1 — color flip at age 2 → `FALSE_ENTRY_CONFIRMED` (p_false 0.80)**
+
+```
+ao       = [-0.5, 0.4, 0.9, 0.7]
+plus_di  = [ 26,  27,  24,  19 ]
+minus_di = [ 16,  17,  22,  25 ]
+```
+
+* `ao_zero_cross_up` at index 1 = `t0`; evaluated at index 3 → post-cross
+  age `a = 2`.
+* DI color: bullish at `t0` (27 > 17, aligned) → at index 3 bearish
+  (25 > 19) → **flip against the cross** at age 2.
+* No favorable `adx_turn_up_bullish` in `[1, 3]`.
+* age 2 ∈ [2, 4] → **state = `FALSE_ENTRY_CONFIRMED`**, severity
+  `adjudicated_color`, `p_false = 0.80` → alert. (Contrast M1-G1, which would
+  only reach `FALSE_ENTRY_PROBABLE` 0.70 at age 5.)
+
+**M11-G2 — flip at age 1 < `color_min_age` → still `WATCHING`**
+
+```
+ao       = [-0.5, 0.4, 0.7]
+plus_di  = [ 26,  27,  19 ]
+minus_di = [ 16,  17,  24 ]
+```
+
+* Cross up at index 1; evaluated at index 2 → age `a = 1`.
+* DI color flips bearish at index 2 (24 > 19), but `a = 1 < color_min_age = 2`.
+* Too early to adjudicate → **state = `WATCHING`** (no `adjudicated_color`
+  alert yet); the flip must persist to age 2 to confirm.
+
+---
+
+### I.2 — (B.3.2b) M2 `CONTRARY_IMPULSE` — the contrary move a false entry predicts
+
+**Owner's words (2026-07-13)**: a confirmed false entry is a prediction — the
+impulse goes the OTHER way and the AO comes back to re-cross zero (§B.3.1
+"orientarlo"). M2 turns that parked candidate into a first-class **contrary
+signal** — evidence only, never an auto-trade.
+
+**Trigger**: after **any** `FALSE_ENTRY_*` adjudication on a TF (M1
+`FALSE_ENTRY_PROBABLE` 0.70 or M1.1 `FALSE_ENTRY_CONFIRMED` 0.80), watch for a
+contrary-impulse confirmation within `k_contrary = 5` closed candles of the
+adjudication. The predicted contrary direction is the OPPOSITE of the
+adjudicated cross (up-cross adjudicated false → bearish contrary, and mirror).
+
+Confirmation = **any of**:
+
+* **(a) contrary `adx_turn` same TF** — an `adx_turn` (E1, grade A/B) igniting
+  in the contrary direction on the same TF (`adx_turn_up_bearish` after a
+  false up-cross; `adx_turn_up_bullish` after a false down-cross).
+* **(b) M1 `CONFIRMED` contrary, same TF or one band up** — a §B.3.1 `CONFIRMED`
+  state for the contrary direction, either on the same TF or one operative band
+  up the ladder: `30m→1h`, `1h→4h`, `4h→1d`, `1d→1w` (the higher TF confirming
+  the contrary impulse is the strongest corroboration).
+* **(c) AO re-cross with DI color already contrary** — the AO re-crosses zero
+  in the contrary direction (`ao_zero_cross_down` after a false up-cross) AND
+  `di_color` is already the contrary color on the re-cross candle (the §I.1
+  color primitive) — momentum and strength-direction agree.
+
+**Emission**: `contrary_impulse` signal, **call-grade for the TF's profile**
+(§H: 30m/1h → Snipper, 4h → Pro, 1d/1w → Ancient) — i.e. the alert priority /
+sizing tier is the profile that operates that TF. **Alert + evidence only (F1);
+never auto-trade** — same discipline as the §B.3.1 "orientarlo" candidate and
+every other rule (its own gate before it can inform a real order).
+
+**Parameters**:
+
+| Param | Default | Notes |
+|---|---|---|
+| `k_contrary` | 5 | closed candles after the adjudication in which a contrary confirmation counts **[calibrable]** |
+| `band_up_map` | `{30m:1h, 1h:4h, 4h:1d, 1d:1w}` | the "one band up" ladder for trigger (b), aligned with the §F guardian ladder |
+
+**Golden case**:
+
+**M2-G1 — contrary ADX bend within `k` → `CONTRARY_IMPULSE` (trigger = a)**
+
+* Start from an adjudicated false UP-cross (e.g. M11-G1 → `FALSE_ENTRY_CONFIRMED`
+  at index 3); predicted contrary = **bearish**.
+* Within `k_contrary = 5` closed candles the same-TF `adx14` bends up with
+  `minus_di` dominant → `adx_turn_up_bearish` (E1, grade A/B) fires, e.g.
+  `adx14 = [.., 18, 18, 18.5, 21.5, 24.5]` with `minus_di > plus_di` on the
+  turn candle.
+* → **`contrary_impulse` signal, trigger = (a)**, call-grade = the TF's
+  profile. (Alert only.)
+
+---
+
+### I.3 — (B.3.3) H1 hierarchy override on M1/M1.1 verdicts
+
+**Owner's words (2026-07-13)**: the higher timeframe governs — a low-TF "false
+entry" is not false if the timeframe above already confirmed the same impulse.
+This is the §F TF-ladder doctrine applied to the false-entry monitor.
+
+**What this is**: a precedence layer that can **override** an M1/M1.1
+false-entry verdict using the state one band up the ladder (§F,
+`band_up_map`). Three ranked rules; higher rank always wins.
+
+**Rule 1 (highest) — higher-TF confirmation blocks the timeout false verdict.**
+If the SAME direction is M1 `CONFIRMED` **one band up** (`30m→1h`, `1h→4h`,
+`4h→1d`, `1d→1w`), the low-TF watch **must NOT** adjudicate `FALSE_ENTRY_*` by
+timeout. New terminal state **`CONFIRMED_BY_HIGHER_TF`** (alertable): the
+impulse is real on the governing TF, the low-TF ADX simply has not printed its
+turn yet. This overrides both the §B.3.1 age-5 timeout AND the §I.1
+`adjudicated_color` flip.
+
+**Rule 2 — `vol_turn_rounded` on TF ≥ 4h boosts p_false against a retracement.**
+An E4.1 `vol_turn_rounded` (§I.4) firing on a `high_tf` candle marks a
+volatility rollover = a probable retracement of the move on that TF. For any
+lower-TF watch **opposing the implied retracement** it adds to `p_false`
+(cap **0.90**), and **boosts the M2 contrary score equally**:
+
+| `vol_turn_rounded` TF | `p_false` addend |
+|---|---|
+| 4h | +0.10 |
+| 1d | +0.15 |
+| 1w | +0.20 |
+
+Constraints (both mandatory): it **never overrides Rule 1** (a higher-TF
+`CONFIRMED` same-direction still wins — a rollover on an even higher TF does
+not resurrect a false verdict against a confirmed impulse), and it **never
+votes as a separate standalone condition** — it only re-weights an existing
+watch/M2 score. This avoids double-counting volatility with `bbwp_regime` (E5),
+which already reasons about the same BBWP series.
+
+**Rule 3 (lowest) — local timeout only when 1–2 are silent.** The ordinary
+§B.3.1 local 5-candle timeout adjudication (and the §I.1 color flip) apply
+**only** when neither Rule 1 nor Rule 2 has spoken for that watch. In other
+words the higher-TF hierarchy is consulted first; the local monitor is the
+fallback.
+
+**Parameters**:
+
+| Param | Default | Notes |
+|---|---|---|
+| `p_false_cap` | 0.90 | ceiling after Rule-2 addends **[calibrable]** |
+| `vt_rounded_addend` | `{4h:0.10, 1d:0.15, 1w:0.20}` | Rule-2 weights — **gated on Q19** (BBWP calibration) before they can be trusted |
+
+> **Q19 prerequisite (calibration, blocks Rule 2 weights):** the engine's BBWP
+> is `BB20 / lookback 252` on **Bitget** data; the owner reads TradingView
+> BBWP as `BB13 / lookback 256 / MA5` on **Binance** data. The per-TF
+> hierarchy weights (and the E4.1 `high_zone`/drop thresholds) are meaningless
+> until the two BBWP definitions are reconciled or a mapping is measured. **Do
+> not trust the Rule-2 addends, nor the E4.1 zone constants, until Q19 is
+> resolved.** See §I.7.
+
+---
+
+### I.4 — (E4.1) `vol_turn_rounded` — rounded volatility rollover (V and W)
+
+**Motivation**: the v0.1.0 `v_turn_high` (§E4) requires a ≥ `min_drop = 5` BBWP
+drop on the **single** candle immediately after an **exact** peak. That geometry
+**missed the real rounded rollovers of 2026-07-13**: BBWP `90 → 49` on 1h and
+`91 → 56` on 30m rolled over gradually (a domed top), so no single
+post-peak candle dropped 5 points off an exact fractal peak, yet the volatility
+plainly turned over from the top. E4.1 detects the **cumulative, rounded** turn.
+
+**Source**: `bbwp` (0–100). Both bands (like E4-on-BBWP). *(Konkorde-source
+variant deferred — Konkorde stays `high_tf`, §0.3.)*
+
+**V variant — rounded rollover from the high zone** (closed candle):
+
+```
+Over the trailing window win = bbwp[-window .. -1] (window = 8):
+vol_turn_rounded_high =
+      max(win) >= high_zone                          (peaked in the upper region; high_zone = 70)
+  AND (max(win) - bbwp[-1]) >= min_drop_cum          (cumulative fall off that peak; min_drop_cum = 10)
+  AND bbwp[-1] < bbwp[-2] < bbwp[-3]                 (last 2 closes STRICTLY falling — the turn is in progress)
+Fires on the closed candle -1. ONE fire per peak (a peak already fired against
+does not re-fire until a new max in a fresh window exceeds it).
+```
+
+Unlike `v_turn_high`, the drop is measured from the **window max** (not an
+exact single-candle peak) and accumulated over up to `window` bars, so a domed
+`90 → … → 49` top fires.
+
+**W variant — double test of the high zone** (rounded): two zone tests within
+`w_window = 12` closed candles, separated by `>= 3` bars, both `>= high_zone`,
+with the second test failing to exceed the first by more than `tolerance = 5`
+BBWP points (mirrors the §E4 W geometry but on the rounded/window definition).
+
+**Parameters**:
+
+| Param | Default | Notes |
+|---|---|---|
+| `window` (V) | 8 | trailing closed bars scanned for the peak **[calibrable]** |
+| `high_zone` | 70 | BBWP upper region (same constant as E4) — **gated on Q19** |
+| `min_drop_cum` | 10 | cumulative BBWP points off the window max **[calibrable]** — chose to catch 90→49 / 91→56 |
+| `w_window` | 12 | max bars spanning the two zone tests **[calibrable]** |
+| `w_separation_min` | 3 | min bars between the two tests **[calibrable]** |
+| `tolerance` | 5 | BBWP points the 2nd test may exceed the 1st **[calibrable]** |
+
+**Semantics**: same as E4 — **exhaustion / rollover evidence** on the TF, used
+for invalidation, no-new-entries, and (on TF ≥ 4h) the H1 Rule-2 `p_false`
+boost (§I.3). **Never an entry trigger.**
+
+**Golden cases** (defaults above):
+
+**VT-G1 — rounded dome rollover → fires**
+
+```
+bbwp = [60, 68, 75, 82, 88, 90, 88, 85, 81, 72]
+```
+
+* window = last 8: `[75, 82, 88, 90, 88, 85, 81, 72]`; `max = 90 >= 70` ✓.
+* `max - bbwp[-1] = 90 - 72 = 18 >= 10` ✓.
+* last 2 strictly falling: `72 < 81 < 85` ✓.
+* → **`vol_turn_rounded_high = true`** (the shape v0.1.0's `v_turn_high`
+  would have missed — no single 5-pt drop off an exact peak).
+
+**VT-G2 — last candle rising → no fire**
+
+```
+bbwp = [60, 68, 75, 82, 88, 90, 88, 85, 81, 84]
+```
+
+* Same domed peak, but the final close rises `81 → 84`, so
+  `bbwp[-1] < bbwp[-2]` fails (the strict-falling last-2 condition breaks) →
+  **`vol_turn_rounded_high = false`**. The turn is not yet in progress.
+
+---
+
+### I.5 — (B.4) SETUP `C1` — 3-TF full-alignment confluence ("5/5")
+
+**Owner's words (2026-07-13)**: when the operative timeframes stack in the same
+direction it is a full alignment ("5/5"); and the contrary-confluence read is
+**the** way to know when to get out ("**es la forma de identificar cuando
+salirse**"). C1 is one detector with two uses: ENTRY and — primarily — EXIT.
+
+**Per-TF alignment score** (direction `d ∈ {bull, bear}`; closed candles;
+respects the §0.3 band ban on Konkorde below 4h):
+
+* **Low band (30m, 1h) — 3/3**:
+  1. `ao_sign = d` (AO positive for bull, negative for bear).
+  2. **ADX component** — favorable E1 turn fresh (`adx_turn` grade A/B in
+     direction `d`, `event_age <= 5`) **OR** ADX rising with `di_color = d`
+     (strength building, §I.1 color).
+  3. **BBWP expansion** — `bbwp[-1] > 50` (E5 regime) **OR** BBWP rising 2
+     closed candles.
+* **High band (4h, 1d, 1w) — 4/4**: the three above **+** `sign(konkorde_marron) = d`
+  (E3 state; permitted on `high_tf` only).
+
+A TF is **aligned for `d`** when it scores full (3/3 low, 4/4 high). C1 fires
+when a defined **3-TF window** is fully aligned for the same `d`:
+
+| 3-TF window | Fires for | Annotation |
+|---|---|---|
+| `{30m, 1h, 4h}` | ENTRY, **Snipper / Pro** profiles | "1d likely in retracement" |
+| `{4h, 1d, 1w}` | **Ancient** profile | "1w in retracement" |
+| `{1h, 4h, 1d}` | **Q18 — owner decision, default OFF** | — |
+
+**Two uses, one detector:**
+
+* **ENTRY** — when there is **no opposing open trade**, a full-alignment window
+  for `d` is an entry-grade confluence for the window's profile(s).
+* **EXIT (the PRIMARY exit mechanism of the strategy)** — when an OPEN journal
+  trade's side **opposes** the confluence direction, C1 emits a **priority-5**
+  call: **`"SALIDA por confluencia contraria"`**. This is the owner's designated
+  way to identify exits — it is *not* a stop. **SL / TP remain protection-only**
+  (disaster floor / target), while contrary-confluence is the discretionary
+  exit signal. Exit use has priority over entry use on the same evaluation.
+
+**Real golden case (C1-G1)** — the case that motivated the rule:
+2026-07-13 **16:00–20:00 UTC**, BTC: `30m / 1h / 4h` all **bear-aligned** while
+`1d` was **retracing** (not yet bear-aligned). The `{30m,1h,4h}` window fired
+bear; a long journal trade open at the time → priority-5
+`"SALIDA por confluencia contraria"`, annotation "1d likely in retracement".
+Backtest must reproduce the alignment on stored candles for those four TFs.
+
+**Parameters**:
+
+| Param | Default | Notes |
+|---|---|---|
+| `adx_fresh_max_age` | 5 | E1 turn freshness for the ADX component **[calibrable]** |
+| `bbwp_expansion_bars` | 2 | rising-BBWP closed candles alternative to `>50` **[calibrable]** |
+| `windows_enabled` | `{30m,1h,4h}`, `{4h,1d,1w}` ON; `{1h,4h,1d}` OFF | the middle window is **Q18** |
+| `exit_priority` | 5 | call priority of `"SALIDA por confluencia contraria"` |
+
+---
+
+### I.6 — v0.2.0 VALIDATION PLAN (the F0 replay gate for §I)
+
+Nothing in §I activates until this replay is run and passes, then `/mmk-council`
+ratifies the `rule_version` 0.2.0 bump (§0.4).
+
+**Replay matrix**: **120 days** of history × symbols **BTC / ETH / SOL / BNB** ×
+the **5 operative TFs** (`30m / 1h / 4h / 1d / 1w`), run **v0.1.0 vs v0.2.0**
+side by side on identical candles (immutable per §0.4).
+
+**Required outcomes (per family × band, `n >= 30` adjudications/signals):**
+
+1. **M1.1 color-flip** — the **false-on-real-impulse rate MUST DROP** v0.2.0 vs
+   v0.1.0 (the color flip must not confirm-false moves that were actually real
+   impulses; measured as `RESOLVED_LATE_CONFIRM` / adjudicated on the
+   `adjudicated_color` subset vs the 0.70 timeout subset).
+2. **M2 contrary-impulse** — realized **hit-rate vs the priors** `0.70`
+   (`FALSE_ENTRY_PROBABLE`) and `0.80` (`FALSE_ENTRY_CONFIRMED`): the contrary
+   move + AO re-cross materialized at a rate consistent with the prior it was
+   adjudicated under, per trigger (a)/(b)/(c).
+3. **C1 confluence** — signal **count**, **forward returns** after each fired
+   window, and — in EXIT mode — the **P&L saved** (open-trade P&L at the
+   `"SALIDA por confluencia contraria"` call vs holding to SL/TP).
+
+**Method**: temporal **IS/OOS 70/30** split with **fees** modelled (§C:
+0.10% taker + 0.05% slippage per side; IS-only calibration of any
+**[calibrable]** param, OOS run once). `n >= 30` per **family-band** or that
+row is **NO PASS** regardless of results (§C discipline).
+
+**Gate**: on all outcomes met → **`/mmk-council`** gate; only a passing council
+decision authorizes deploying `rule_version` 0.2.0. Prerequisite **Q19**
+(§I.7) must be resolved before the per-TF hierarchy weights (H1 Rule 2) and the
+E4.1 zone constants are trusted in the replay.
+
+---
+
+### I.7 — Open questions added with v0.2.0 (extend §D)
+
+18. **C1 middle window `{1h, 4h, 1d}` (§I.5)**: enable this third
+    full-alignment window, or keep it OFF? It straddles Snipper/Pro/Ancient
+    (a cross-profile confluence) — owner decision. Provisional: **OFF** until
+    the replay shows it adds non-redundant signals over the two enabled windows.
+19. **BBWP calibration engine vs TradingView (blocks §I.3 Rule 2, §I.4 zones)**:
+    the engine computes BBWP as **BB20 / lookback 252** on **Bitget** data; the
+    owner reads TradingView **BB13 / lookback 256 / MA5** on **Binance** data.
+    Reconcile the two definitions (or measure a mapping) before the per-TF
+    hierarchy weights (`+0.10/+0.15/+0.20`, cap 0.90) and the E4.1
+    `high_zone = 70` / `min_drop_cum = 10` constants can be trusted. **This is a
+    prerequisite of the §I.6 replay.**
