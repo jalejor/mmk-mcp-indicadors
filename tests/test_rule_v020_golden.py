@@ -51,7 +51,8 @@ FLAT_ADX = _s([20] * 9)
 
 def test_m11_g1_color_flip_confirms_false_entry():
     # Spec M11-G1: cross up at index 1, DI aligned at t0, flips bearish at
-    # post-cross age 2, no favorable turn -> FALSE_ENTRY_CONFIRMED (0.80).
+    # post-cross age 2, no favorable turn -> FALSE_ENTRY_CONFIRMED (0.70,
+    # measured prior — replay 120d 2026-07-16, n=243).
     ao = _s([-0.5, 0.4, 0.9, 0.7])
     plus_di = _s([26, 26, 26, 26, 26, 26, 27, 24, 19])
     minus_di = _s([16, 16, 16, 16, 16, 16, 17, 22, 25])
@@ -61,7 +62,7 @@ def test_m11_g1_color_flip_confirms_false_entry():
     assert fe.state == FE_FALSE_ENTRY_CONFIRMED
     assert fe.event_age == 2
     assert fe.color_flip_age == 2
-    assert fe.p_false == 0.80
+    assert fe.p_false == 0.70
     assert fe.adx_turn is None
 
 
@@ -74,7 +75,7 @@ def test_m11_g1_bearish_mirror():
 
     assert fe.state == FE_FALSE_ENTRY_CONFIRMED
     assert fe.color_flip_age == 2
-    assert fe.p_false == 0.80
+    assert fe.p_false == 0.70
 
 
 def test_m11_g2_flip_at_age_1_is_still_watching():
@@ -92,7 +93,8 @@ def test_m11_g2_flip_at_age_1_is_still_watching():
 
 def test_flip_after_color_max_age_falls_to_timeout():
     # Flip only at post-cross age 5 (> color_max_age=4) -> ordinary age-5
-    # timeout adjudication governs (0.70, not 0.80).
+    # timeout adjudication governs (0.40 measured timeout prior, not the
+    # 0.70 flip prior — replay 120d 2026-07-16).
     ao = _s([-0.5, 0.4, 0.8, 1.1, 1.3, 1.6, 1.8])
     plus_di = _s([26, 26, 26, 27, 27, 27, 27, 27, 19])
     minus_di = _s([16, 16, 16, 17, 17, 17, 17, 17, 25])
@@ -100,7 +102,7 @@ def test_flip_after_color_max_age_falls_to_timeout():
     fe = false_entry_state_v2(ao, FLAT_ADX, plus_di, minus_di, direction="up")
 
     assert fe.state == FE_FALSE_ENTRY_PROBABLE
-    assert fe.p_false == 0.70
+    assert fe.p_false == 0.40
     assert fe.color_flip_age is None
 
 
@@ -142,7 +144,7 @@ def test_recross_after_flip_is_fulfilled_prediction_not_whipsaw():
 
     assert fe.state == FE_FALSE_ENTRY_CONFIRMED
     assert fe.color_flip_age == 2
-    assert fe.p_false == 0.80
+    assert fe.p_false == 0.70
 
 
 def test_di_already_contrary_at_cross_never_flips():
@@ -229,8 +231,10 @@ def test_p_false_boost_only_lower_tf_watches_opposing_the_retracement():
     moves = {"4h": "down"}  # 4h rollover during a bearish 4h move
     # A lower-TF watch in the SAME direction opposes the implied bullish
     # retracement -> boosted.
+    # v0.2.1: addends are ZEROED pending Q19 — the wiring still emits the
+    # boost entry (evidence), it just carries no weight.
     assert p_false_boosts("30m", "down", moves) == [
-        {"source_tf": "4h", "addend": 0.10}
+        {"source_tf": "4h", "addend": 0.0}
     ]
     # Opposite-direction watch aligns with the retracement -> no boost.
     assert p_false_boosts("30m", "up", moves) == []
@@ -241,8 +245,8 @@ def test_p_false_boost_only_lower_tf_watches_opposing_the_retracement():
 
 def test_p_false_boost_1h_row_targets_micro_watches_only():
     moves = {"1h": "up"}
-    assert p_false_boosts("15m", "up", moves) == [{"source_tf": "1h", "addend": 0.05}]
-    assert p_false_boosts("30m", "up", moves) == [{"source_tf": "1h", "addend": 0.05}]
+    assert p_false_boosts("15m", "up", moves) == [{"source_tf": "1h", "addend": 0.0}]
+    assert p_false_boosts("30m", "up", moves) == [{"source_tf": "1h", "addend": 0.0}]
     # No 1h boost for... nothing below 1h other than micro exists; and a 30m
     # move on 4h/1d rows is unchanged:
     assert p_false_boosts("1h", "up", moves) == []
@@ -367,7 +371,7 @@ def test_m1m_g2_ignition_without_body():
 
     assert fi.state == FI_FALSE_IGNITION_PROBABLE
     assert fi.t0_age == 8
-    assert fi.p_false_ignition == 0.65
+    assert fi.p_false_ignition == 0.42
     assert fi.confirmed_by is None
 
 

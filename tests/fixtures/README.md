@@ -21,3 +21,17 @@ This is the evaluation instant of the two v0.2.0 real goldens
 The fixtures are immutable (spec §0.4): re-fetching a different range or
 re-cutting a different instant is a NEW fixture, never an overwrite.
 Consumed by `tests/test_v020_real_goldens.py`.
+
+## Addendum 2026-07-17 — 1w fixture (replay-smoke net)
+
+`btc_usdt_bitget_1w_20260713T1600.json` — the 298 BTC/USDT weekly candles
+closed at or before the SAME instant (2026-07-13 16:00 UTC), cut from the
+immutable §I.6 replay data set (`data_manifest.json`, sha256-manifested
+Bitget candles, 2026-07-16). Same row format. NEW fixture per the rule
+above — nothing was overwritten.
+
+Added for `tests/test_v020_replay_smoke.py`: the 1w is the adversarial TF
+for the H1 freshness invariant — a weekly CONFIRMED lingers for months, so
+without the v0.2.1 freshness grant condition it rescues every lower-TF
+watch in its direction (the shipped-0.2.0 P0). The smoke walk needs it in
+the ladder for the bug class to be visible in aggregates.

@@ -162,7 +162,7 @@ def test_v020_color_flip_adjudicates_on_4h(monkeypatch):
     watch = _fe(_get(client).json())[("4h", "up")]
 
     assert watch["state"] == "FALSE_ENTRY_CONFIRMED"
-    assert watch["p_false"] == 0.80
+    assert watch["p_false"] == 0.70  # measured prior (replay 120d 2026-07-16)
     assert watch["color_flip_age"] == 2
     assert watch["event_age"] == 2
     assert watch["higher_tf"] is None
@@ -192,7 +192,7 @@ def test_v020_m2_contrary_impulse_on_1h(monkeypatch):
     body = _get(client).json()
 
     assert _fe(body)[("1h", "up")]["state"] == "FALSE_ENTRY_PROBABLE"
-    assert _fe(body)[("1h", "up")]["p_false"] == 0.70
+    assert _fe(body)[("1h", "up")]["p_false"] == 0.40  # measured timeout prior
 
     contrary = body["monitors"]["contrary_impulse"]
     assert len(contrary) == 1
@@ -232,6 +232,21 @@ def test_rule_version_query_param_overrides_env_default(monkeypatch):
     v020 = _get(client, rule_version="0.2.0").json()
     assert v020["rule_version"] == "0.2.0"
     assert set(v020["monitors"].keys()) == V2_MONITOR_BLOCKS
+
+
+def test_rule_version_021_runs_the_same_pack_and_reports_its_label(monkeypatch):
+    # 0.2.0 and 0.2.1 execute the SAME corrected code (spec §I.9); the
+    # reported rule_version is the caller's label, verbatim.
+    monkeypatch.delenv("RULE_VERSION", raising=False)
+    client = _client(monkeypatch, _market_frames())
+
+    v021 = _get(client, rule_version="0.2.1").json()
+    assert v021["rule_version"] == "0.2.1"
+    assert set(v021["monitors"].keys()) == V2_MONITOR_BLOCKS
+
+    v020 = _get(client, rule_version="0.2.0").json()
+    assert v020["rule_version"] == "0.2.0"
+    assert v020["monitors"] == v021["monitors"]  # no code fork
 
 
 def test_unsupported_rule_version_is_a_400(monkeypatch):
