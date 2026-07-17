@@ -1411,23 +1411,29 @@ menos apalancamiento" — the wider the timeframe, the lower the leverage.
 
 ---
 
-## I. RULE SPEC v0.2.0 — CANDIDATE
+## I. RULE SPEC v0.2.0 — IMPLEMENTED (GATED)
 
 | | |
 |---|---|
 | **rule_version (target)** | `0.2.0` |
-| **Status** | **CANDIDATE — PENDING REPLAY GATE (F0) — NOT ACTIVE** |
+| **Status** | **IMPLEMENTED — GATED, INACTIVE BY DEFAULT — PENDING REPLAY GATE (F0)** |
 | **Dictated** | 2026-07-13 (owner) |
 | **Designed** | 2026-07-14 (trading analysis) |
-| **Scope** | Additive to v0.1.0: two new monitor states/machines (M1.1, M2), one hierarchy override (H1), one new detector (E4.1), one new composite setup (C1). **Nothing here activates until the §I.6 replay A/B passes and `/mmk-council` gates the `rule_version` bump.** |
+| **Implemented** | 2026-07-16 — `rule_v020.py` (pure detectors/state machines) + `monitors_v020.py` (additive monitor assembly), behind the `RULE_VERSION` gate (default `0.1.0`). See §I.8 for the module map and the ambiguities the implementation had to resolve. |
+| **Scope** | Additive to v0.1.0: two new monitor states/machines (M1.1, M2), one hierarchy override (H1), one new detector (E4.1), one new composite setup (C1), plus the v0.2.0-b micro band (15m, M1m, C1-micro). **Nothing here activates until the §I.6 replay A/B passes and `/mmk-council` gates the `rule_version` bump.** |
 
-> **HARD GATE.** Everything in §I is a **CANDIDATE**. It does not vote, does not
-> alert, does not veto and does not trade until: (1) the §I.6 validation replay
-> shows the required improvements, AND (2) the council explicitly ratifies the
-> `rule_version` 0.2.0 bump (§0.4). Until then the live/backtest engine runs
-> v0.1.0 rules only. Section labels below (B.3.2, B.3.2b, B.3.3, E4.1, B.4)
-> mark where each rule would slot into the active numbering **on promotion**;
-> they are not active section numbers today.
+> **HARD GATE.** Everything in §I is **implemented but INACTIVE by default**:
+> the code ships in the engine yet only runs when `rule_version` is explicitly
+> `0.2.0` (env `RULE_VERSION`, or the `rule_version` query param on
+> `/v1/setups/evaluate` — added so the §I.6 replay can run both versions on
+> identical code). With the default `0.1.0` the engine's behaviour is
+> byte-identical to pre-v0.2.0 (pinned by `tests/test_v010_no_regression.py`).
+> It does not vote, does not alert, does not veto and does not trade in prod
+> until: (1) the §I.6 validation replay shows the required improvements, AND
+> (2) the council explicitly ratifies the `rule_version` 0.2.0 bump (§0.4).
+> Section labels below (B.3.2, B.3.2b, B.3.3, E4.1, B.4) mark where each rule
+> would slot into the active numbering **on promotion**; they are not active
+> section numbers today.
 >
 > **Operative TF set for v0.2.0 = `{30m, 1h, 4h, 1d, 1w}`** — 30m formally
 > joins the monitor set (5 TFs; §H had 4). Band rules (§0.3) are unchanged:
@@ -1822,6 +1828,75 @@ E4.1 zone constants are trusted in the replay.
     hierarchy weights (`+0.10/+0.15/+0.20`, cap 0.90) and the E4.1
     `high_zone = 70` / `min_drop_cum = 10` constants can be trusted. **This is a
     prerequisite of the §I.6 replay.**
+
+---
+
+### I.8 — Implementation notes (2026-07-16, backend)
+
+**Gate mechanics.** `RULE_VERSION` env (default `0.1.0`) or the additive
+`rule_version` query param select the pack per evaluation;
+`SetupEvaluationService` rejects unknown versions (400). Under `0.2.0` the
+top-level `rule_version` reports `0.2.0` and `monitors` gains the blocks
+`false_ignition_watch`, `contrary_impulse`, `confluence` and
+`vol_turn_rounded`; `false_entry_watch` entries gain `color_flip_age`,
+`p_false_boosts`, `higher_tf` and `ignition_from_below`. The `setups` block
+(the 0.1.0 documents) is identical under both versions. The v0.1.0 monitor
+path is untouched code.
+
+**Module map.** Pure detectors/state machines:
+`src/controllers/metrics/rule_v020.py` (M1.1 `false_entry_state_v2`, E4.1
+`v/w_turn_rounded_high`, H1 `higher_confirmed_source`/`p_false_boosts`, M2
+`contrary_impulse`, M1m `false_ignition_state`, C1
+`confluence_alignment`/`evaluate_confluence`). Additive assembly:
+`src/controllers/metrics/monitors_v020.py` (`build_monitors_v020`). Goldens:
+`tests/test_rule_v020_golden.py`, assembly/H1:
+`tests/test_monitors_v020_assembly.py`, HTTP contract:
+`tests/test_evaluate_v020_endpoint.py`, no-regression:
+`tests/test_v010_no_regression.py`, real-candle goldens (2026-07-13, Bitget
+fixtures): `tests/test_v020_real_goldens.py` + `tests/fixtures/`.
+
+**Ambiguities resolved by the implementation** (all revisitable at the gate):
+
+1. **H1 Rule 1 walks the whole ladder above** the watch (nearest confirming
+   TF wins, recorded in `higher_tf.source_tf`), subsuming the one-band-up
+   wording and the addendum's "30m OR 1h" for 15m. Required by the real
+   2026-07-13 golden: 30m AND 1h must both resolve `CONFIRMED_BY_HIGHER_TF`
+   off the 4h even though the 1h itself adjudicated false.
+2. **M1.1 race semantics**: an AO re-cross BEFORE the flip adjudication age
+   is a `WHIPSAW`; a re-cross AFTER a flip adjudication is the fulfilled
+   contrary prediction (state stays `FALSE_ENTRY_CONFIRMED`). Tie on the
+   same candle -> `WHIPSAW`.
+3. **H1 Rule 2 "move direction"** of the rollover TF = the §I.1 `di_color`
+   of its last closed candle (tie -> no boost). A lower-TF watch "opposes
+   the implied retracement" when its direction equals that move. Addends
+   from multiple rollover TFs stack, capped at 0.90. Boosts also apply to
+   M1m `p_false_ignition`.
+4. **E4.1 W variant** (spec loose): pivot highs (strength 1, confirmed)
+   stand in for the zone tests; second test may not exceed the first by more
+   than `tolerance`; a trough of `min_trough_depth = 5` (inherited from §E4)
+   must separate the tests; last close must be falling. V wins the variant
+   label when both fire.
+5. **H1-G3 anchor**: the golden was written pre-B.3.5 with an AO-anchored
+   15m watch; since 15m runs M1m only, the implemented golden asserts the
+   M1m timeout override (`CONFIRMED_BY_HIGHER_TF`, source 30m).
+6. **M1m-G1 spec erratum**: the dictated ADX series (`..., 19.2, 21.0`)
+   does NOT fire E1 with the v0.1.0 defaults (bend 1.467 < 1.5); the golden
+   ships with `21.0 -> 21.5` (bend 1.633). Owner should confirm the series
+   or the E1 defaults.
+7. **C1 annotations** are product copy in Spanish
+   (`"<tf> probablemente en retroceso"`), consistent with `RulesService`
+   explanations; the engine emits confluence events with direction only —
+   ENTRY vs EXIT (`"SALIDA por confluencia contraria"`, priority 5) is the
+   journal owner's call (mmk-api).
+8. **C1 ADX freshness** `event_age <= 5` scans ages 0..5 (window 6) —
+   deliberately one candle wider than V2's `confirm_window = 5` (ages 0..4).
+9. **15m/30m emission discipline** is made explicit in the payload:
+   `false_ignition_watch` entries carry `shadow` (30m) and `alertable:
+   false`; the F1 watcher must not push any of them (15m states are
+   H1/C1/M2 inputs only).
+10. **Micro-band enrichment** still uses the full `calculate_all()`
+    (ENG-15M's oscillator-only enrichment is a deferred optimisation, not a
+    correctness requirement).
 
 ---
 
