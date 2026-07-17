@@ -1,24 +1,30 @@
-"""Rule pack v0.2.0 — CANDIDATE rules behind the RULE_VERSION gate (spec §I).
+"""Rule pack v0.2.x — CANDIDATE rules behind the RULE_VERSION gate (spec §I).
 
 Pure functions over pandas Series/DataFrames of CLOSED candles implementing:
 
 * M1.1 `color_flip` early false-entry adjudication (spec §I.1): extends the
-  §B.3.1 machine with the `FALSE_ENTRY_CONFIRMED` terminal state (p_false 0.80).
+  §B.3.1 machine with the `FALSE_ENTRY_CONFIRMED` terminal state (p_false 0.70).
 * M2 `contrary_impulse` (spec §I.2): the contrary move a false entry predicts.
+  Evidence only, NO call-grade (council 2026-07-17, spec §I.2 v0.2.1 note).
 * H1 hierarchy (spec §I.3 + addendum B.3.3): Rule 1 `CONFIRMED_BY_HIGHER_TF`
-  override and Rule 2 `vol_turn_rounded` p_false boost (cap 0.90).
+  override (freshness-bounded, see monitors_v020) and Rule 2 `vol_turn_rounded`
+  p_false boost (addends ZEROED pending Q19 — see `VT_ROUNDED_ADDEND`).
 * E4.1 `vol_turn_rounded` (spec §I.4): rounded volatility rollover, V and W.
 * C1 3-TF full-alignment confluence (spec §I.5 + addendum B.4.1 micro window).
+  Evidence only under v0.2.1: entry-call OFF, exit degraded (spec §I.5 note).
 * M1m ADX-anchored false-ignition monitor for the micro band (addendum B.3.5).
 
 NOTHING in this module runs unless the engine is instantiated with
-rule_version "0.2.0" (`RULE_VERSION` env, default "0.1.0") — the v0.1.0
-behaviour stays byte-identical. Deploying 0.2.0 to prod is gated on the §I.6
-replay A/B plus an explicit /mmk-council ratification (spec §0.4).
+rule_version "0.2.0" or "0.2.1" (`RULE_VERSION` env, default "0.1.0") — the
+v0.1.0 behaviour stays byte-identical. Both 0.2.x labels execute this SAME
+code: 0.2.1 = 0.2.0 + the H1 freshness fix (P0) + the measured priors below;
+0.2.0-as-shipped is obsolete and kept only as a replay label (spec §I.9).
 
-Every parameter default below is the versioned rule data of 0.2.0 (checked
+Every parameter default below is the versioned rule data of 0.2.1 (checked
 into the repo, never env vars — spec §0.4); changing any of them is a
-rule_version bump.
+rule_version bump. Priors are MEASURED data as of the 120d replay of
+2026-07-16 (BTC/ETH/SOL/BNB, immutable manifest) — provenance is noted on
+each value.
 """
 
 from __future__ import annotations
@@ -103,12 +109,17 @@ class FalseEntryV2Params:
 
     confirm_candles: int = 5
     early_warning_candles: int = 2
-    p_false_prior: float = 0.70
+    # MEASURED (replay 120d 2026-07-16, n=648 timeout adjudications): contrary
+    # hit-rate of the timeout subset is 38%, and 73% of timeouts sat on a real
+    # >= 1 ATR impulse — the owner prior 0.70 did not survive. v0.2.1 data.
+    p_false_prior: float = 0.40
     confirm_bars: int = 1
     resolution_horizon: int = 10
     color_min_age: int = 2       # earliest post-cross age a flip adjudicates
     color_max_age: int = 4       # latest; above this the age-5 timeout governs
-    p_false_color: float = 0.80  # owner prior for the affirmative flip
+    # MEASURED (replay 120d 2026-07-16, n=243 FEC adjudications): contrary
+    # hit-rate 70.0% (IS 71.6% / OOS 64.2%), replacing the owner prior 0.80.
+    p_false_color: float = 0.70
 
 
 FALSE_ENTRY_V2_DEFAULTS = FalseEntryV2Params()
@@ -357,8 +368,13 @@ P_FALSE_CAP = 0.90
 
 # Rule-2 addends per vol_turn_rounded TF. The 1h row (addendum B.3.3) boosts
 # micro-band watches only; the >=4h rows apply to every lower-TF watch.
-# Weights are gated on Q19 — do not trust before the BBWP calibration.
-VT_ROUNDED_ADDEND = {"1h": 0.05, "4h": 0.10, "1d": 0.15, "1w": 0.20}
+# ZEROED for v0.2.1 (council 2026-07-17): the engine BBWP is uncalibrated vs
+# the owner's TradingView read (Q19, two load-bearing cases), so the boosts
+# are suspended — the wiring still emits boost entries (addend 0.0) and E4.1
+# keeps emitting as evidence (it was never alertable). Recalibration pending
+# on `bbwp_owner` post-Q19; the 0.2.0 constants are preserved here for it:
+# {"1h": 0.05, "4h": 0.10, "1d": 0.15, "1w": 0.20}.
+VT_ROUNDED_ADDEND = {"1h": 0.0, "4h": 0.0, "1d": 0.0, "1w": 0.0}
 _VT_1H_BOOST_TARGETS = ("15m", "30m")
 
 
@@ -500,7 +516,10 @@ FI_WHIPSAW = "WHIPSAW"
 @dataclass(frozen=True)
 class FalseIgnitionParams:
     confirm_candles: int = 8       # 15m default (2h wall clock); 6 on 30m shadow
-    p_false_ignition: float = 0.65  # analyst provisional prior (Q21)
+    # MEASURED (replay 120d 2026-07-16, n=57 FI-probable, interpool): price
+    # hit-rate 42.1%, replacing the 0.65 provisional prior (Q21). NOTE: n=57
+    # gives a WIDE confidence interval — recalibrate as forward data accrues.
+    p_false_ignition: float = 0.42
     bbwp_rising_closes: int = 3
     scan_window: int = 14          # t0 lookback: confirm_candles + terminal visibility
 
@@ -806,10 +825,11 @@ def evaluate_confluence(
 ) -> List[Dict[str, Any]]:
     """Evaluate every enabled C1 window on the given per-TF frames.
 
-    Emits one entry per (window, direction) fully aligned. ENTRY vs EXIT is
-    the CONSUMER's call (mmk-api owns the journal): the engine only emits the
-    confluence event with its direction, profiles, annotation and
-    exit_priority (spec §I.5 — contrary confluence is the primary exit).
+    Emits one entry per (window, direction) fully aligned. Under v0.2.1 every
+    entry is `evidence_only` (council 2026-07-17): the replay failed C1 as an
+    entry-call (full alignment arrives late = exhaustion marker) and did not
+    validate the P5 exit — the consumer (mmk-api journal) must not treat these
+    as calls of any grade until the owner signs off (spec §I.5 v0.2.1 note).
     """
     entries: List[Dict[str, Any]] = []
     for window in CONFLUENCE_WINDOWS:
@@ -843,6 +863,11 @@ def evaluate_confluence(
                     "exit_priority": params.exit_priority,
                     "companion_ok": companion_ok,
                     "alignment": alignment,
+                    # v0.2.1 (council 2026-07-17): C1 entry-call is OFF and the
+                    # P5 exit is degraded to evidence (owner sign-off PENDING).
+                    # The block keeps computing to gather forward evidence for
+                    # the pre-registered v0.3.0 C1-FADE hypothesis (spec §I.9).
+                    "evidence_only": True,
                 }
             )
     return entries

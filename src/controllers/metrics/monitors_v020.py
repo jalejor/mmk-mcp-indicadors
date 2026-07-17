@@ -6,7 +6,8 @@ per-TF M1 (v2, with the §I.1 color flip) and M1m watches, the H1 hierarchy
 E4.1 `vol_turn_rounded` states and the C1 confluence windows.
 
 Only `SetupEvaluationService` calls this, and only when the engine runs with
-rule_version "0.2.0" — the v0.1.0 monitor path is untouched. Every block is
+rule_version "0.2.0" or "0.2.1" (both labels execute this same corrected code;
+spec §I.9) — the v0.1.0 monitor path is untouched. Every block is
 ADDITIVE: existing consumers (mmk-api watcher, dashboard) keep parsing
 `false_entry_watch` + `tf_status`; the new blocks are new keys.
 
@@ -183,16 +184,18 @@ def _tf_snapshot(tf: str, frame: pd.DataFrame) -> Dict[str, Any]:
 
 
 def _confirmed_directions(snapshots: Dict[str, Dict[str, Any]]) -> Dict[str, Tuple[str, ...]]:
-    """H1 Rule-1 sources: directions with an M1 (or M1m) CONFIRMED per TF."""
+    """H1 Rule-1 sources: directions with a FRESH M1 (or M1m) CONFIRMED per TF.
+
+    Freshness (confirm event age <= TERMINAL_MAX_AGE, via `_fresh_confirmed`,
+    the same bound `_ignition_from_below` uses) is a GRANT CONDITION, not just
+    emission gating: without it a stale CONFIRMED — sticky until the next
+    cross — rescued every lower-TF watch, suppressed ALL FALSE adjudications
+    and killed the monitor (P0, replay 120d 2026-07-16; spec §I.3 v0.2.1)."""
     confirmed: Dict[str, Tuple[str, ...]] = {}
     for tf, snap in snapshots.items():
-        dirs = [d for d, fe in snap["m1"].items() if fe.state == FE_CONFIRMED]
-        dirs += [
-            d for d, fi in snap["m1m"].items()
-            if fi.state == FI_CONFIRMED and d not in dirs
-        ]
+        dirs = tuple(d for d in ("up", "down") if _fresh_confirmed(snap, d))
         if dirs:
-            confirmed[tf] = tuple(dirs)
+            confirmed[tf] = dirs
     return confirmed
 
 
