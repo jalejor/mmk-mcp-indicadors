@@ -1,8 +1,11 @@
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 import numpy as np
 import pandas as pd
 import pandas_ta_classic as ta
+
+from .bbwp_owner import bbwp_owner_series
+from .trend_speed import trend_speed_analyzer
 
 
 class IndicatorsService:
@@ -34,11 +37,13 @@ class IndicatorsService:
         self._calc_rsi(result)
         self._calc_adx(result)
         self._calc_bbwp(result)
+        self._calc_bbwp_owner(result)
         self._calc_ao(result)
         self._calc_moving_averages(result)
         self._calc_konkorde(result)
         self._calc_momentum_indicators(result)
         self._calc_volatility_indicators(result)
+        self._calc_trend_speed(result)
 
         return result
 
@@ -58,14 +63,19 @@ class IndicatorsService:
         `calculate_all`).
 
         The full series stay on `self.df` as the `adx14`, `plus_di`,
-        `minus_di`, `bbwp` and `ao` columns; the returned dict carries the
-        last-candle values (same keys as `calculate_all`). Used by the chart
-        service to ship per-candle oscillator panels alongside Konkorde.
+        `minus_di`, `bbwp` and `ao` columns — plus the TradingView-parity
+        variants `bbwp_owner`, `bbwp_owner_ma5`, `ao_diff`, `ao_color` and
+        the `tsa_*` Trend Speed Analyzer columns; the returned dict carries
+        the last-candle values (same keys as `calculate_all`). Used by the
+        chart service to ship per-candle oscillator panels alongside
+        Konkorde.
         """
         result: Dict[str, Any] = {}
         self._calc_adx(result)
         self._calc_bbwp(result)
+        self._calc_bbwp_owner(result)
         self._calc_ao(result)
+        self._calc_trend_speed(result)
         return result
 
     # ------------------------------------------------------------------
@@ -128,10 +138,67 @@ class IndicatorsService:
         result["bbwp"] = self._safe_last(self.df["bbwp"])
         result["bbwp_ma4"] = self._safe_last(self.df["bbwp_ma4"])
 
+    def _calc_bbwp_owner(self, result: Dict[str, Any]):
+        """Owner-calibrated BBWP (TradingView parity variant).
+
+        Exact port of The_Caretaker's `f_bbwp` with the owner's chart
+        settings (basis SMA 13, lookback 256, SMA 5 over the BBWP) — see
+        `bbwp_owner.py`. Exposed ALONGSIDE the legacy `bbwp` column, which
+        the active rules and the recorded history keep using; this variant
+        exists so the engine's readings can be compared 1:1 against the
+        owner's TradingView chart (Q19 calibration).
+        """
+        owner = bbwp_owner_series(self.df["close"])
+        self.df["bbwp_owner"] = owner["bbwp"]
+        self.df["bbwp_owner_ma5"] = owner["bbwp_ma"]
+        result["bbwp_owner"] = self._safe_last(self.df["bbwp_owner"])
+        result["bbwp_owner_ma5"] = self._safe_last(self.df["bbwp_owner_ma5"])
+
     def _calc_ao(self, result: Dict[str, Any]):
-        self.df["ao"] = ta.ao(self.df["high"], self.df["low"])
+        """Awesome Oscillator + the exact TradingView colour reading.
+
+        `ta.ao` already matches the Pine built-in (`sma(hl2,5)-sma(hl2,34)`,
+        verified by `tests/test_ao_parity.py`). The owner reads the COLOUR
+        of the AO columns, which is the sign of `diff = ao - ao[1]` with
+        ties painted RED (Pine: `diff <= 0 ? red : green`) — so `ao_diff`
+        and `ao_color` are exposed alongside the raw value. A colour change
+        is a cross of `diff` with zero (Pine crossover/crossunder).
+        """
+        ao = ta.ao(self.df["high"], self.df["low"])
+        if ao is None:  # pandas-ta returns None when the series is < 34 bars
+            ao = pd.Series(np.nan, index=self.df.index)
+        self.df["ao"] = ao
         last_ao = self.df["ao"].dropna().iloc[-1] if self.df["ao"].dropna().size else 0.0
         result["ao"] = float(last_ao)
+
+        ao_diff = self.df["ao"].diff()
+        self.df["ao_diff"] = ao_diff
+        color = pd.Series(
+            np.where(ao_diff > 0, "green", "red"), index=self.df.index, dtype="object"
+        )
+        color[ao_diff.isna()] = None
+        self.df["ao_color"] = color
+        result["ao_diff"] = self._safe_last(ao_diff)
+        result["ao_color"] = self._last_color(color)
+        result["ao_color_change"] = self._ao_color_change(ao_diff)
+
+    @staticmethod
+    def _last_color(color: pd.Series) -> Optional[str]:
+        valid = color.dropna()
+        return str(valid.iloc[-1]) if valid.size else None
+
+    @staticmethod
+    def _ao_color_change(ao_diff: pd.Series) -> Optional[str]:
+        """Pine `ta.crossover/crossunder(diff, 0)` on the last closed candle."""
+        clean = ao_diff.dropna()
+        if len(clean) < 2:
+            return None
+        current, previous = float(clean.iloc[-1]), float(clean.iloc[-2])
+        if current > 0 and previous <= 0:
+            return "to_green"
+        if current < 0 and previous >= 0:
+            return "to_red"
+        return None
 
     def _calc_moving_averages(self, result: Dict[str, Any]):
         for period in [50, 200]:
@@ -326,3 +393,22 @@ class IndicatorsService:
         returns = self.df["close"].pct_change()
         volatility = returns.rolling(20).std() * 100
         result["volatility_20"] = self._safe_last(volatility)
+
+    def _calc_trend_speed(self, result: Dict[str, Any]):
+        """Trend Speed Analyzer (Zeiierman) — TradingView parity port.
+
+        Bar-exact port (see `trend_speed.py`, CC BY-NC-SA 4.0 attribution
+        there). Series land on `self.df` as `tsa_dyn_ema`, `tsa_speed`,
+        `tsa_trend_speed` (the HMA-5 histogram the owner sees) and
+        `tsa_wave_dir`; the wave-table stats land in the result dict.
+        Comparison-only for now: no rule consumes these outputs.
+        """
+        tsa = trend_speed_analyzer(self.df["open"], self.df["close"])
+        self.df["tsa_dyn_ema"] = tsa.frame["dyn_ema"]
+        self.df["tsa_speed"] = tsa.frame["speed"]
+        self.df["tsa_trend_speed"] = tsa.frame["trend_speed"]
+        self.df["tsa_wave_dir"] = tsa.frame["wave_dir"]
+        result["trend_speed"] = self._safe_last(self.df["tsa_trend_speed"])
+        result["trend_speed_raw"] = self._safe_last(self.df["tsa_speed"])
+        result["trend_speed_dyn_ema"] = self._safe_last(self.df["tsa_dyn_ema"])
+        result["trend_speed_stats"] = tsa.stats

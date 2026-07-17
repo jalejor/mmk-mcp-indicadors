@@ -2157,3 +2157,92 @@ bbwp 61>50 + ao +0.1 bonus -> aligned 100. 1h: 3/3 full. -> C1-SNIPPER fires dir
 * Q20: additional PRO-polish window {30m,1h,4h}? (default OFF)
 * Q21: owner prior for p_false_ignition (0.65 provisional) + confirm_candles per-TF
 * Q22: confirm 15m never pushes even with an open trade (current spec: input-only)
+
+---
+
+## J. CANDIDATES — 2026-07-16 (TV-parity port; NOT implemented as rules)
+
+Status: **CANDIDATE** — nothing in this section is wired into `setups`,
+monitors or alerts. It records (a) a rule dictated by the owner pending his
+answers, (b) a new indicator component now available to the engine, and
+(c) a quantified cost golden. Implementing any of it is a `rule_version`
+bump gated by its own replay.
+
+### J.0 Context — TV-parity indicators landed (2026-07-16)
+
+The owner delivered the Pine sources of the 3 indicators on his chart. The
+engine now computes, per candle and exposed on `/v1/metrics` +
+`/v1/charts` (additive fields, comparison-only):
+
+* `bbwp_owner` / `bbwp_owner_ma5` — exact port of The_Caretaker's `f_bbwp`
+  with the owner's settings (basis SMA 13, lookback 256, SMA 5; extremes
+  98/2). **This closes the Q19 calibration prerequisite mechanically**: the
+  engine's legacy `bbwp` (basis 20/2 bands, pct-rank including the current
+  bar, min_periods=1 over 252) is a materially different series — on real
+  BTC/USDT candles (2026-07-16): 4h last closed candle engine 65.1 vs owner
+  20.3 (|gap| 44.8; mean |gap| last-100 20.1, max 65.2); the owner's 4h
+  "inverted V" (peak 88.3 on 15-jul 12:00 UTC → 4.3 on 16-jul 12:00 UTC)
+  simply does not exist in the legacy series (flat 66→69 over the same
+  span). Rule 2 / E4.1 constants gated on Q19 must be recalibrated against
+  `bbwp_owner`, not against the legacy `bbwp` (which stays untouched for
+  the recorded history and the active rules).
+* `ao_diff` / `ao_color` / `ao_color_change` — the exact colour the owner
+  reads: sign of `diff = ao - ao[1]`, tie paints RED (`diff <= 0`), colour
+  change = cross of `diff` with 0. Engine AO itself verified bit-equal to
+  the Pine built-in `sma(hl2,5) - sma(hl2,34)`. Known divergence kept as-is:
+  the rules helpers `ao_rising`/`ao_falling` use strict comparisons (a flat
+  AO bar is neither), and `_ao_consecutive_run_after(kind="falling")`
+  breaks a run on a flat bar that the owner's chart still paints red.
+* `trend_speed` (+ `tsa_*` series and wave stats) — full port of
+  Zeiierman's Trend Speed Analyzer (CC BY-NC-SA 4.0, attribution in
+  `src/controllers/metrics/trend_speed.py`; private repo, personal use).
+
+Validation protocol: the owner compares the dashboard panels against his
+TradingView side-by-side (visual parity = final acceptance).
+
+### J.1 R-CONT — continuation of the short (owner, 2026-07-16, verbatim)
+
+> "la continuación de ese corto iría si horas no pasa el ao y hay un
+> cambio de adx, pero por ejemplo en este momento no ha producido"
+
+Default interpretation (to validate with the owner before any
+implementation): after the micro-band short entry (C1-micro), the
+CONTINUATION is confirmed while, on the 1h timeframe, the AO does NOT
+cross above zero (stays < 0) AND an ADX change fires in favour of the
+short (DI dominance flip to bearish, or an E1-grade bearish turn). Pairs
+with the 2026-07-14 "symmetry" reading (30m ADX turning with red DI within
+<= 5 candles → bearish continuation).
+
+Open questions (owner):
+
+* **Q23**: "horas" = the 1h timeframe exactly, or any hourly-band TF
+  (1h/2h)?
+* **Q24**: "no pasa el AO" = AO does not cross above 0 (`zero_cross`), or
+  the AO colour does not flip to green (`ao_color` stays red)? These are
+  different events — the port now exposes both.
+* **Q25**: "cambio de ADX" = DI dominance flip (minus_di > plus_di), or an
+  E1 90-degree ADX slope turn (grade A/B)? Or either?
+
+### J.2 E6 / TSA — component available for the IMP-4H redesign (PARKED)
+
+The F0 verdict (2026-07-11) sent IMP-4H to redesign as E6. The Trend Speed
+Analyzer port is the candidate raw material: adaptive trend line
+(`tsa_dyn_ema`), per-wave impulse magnitude (`speed`, HMA'd as
+`trend_speed`) and per-side wave statistics (avg/max wave, current-wave
+ratio, dominance) — i.e. a native "impulse vs its own history" measure per
+TF. PARKED until its own gate: any E6 draft must specify thresholds as
+versioned data and pass the standard replay (n>=30, IS/OOS 70/30, fees)
+before entering any window logic.
+
+### J.3 Cost golden — the missed C1-micro short (owner, 2026-07-16, verbatim)
+
+> "si hubiéramos hecho el corto estaríamos 2,47% de caída a 10x = 25% de
+> lo que se tiene"
+
+The micro-band short that mmk never alerted (C1-micro not yet deployed)
+would have returned ≈ +24.7% of capital at 10x (Snipper profile): a 2.47%
+drop, entry per the owner's live reading on 2026-07-16. Recorded as the
+quantified opportunity cost of the C1-micro deployment delay — input for
+the council gate that prioritises the v0.2.0-b micro band. This is a COST
+golden (evidence for prioritisation), not a backtest golden: it does not
+validate the rule by itself.
