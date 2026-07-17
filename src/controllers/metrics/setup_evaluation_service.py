@@ -19,6 +19,7 @@ Design notes:
 from __future__ import annotations
 
 import math
+import os
 import threading
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Sequence
@@ -49,6 +50,14 @@ from .setup_service import (
 # operative set, owner 2026-07-12). AO and ADX are both-band elements, so the
 # band table permits M1 everywhere (30m is low band: BBWP+AO+ADX, no Konkorde).
 _M1_OPERATIVE_TFS = ("30m", "1h", "4h", "1d", "1w")
+
+# Rule-version gate (spec §0.4 / §I): the engine's active rule_version comes
+# from the RULE_VERSION env (default 0.1.0 — today's behaviour, byte-identical)
+# or an explicit constructor/query override so the §I.6 replay can run both
+# versions on the same code. "0.2.0" is a CANDIDATE: never the default until
+# the replay gate passes and /mmk-council ratifies the bump.
+RULE_VERSION_DEFAULT = "0.1.0"
+SUPPORTED_RULE_VERSIONS = ("0.1.0", "0.2.0")
 # Keep a terminal monitor visible for a few candles after adjudication so the
 # 4h scheduler (max gap 4 candles on 1h) never misses it; the F1 watcher
 # dedups by cross_candle_ts, so re-emitting is harmless.
@@ -96,10 +105,19 @@ class SetupEvaluationService:
         exchange: str = DEFAULT_EXCHANGE,
         setups: Optional[Sequence[SetupDefinition]] = None,
         limit: int = FETCH_LIMIT,
+        rule_version: Optional[str] = None,
     ) -> None:
         self.symbol = symbol
         self.exchange = exchange.lower()
         self.limit = int(limit)
+        self.rule_version = (
+            rule_version or os.getenv("RULE_VERSION", RULE_VERSION_DEFAULT)
+        ).strip()
+        if self.rule_version not in SUPPORTED_RULE_VERSIONS:
+            raise ValueError(
+                f"Unsupported rule_version: {self.rule_version!r} "
+                f"(supported: {', '.join(SUPPORTED_RULE_VERSIONS)})"
+            )
         # SetupService validates the rule documents at load (spec §0.3).
         self._setup_service = SetupService(setups=setups)
 
@@ -114,14 +132,25 @@ class SetupEvaluationService:
         timeframes = sorted({tf for setup in setups for tf in setup.timeframes()})
         frames = {tf: self._enriched_frame(tf) for tf in timeframes}
 
+        if self.rule_version == "0.2.0":
+            # v0.2.0 monitor pack (spec §I) — ADDITIVE blocks only; the
+            # `setups` evaluation itself still runs the 0.1.0 documents.
+            from .monitors_v020 import build_monitors_v020
+
+            monitors = build_monitors_v020(frames, self._enriched_frame)
+            reported_version = self.rule_version
+        else:
+            monitors = self._monitors(frames)
+            reported_version = setups[0].rule_version
+
         return {
             "symbol": self.symbol,
-            "rule_version": setups[0].rule_version,
+            "rule_version": reported_version,
             "evaluated_at": datetime.now(tz=timezone.utc).isoformat(),
             "setups": [self._evaluate_one(setup, frames) for setup in setups],
             # ADDITIVE (spec §B.3.1): does not touch `setups`. Existing consumers
             # (dashboard /estrategia, F1 watcher) keep parsing `setups` as before.
-            "monitors": self._monitors(frames),
+            "monitors": monitors,
         }
 
     def _monitors(self, frames: Dict[str, pd.DataFrame]) -> Dict[str, Any]:

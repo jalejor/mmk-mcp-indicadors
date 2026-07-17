@@ -14,6 +14,15 @@ tags = ["setups"]
 async def evaluate_setups(
     symbol: str = Query(..., description="Trading pair, e.g. BTC/USDT"),
     exchange: str = Query(DEFAULT_EXCHANGE, description="Exchange: binance, bitget"),
+    rule_version: str | None = Query(
+        None,
+        description=(
+            "Rule-version override for this evaluation (0.1.0 | 0.2.0). "
+            "Default: RULE_VERSION env, itself defaulting to 0.1.0. The 0.2.0 "
+            "pack is a CANDIDATE gated on the spec §I.6 replay — additive "
+            "monitor blocks only, the setups contract is unchanged."
+        ),
+    ),
 ):
     """Evaluate every declarative setup at the last CLOSED candle.
 
@@ -31,5 +40,7 @@ async def evaluate_setups(
         invalidation), the veto states, the confirming `adx_turn_grade`
         (A | B | null) and last-closed-candle `evidence`.
     """
-    service = SetupEvaluationService(symbol=symbol, exchange=exchange)
+    service = SetupEvaluationService(
+        symbol=symbol, exchange=exchange, rule_version=rule_version
+    )
     return service.evaluate()
