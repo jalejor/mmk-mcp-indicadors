@@ -119,6 +119,12 @@ class ChartService:
             "adx": oscillators["adx"],
             "bbwp": oscillators["bbwp"],
             "ao": oscillators["ao"],
+            # TradingView-parity panels (additive, 2026-07-16) — see
+            # `_calculate_indicator_series`.
+            "ao_diff": oscillators["ao_diff"],
+            "ao_color": oscillators["ao_color"],
+            "bbwp_owner": oscillators["bbwp_owner"],
+            "trend_speed": oscillators["trend_speed"],
             "metrics": chart_metrics,
             "optimization": {
                 "optimal_timeframe": optimal_timeframe,
@@ -248,11 +254,19 @@ class ChartService:
         the visible window, so it tracks the standalone `/v1/metrics` value
         closely but is not bit-identical (different lookback horizon).
         """
-        empty = {"adx": {"adx": [], "plus_di": [], "minus_di": []}, "bbwp": [], "ao": []}
+        empty = {
+            "adx": {"adx": [], "plus_di": [], "minus_di": []},
+            "bbwp": [],
+            "ao": [],
+            "ao_diff": [],
+            "ao_color": [],
+            "bbwp_owner": {"bbwp": [], "ma5": []},
+            "trend_speed": {"dyn_ema": [], "speed": [], "trendspeed": [], "stats": {}},
+        }
         if df.empty:
             return empty
         service = IndicatorsService(df)
-        service.calculate_oscillators()
+        oscillators = service.calculate_oscillators()
 
         def _clean(column: str) -> List[Optional[float]]:
             return [None if pd.isna(v) else float(v) for v in service.df[column]]
@@ -265,6 +279,22 @@ class ChartService:
             },
             "bbwp": _clean("bbwp"),
             "ao": _clean("ao"),
+            # TradingView-parity fields (additive, 2026-07-16): the exact AO
+            # colour reading, the owner-calibrated BBWP variant and the Trend
+            # Speed Analyzer panel, so the dashboard can be compared 1:1
+            # against the owner's chart. `ao`/`bbwp` above stay untouched.
+            "ao_diff": _clean("ao_diff"),
+            "ao_color": [None if v is None else str(v) for v in service.df["ao_color"]],
+            "bbwp_owner": {
+                "bbwp": _clean("bbwp_owner"),
+                "ma5": _clean("bbwp_owner_ma5"),
+            },
+            "trend_speed": {
+                "dyn_ema": _clean("tsa_dyn_ema"),
+                "speed": _clean("tsa_speed"),
+                "trendspeed": _clean("tsa_trend_speed"),
+                "stats": oscillators.get("trend_speed_stats", {}),
+            },
         }
 
     def _calculate_chart_metrics(self, df: pd.DataFrame) -> Dict[str, Any]:
