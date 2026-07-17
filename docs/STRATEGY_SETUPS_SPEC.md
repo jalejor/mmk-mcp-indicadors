@@ -1411,23 +1411,31 @@ menos apalancamiento" — the wider the timeframe, the lower the leverage.
 
 ---
 
-## I. RULE SPEC v0.2.0 — CANDIDATE
+## I. RULE SPEC v0.2.0 — IMPLEMENTED (GATED)
 
 | | |
 |---|---|
-| **rule_version (target)** | `0.2.0` |
-| **Status** | **CANDIDATE — PENDING REPLAY GATE (F0) — NOT ACTIVE** |
+| **rule_version (target)** | `0.2.1` (supersedes `0.2.0`-as-shipped — OBSOLETE, see §I.9) |
+| **Status** | **IMPLEMENTED — GATED, INACTIVE BY DEFAULT — REPLAY RUN (120d, 2026-07-16), 0.2.1 PACKAGE APPLIED PER COUNCIL 2026-07-17** |
 | **Dictated** | 2026-07-13 (owner) |
 | **Designed** | 2026-07-14 (trading analysis) |
-| **Scope** | Additive to v0.1.0: two new monitor states/machines (M1.1, M2), one hierarchy override (H1), one new detector (E4.1), one new composite setup (C1). **Nothing here activates until the §I.6 replay A/B passes and `/mmk-council` gates the `rule_version` bump.** |
+| **Implemented** | 2026-07-16 — `rule_v020.py` (pure detectors/state machines) + `monitors_v020.py` (additive monitor assembly), behind the `RULE_VERSION` gate (default `0.1.0`). See §I.8 for the module map and the ambiguities the implementation had to resolve. |
+| **Revised** | 2026-07-17 — v0.2.1: H1 freshness fix (P0), measured priors, Rule-2 addends zeroed, M2/C1 degraded to evidence, pre-registrations. See §I.9 and the v0.2.1 notes inline in §I.1–§I.5. |
+| **Scope** | Additive to v0.1.0: two new monitor states/machines (M1.1, M2), one hierarchy override (H1), one new detector (E4.1), one new composite setup (C1), plus the v0.2.0-b micro band (15m, M1m, C1-micro). **Nothing here activates until `/mmk-council` gates the `rule_version` bump.** |
 
-> **HARD GATE.** Everything in §I is a **CANDIDATE**. It does not vote, does not
-> alert, does not veto and does not trade until: (1) the §I.6 validation replay
-> shows the required improvements, AND (2) the council explicitly ratifies the
-> `rule_version` 0.2.0 bump (§0.4). Until then the live/backtest engine runs
-> v0.1.0 rules only. Section labels below (B.3.2, B.3.2b, B.3.3, E4.1, B.4)
-> mark where each rule would slot into the active numbering **on promotion**;
-> they are not active section numbers today.
+> **HARD GATE.** Everything in §I is **implemented but INACTIVE by default**:
+> the code ships in the engine yet only runs when `rule_version` is explicitly
+> `0.2.0` or `0.2.1` (env `RULE_VERSION`, or the `rule_version` query param on
+> `/v1/setups/evaluate` — added so the §I.6 replay can run the versions on
+> identical code; both 0.2.x labels execute the SAME corrected module, §I.9).
+> With the default `0.1.0` the engine's behaviour is
+> byte-identical to pre-v0.2.0 (pinned by `tests/test_v010_no_regression.py`).
+> It does not vote, does not alert, does not veto and does not trade in prod
+> until: (1) the §I.6 validation replay shows the required improvements, AND
+> (2) the council explicitly ratifies the `rule_version` 0.2.0 bump (§0.4).
+> Section labels below (B.3.2, B.3.2b, B.3.3, E4.1, B.4) mark where each rule
+> would slot into the active numbering **on promotion**; they are not active
+> section numbers today.
 >
 > **Operative TF set for v0.2.0 = `{30m, 1h, 4h, 1d, 1w}`** — 30m formally
 > joins the monitor set (5 TFs; §H had 4). Band rules (§0.3) are unchanged:
@@ -1484,6 +1492,22 @@ ordinary age-5 timeout adjudication (`FALSE_ENTRY_PROBABLE`, 0.70). Whipsaw
 | `color_min_age` | 2 | closed candles post-cross; earliest a flip adjudicates. Below this the flip is noise inside the WATCHING window **[calibrable]** |
 | `color_max_age` | 4 | closed candles post-cross; latest a flip adjudicates as `adjudicated_color`. Above this the age-5 timeout path (0.70) governs **[calibrable]** |
 | `p_false_color` | 0.80 | owner PRIOR (stronger than the 0.70 no-turn timeout because the flip is affirmative contrary evidence) — CALIBRATE like `p_false_prior`, see Q17 |
+
+> **v0.2.1 — priors are now MEASURED data (replay 120d 2026-07-16, council
+> 2026-07-17).** The Q17 calibration happened; the priors above are superseded
+> by the measured values shipped as versioned rule data in `rule_v020.py`:
+>
+> * `p_false_color = 0.70` — contrary hit-rate of the FEC subset: 70.0%
+>   (n=243; IS 71.6% / OOS 64.2%). The flip is the best available
+>   discriminator, not a perfect one (43.9% of FEC sit on a real >= 1 ATR
+>   impulse — H1-fresh corrects part of that).
+> * `p_false_prior = 0.40` (timeout) — contrary hit-rate of the timeout
+>   subset: 38% (n=648), and 73% of timeouts sat on a real >= 1 ATR impulse.
+>   The 0.70 owner prior did NOT survive measurement.
+> * M1m `p_false_ignition = 0.42` — price hit-rate 42.1% (n=57, interpool);
+>   **wide confidence interval** — recalibrate as forward data accrues.
+>
+> Reverting these priors is part of the pre-registered failure path (§I.9d).
 
 **Directional table** (color aligned vs flip):
 
@@ -1560,6 +1584,17 @@ sizing tier is the profile that operates that TF. **Alert + evidence only (F1);
 never auto-trade** — same discipline as the §B.3.1 "orientarlo" candidate and
 every other rule (its own gate before it can inform a real order).
 
+> **v0.2.1 (council 2026-07-17) — NO call-grade: evidence only.** The replay
+> failed M2 as a graded call. Trigger (c) `ao_recross_color` (n=249) scored a
+> 100% "contrary materialized" hit-rate that is **tautological by
+> construction** — the trigger IS the re-cross having already happened — and
+> its net forward economics are NEGATIVE (−0.18% k5 / −0.29% k10). Trigger (a)
+> n=46 is flat; trigger (b) n=10 (< 30, no conclusion). The §H call-grade
+> mapping is SUSPENDED: the engine still emits `contrary_impulse` entries
+> (with the informational `profile` field), but consumers must treat them as
+> evidence with NO alert priority / sizing tier until a non-tautological
+> trigger definition passes its own gate (RECALIBRATE).
+
 **Parameters**:
 
 | Param | Default | Notes |
@@ -1600,6 +1635,27 @@ impulse is real on the governing TF, the low-TF ADX simply has not printed its
 turn yet. This overrides both the §B.3.1 age-5 timeout AND the §I.1
 `adjudicated_color` flip.
 
+> **v0.2.1 (council 2026-07-17) — freshness `<= 6` closed candles is a
+> CONDITION OF GRANTING, not just emission gating.** A higher-TF `CONFIRMED`
+> is a Rule-1 source only while its confirming event (the E1 turn for M1, the
+> AO/BBWP body for M1m) is at most 6 closed candles old — the same
+> `_fresh_confirmed` bound the emission gate and `ignition_from_below` use.
+> Measured on the 120d replay (2026-07-16): WITHOUT the bound, a stale
+> `CONFIRMED` (sticky until the next cross — weeks on 1d/1w) rescued
+> everything: 409 CBHT finals (BTC: 239/325), **ZERO FALSE adjudications**
+> (the M1 monitor dies and M2 loses its sources), and the stale rescues were
+> BAD (59–79% price precision). WITH the bound: 34 CBHT finals at 84–93%
+> precision, monitor alive. This was the shipped-0.2.0 P0 (§I.9).
+>
+> **CBHT stickiness is DEFERRED to the mmk-api journal.** 31 of 65 rescues
+> lapsed when the source confirm's freshness expired and the episode reverted
+> to FALSE ("rescate que caduca"). Sticky-per-episode CBHT CANNOT live in
+> this engine — it is stateless and recomputes every state from candles on
+> each call, with no episode memory. If the council wants CBHT sticky once
+> granted, that semantics belongs to the stateful consumer (the mmk-api
+> journal), which already dedups by `cross_candle_ts` — council dictamen
+> 2026-07-17.
+
 **Rule 2 — `vol_turn_rounded` on TF ≥ 4h boosts p_false against a retracement.**
 An E4.1 `vol_turn_rounded` (§I.4) firing on a `high_tf` candle marks a
 volatility rollover = a probable retracement of the move on that TF. For any
@@ -1611,6 +1667,16 @@ lower-TF watch **opposing the implied retracement** it adds to `p_false`
 | 4h | +0.10 |
 | 1d | +0.15 |
 | 1w | +0.20 |
+
+> **v0.2.1 (council 2026-07-17) — addends ZEROED** (`{1h: 0, 4h: 0, 1d: 0,
+> 1w: 0}`): Q19 is unresolved and now carries TWO load-bearing cases (the
+> inverted-V of 2026-07-13 and the 2026-07-16 golden (c), where the engine
+> BBWP said "no expansion" while the owner saw expansion in TradingView).
+> Until Rule 2 is recalibrated on `bbwp_owner` post-Q19, the boosts carry no
+> weight; the wiring still emits boost entries (`addend: 0.0`) as evidence,
+> and E4.1 keeps emitting (it was never alertable). The 0.2.0 constants above
+> are preserved (here and in the `VT_ROUNDED_ADDEND` comment) for that
+> recalibration.
 
 Constraints (both mandatory): it **never overrides Rule 1** (a higher-TF
 `CONFIRMED` same-direction still wins — a rollover on an even higher TF does
@@ -1756,6 +1822,25 @@ when a defined **3-TF window** is fully aligned for the same `d`:
   (disaster floor / target), while contrary-confluence is the discretionary
   exit signal. Exit use has priority over entry use on the same evaluation.
 
+> **v0.2.1 (council 2026-07-17) — ENTRY-CALL OFF, EXIT DEGRADED TO EVIDENCE.**
+> Every emitted confluence entry now carries **`evidence_only: true`**; the
+> block keeps computing (forward evidence collection for the pre-registered
+> v0.3.0 C1-FADE hypothesis, §I.9e), but no consumer may treat it as a call
+> of any grade:
+>
+> * **ENTRY: FAIL, unequivocal.** Forward returns are net NEGATIVE in every
+>   window on the 120d replay: micro bear k5 −0.35% (pos-rate 21.6%),
+>   `30m-1h-4h` bull k5 −0.65% (pos-rate **12.9%**), down to −0.95% at k20.
+>   Full alignment arrives LATE — it marks exhaustion, not entry (coherent
+>   with the owner's E4 / vol-turn doctrine). Also: strict simultaneity
+>   misses staggered 15m→30m→1h ignitions (2026-07-16 golden (c)).
+> * **EXIT (P5): NOT VALIDATED.** On the replay's hypothetical-trade
+>   population, exiting on contrary confluence did not save money vs a
+>   hold-20-candles baseline (mean P&L saved: high −2.12%, low −0.09%,
+>   micro −0.03%). Caveats: that population is not profitable per se and has
+>   no SL/TP — re-test against the owner's REAL journal before any P5 use.
+>   **Owner sign-off is PENDING on C1's designated primary-exit role.**
+
 **Real golden case (C1-G1)** — the case that motivated the rule:
 2026-07-13 **16:00–20:00 UTC**, BTC: `30m / 1h / 4h` all **bear-aligned** while
 `1d` was **retracing** (not yet bear-aligned). The `{30m,1h,4h}` window fired
@@ -1822,6 +1907,141 @@ E4.1 zone constants are trusted in the replay.
     hierarchy weights (`+0.10/+0.15/+0.20`, cap 0.90) and the E4.1
     `high_zone = 70` / `min_drop_cum = 10` constants can be trusted. **This is a
     prerequisite of the §I.6 replay.**
+
+---
+
+### I.8 — Implementation notes (2026-07-16, backend)
+
+**Gate mechanics.** `RULE_VERSION` env (default `0.1.0`) or the additive
+`rule_version` query param select the pack per evaluation;
+`SetupEvaluationService` rejects unknown versions (400). Under `0.2.0` or
+`0.2.1` (same code, §I.9a) the top-level `rule_version` echoes the requested
+label and `monitors` gains the blocks
+`false_ignition_watch`, `contrary_impulse`, `confluence` and
+`vol_turn_rounded`; `false_entry_watch` entries gain `color_flip_age`,
+`p_false_boosts`, `higher_tf` and `ignition_from_below`. The `setups` block
+(the 0.1.0 documents) is identical under both versions. The v0.1.0 monitor
+path is untouched code.
+
+**Module map.** Pure detectors/state machines:
+`src/controllers/metrics/rule_v020.py` (M1.1 `false_entry_state_v2`, E4.1
+`v/w_turn_rounded_high`, H1 `higher_confirmed_source`/`p_false_boosts`, M2
+`contrary_impulse`, M1m `false_ignition_state`, C1
+`confluence_alignment`/`evaluate_confluence`). Additive assembly:
+`src/controllers/metrics/monitors_v020.py` (`build_monitors_v020`). Goldens:
+`tests/test_rule_v020_golden.py`, assembly/H1:
+`tests/test_monitors_v020_assembly.py`, HTTP contract:
+`tests/test_evaluate_v020_endpoint.py`, no-regression:
+`tests/test_v010_no_regression.py`, real-candle goldens (2026-07-13, Bitget
+fixtures): `tests/test_v020_real_goldens.py` + `tests/fixtures/`.
+
+**Ambiguities resolved by the implementation** (all revisitable at the gate):
+
+1. **H1 Rule 1 walks the whole ladder above** the watch (nearest confirming
+   TF wins, recorded in `higher_tf.source_tf`), subsuming the one-band-up
+   wording and the addendum's "30m OR 1h" for 15m. Required by the real
+   2026-07-13 golden: 30m AND 1h must both resolve `CONFIRMED_BY_HIGHER_TF`
+   off the 4h even though the 1h itself adjudicated false.
+2. **M1.1 race semantics**: an AO re-cross BEFORE the flip adjudication age
+   is a `WHIPSAW`; a re-cross AFTER a flip adjudication is the fulfilled
+   contrary prediction (state stays `FALSE_ENTRY_CONFIRMED`). Tie on the
+   same candle -> `WHIPSAW`.
+3. **H1 Rule 2 "move direction"** of the rollover TF = the §I.1 `di_color`
+   of its last closed candle (tie -> no boost). A lower-TF watch "opposes
+   the implied retracement" when its direction equals that move. Addends
+   from multiple rollover TFs stack, capped at 0.90. Boosts also apply to
+   M1m `p_false_ignition`.
+4. **E4.1 W variant** (spec loose): pivot highs (strength 1, confirmed)
+   stand in for the zone tests; second test may not exceed the first by more
+   than `tolerance`; a trough of `min_trough_depth = 5` (inherited from §E4)
+   must separate the tests; last close must be falling. V wins the variant
+   label when both fire.
+5. **H1-G3 anchor**: the golden was written pre-B.3.5 with an AO-anchored
+   15m watch; since 15m runs M1m only, the implemented golden asserts the
+   M1m timeout override (`CONFIRMED_BY_HIGHER_TF`, source 30m).
+6. **M1m-G1 spec erratum**: the dictated ADX series (`..., 19.2, 21.0`)
+   does NOT fire E1 with the v0.1.0 defaults (bend 1.467 < 1.5); the golden
+   ships with `21.0 -> 21.5` (bend 1.633). Owner should confirm the series
+   or the E1 defaults.
+7. **C1 annotations** are product copy in Spanish
+   (`"<tf> probablemente en retroceso"`), consistent with `RulesService`
+   explanations; the engine emits confluence events with direction only —
+   ENTRY vs EXIT (`"SALIDA por confluencia contraria"`, priority 5) is the
+   journal owner's call (mmk-api).
+8. **C1 ADX freshness** `event_age <= 5` scans ages 0..5 (window 6) —
+   deliberately one candle wider than V2's `confirm_window = 5` (ages 0..4).
+9. **15m/30m emission discipline** is made explicit in the payload:
+   `false_ignition_watch` entries carry `shadow` (30m) and `alertable:
+   false`; the F1 watcher must not push any of them (15m states are
+   H1/C1/M2 inputs only).
+10. **Micro-band enrichment** still uses the full `calculate_all()`
+    (ENG-15M's oscillator-only enrichment is a deferred optimisation, not a
+    correctness requirement).
+
+---
+
+### I.9 — v0.2.1 (2026-07-17, council post-replay) — P0 fix, measured priors, pre-registrations
+
+The 120d replay (§I.6; BTC/ETH/SOL/BNB, immutable manifest, 2026-07-16) ran
+three sides: **A** = v0.1.0, **B** = 0.2.0-as-shipped, **B2** = 0.2.0 with the
+H1 freshness fix. The council of 2026-07-17 dictated the v0.2.1 package from
+those results. Everything below is IMPLEMENTED on the same gated branch;
+activation still requires the council's F1 gate.
+
+**a) Version semantics — no code fork.** `SUPPORTED_RULE_VERSIONS = (0.1.0,
+0.2.0, 0.2.1)`. The labels `0.2.0` and `0.2.1` execute the SAME corrected
+module (`rule_v020.py` + `monitors_v020.py`); the API echoes back the label
+the caller asked for. **`0.2.0`-as-shipped (branch `e864db2`, no freshness
+bound, owner priors) is OBSOLETE**: it kills the M1 monitor (P0 below) and
+must not be deployed or replayed as a reference — replay comparisons are
+against **B2**, not B. The `0.2.0` label survives only so the harness can
+tag A/B runs.
+
+**b) P0 — H1 Rule-1 freshness (the fix).**
+`monitors_v020._confirmed_directions` now grants Rule-1 sources through
+`_fresh_confirmed` (confirm event age `<= 6` closed candles) for BOTH
+branches — M1 `CONFIRMED` and M1m `CONFIRMED`. Numbers and the deferred
+sticky-CBHT decision: §I.3 v0.2.1 note.
+
+**c) Measured priors as rule data.** `p_false_color 0.80 -> 0.70` (n=243),
+`p_false_prior 0.70 -> 0.40` (n=648), `p_false_ignition 0.65 -> 0.42` (n=57,
+wide CI). Provenance comments live on each value in `rule_v020.py`; details
+in the §I.1 v0.2.1 note. H1 Rule-2 addends are ZEROED pending Q19 (§I.3
+note); M2 loses its call-grade (§I.2 note); C1 is `evidence_only` (§I.5
+note; E4.1 keeps emitting as evidence — it was never alertable).
+
+**d) PRE-REGISTERED criterion for turning the FEC/CBHT audible push ON**
+(frozen 2026-07-17, BEFORE any forward data — it cannot be moved after
+seeing it). The FEC (M1.1 flip) and CBHT alerts become audible only if,
+after a forward-shadow period of **at least 30 days**, EITHER:
+
+* **>= 60 forward FEC adjudications** with contrary hit-rate **>= 0.60**,
+  AND metric-1 (late-confirm rate, §I.6.1) of the FEC subset **strictly
+  below** the FEP subset's, AND pooled metric-1 **<= 12.6%** (the A-side
+  baseline of the 120d replay); OR
+* **p < 0.05** on the combined replay + forward test of the same hypotheses.
+
+A **re-council is MANDATORY** to flip the switch even when the criterion is
+met. If ANY leg fails at the end of the shadow period: **revert the priors**
+to the pre-0.2.1 values (0.80 / 0.70 / 0.65) **and re-council** — the
+measured priors are only as good as the forward data that confirms them.
+
+**e) C1-FADE — pre-registered CANDIDATE for v0.3.0, definition FROZEN
+2026-07-17.** Hypothesis: **fade the 5/5** — take the CONTRARY side of a
+fully-aligned C1 window (full alignment marks exhaustion, §I.5 v0.2.1 note).
+Evidence that SUGGESTED it (usable only as motivation, NEVER as validation):
+replay pos-rates 12.9–33% and net magnitudes −0.65% / −0.95% on the aligned
+side. Testable ONLY on a re-instrumented alignment computed with
+`bbwp_owner` (post-Q19) plus its own forward window and its own §I.6-style
+gate; it can never be activated from the sample that suggested it.
+
+**f) Regression net shipped with the fix** (the tests the P0 lacked):
+staleness negatives (a stale M1/M1m CONFIRMED must NOT rescue —
+`tests/test_monitors_v020_assembly.py`) and an aggregate replay-smoke on
+frozen fixtures (`tests/test_v020_replay_smoke.py`, 5-TF ladder including
+the adversarial 1w) asserting FALSE adjudications `> 0` and CBHT a minority
+of terminals — the invariant pair the shipped bug violates (verified
+red/green against the buggy body while building it).
 
 ---
 
