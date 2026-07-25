@@ -142,3 +142,21 @@ CLOSED candles only: `get_ohlcv(drop_forming=True)` is the default; charts opt
 out. Gate runner: `scripts/run_f0_backtest.py` (Docker-only). E6/E7 are parked
 post-gate. Backtest indicators are precomputed once over the full series (all
 causal), giving O(n) replays.
+
+## D15 — R-TURN-IGNITION: E1's standalone persist-only surface (2026-07-25)
+
+`monitors_v020.py` emits an additive `turn_ignition` block (rule_version
+0.2.x): the E1 grade-A "90-degree" ADX turn finally speaks on its own instead
+of only as confirmation of a fresh AO zero-cross (diagnosis 2026-07-25: the
+real 2026-07-23 BTC turn produced ZERO audible signals because the AO cross was
+20 candles old). Pre-registered spec — do not widen ad hoc, changes invalidate
+the forward gate: TFs 1h/4h; variants `up_bullish`/`up_bearish` grade A only
+(origin in [12, 20]; `down` = strength collapse, excluded); confluence 2-of-3
+read on the FIRE candle (AO side-or-|AO|-expanding>=2 / BBWP>50-or-rising>=2 /
+Konkorde marron side, the Konkorde leg 4h-only). Emission discipline mirrors
+the other monitors: terminal freshness <= 6 candles, identity = fire candle
+close ts (consumer dedups one-shot per candle), `shadow: true, alertable:
+false` — the watcher persists, NEVER pushes. Ignition gate (pre-registered):
+n >= 30 forward events, favorable >= 0.60 (SHADOW_OUTCOME_* yardstick, mmk-api),
+>= 30 days shadow -> re-council. Goldens pinned in
+`tests/test_turn_ignition_monitor.py`.

@@ -19,6 +19,7 @@ consumer cannot mistake them for alertable watches.
 
 from __future__ import annotations
 
+import math
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import pandas as pd
@@ -53,6 +54,7 @@ from .setup_service import (
     FE_WATCHING,
     FE_WHIPSAW,
     TIMEFRAME_SECONDS,
+    adx_turn_fired_within,
 )
 
 # AO-anchored M1 timeframes under v0.2.0: 15m is M1m-only (addendum B.3.5).
@@ -64,6 +66,26 @@ TERMINAL_MAX_AGE = 6
 
 _COLOR_TO_DIRECTION = {"bullish": "up", "bearish": "down"}
 _OPPOSITE = {"up": "down", "down": "up"}
+
+# --- R-TURN-IGNITION (shadow candidate 0.3.x, spec pre-registered 2026-07-25) -
+# E1's grade-A "90-degree" ADX turn had NO standalone surface: it only ever
+# spoke as confirmation of a FRESH AO zero-cross, so a real turn igniting after
+# the 5-candle adjudication clock produced ZERO signals (diagnosis 2026-07-25;
+# the 2026-07-23 BTC turn was caught live by E1 and still emitted nothing).
+# This block is that surface: TFs 1h/4h, E1 `up_bullish`/`up_bearish` grade A
+# only (`down` = strength collapse, an invalidation — EXCLUDED), gated by a
+# 2-of-3 confluence read on the SAME closed candle the turn fired on:
+#   (a) AO on the side of the turn, or |AO| expanding on >= 2 candles;
+#   (b) BBWP > 50, or rising on >= 2 closes;
+#   (c) Konkorde marron on the side — the leg only applies on 4h (band table).
+# SHADOW: every entry is `alertable: false`; the consumer persists, never
+# pushes (pre-registered gate: n >= 30 forward, favorable >= 0.60, >= 30 days
+# -> re-council). Do NOT widen TFs/variants ad hoc: the spec is pre-registered
+# and any change invalidates the forward gate.
+TURN_IGNITION_TFS = ("1h", "4h")
+TURN_IGNITION_KONKORDE_TFS = ("4h",)
+TURN_IGNITION_REQUIRED = 2
+_TURN_VARIANT_DIRECTION = {"up_bullish": "up", "up_bearish": "down"}
 
 
 def build_monitors_v020(
@@ -111,6 +133,7 @@ def build_monitors_v020(
             for tf, snap in snapshots.items()
             if snap["vol_turn"] is not None
         ],
+        "turn_ignition": _turn_ignition_entries(ok_frames),
     }
 
 
@@ -485,3 +508,137 @@ def _m2_entry(
         "detail": result.detail,
         "source": source,
     }
+
+
+# ---------------------------------------------------------------------------
+# R-TURN-IGNITION entries (shadow candidate 0.3.x, pre-registered 2026-07-25)
+# ---------------------------------------------------------------------------
+
+def _turn_ignition_entries(ok_frames: Dict[str, pd.DataFrame]) -> List[Dict[str, Any]]:
+    entries: List[Dict[str, Any]] = []
+    for tf in TURN_IGNITION_TFS:
+        frame = ok_frames.get(tf)
+        if frame is None:
+            continue  # blind TF: already reported in tf_status
+        for variant, direction in _TURN_VARIANT_DIRECTION.items():
+            entry = _turn_ignition_entry(tf, variant, direction, frame)
+            if entry is not None:
+                entries.append(entry)
+    return entries
+
+
+def _turn_ignition_entry(
+    tf: str, variant: str, direction: str, frame: pd.DataFrame
+) -> Optional[Dict[str, Any]]:
+    """One TURN_IGNITION emission for (tf, variant), or None.
+
+    The fire is the most recent E1 fire of `variant` within the terminal
+    freshness window (same <= 6-candle emission discipline as every other
+    terminal state — the identity is the FIRE candle, so re-emitting is
+    one-shot for the consumer's dedup). Confluence is read AT the fire candle
+    (spec: "2 of 3 on the same candle"), never at the current one.
+    """
+    fire = adx_turn_fired_within(
+        frame.get("adx14"),
+        frame.get("plus_di"),
+        frame.get("minus_di"),
+        variant=variant,
+        window=TERMINAL_MAX_AGE + 1,
+    )
+    if fire is None or fire.grade != "A":
+        return None  # no fire, or a B-grade origin (outside [12, 20])
+
+    end = len(frame) - fire.age  # positional cut at the fire candle (inclusive)
+    conditions = {
+        "ao": _turn_ao_condition(frame, end, direction),
+        "bbwp": _turn_bbwp_condition(frame, end),
+        "konkorde": _turn_konkorde_condition(frame, end, direction, tf),
+    }
+    met = sum(1 for cond in conditions.values() if cond["met"])
+    if met < TURN_IGNITION_REQUIRED:
+        return None
+
+    adx_tail = _turn_tail(frame, "adx14", end, 1)
+    return {
+        "timeframe": tf,
+        "direction": direction,
+        "variant": variant,
+        "grade": fire.grade,
+        "origin_level": _json_float(fire.origin_level),
+        "age": fire.age,
+        "fire_candle_ts": _candle_close_ts(frame, tf, fire.age),
+        "adx": _json_float(adx_tail[-1]) if adx_tail else None,
+        "conditions": conditions,
+        "confluence": {"met": met, "required": TURN_IGNITION_REQUIRED},
+        # Emission discipline: persist-only by engine contract until the
+        # pre-registered forward gate passes and a re-council flips it.
+        "shadow": True,
+        "alertable": False,
+    }
+
+
+def _turn_tail(frame: pd.DataFrame, column: str, end: int, count: int) -> List[float]:
+    """Last `count` non-NaN values of `column` ending AT the fire candle.
+
+    Positional slice: the enriched tail is NaN-free after warmup (same
+    guarantee every monitor here relies on), so `iloc[:end]` cuts both the
+    frame and each series on the same candles.
+    """
+    series = frame.get(column)
+    if series is None:
+        return []
+    sliced = series.iloc[:end].dropna()
+    if len(sliced) < count:
+        return []
+    return [float(value) for value in sliced.iloc[-count:]]
+
+
+def _json_float(value: Any) -> Optional[float]:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return None if (math.isnan(number) or math.isinf(number)) else number
+
+
+def _turn_ao_condition(frame: pd.DataFrame, end: int, direction: str) -> Dict[str, Any]:
+    """(a) AO on the side of the turn, or |AO| expanding on >= 2 candles."""
+    tail = _turn_tail(frame, "ao", end, 3)
+    value = tail[-1] if tail else None
+    sign_match = bool(tail) and (value > 0 if direction == "up" else value < 0)
+    expanding = len(tail) == 3 and abs(tail[2]) > abs(tail[1]) > abs(tail[0])
+    return {
+        "met": bool(sign_match or expanding),
+        "value": _json_float(value),
+        "sign_match": sign_match,
+        "expanding": expanding,
+    }
+
+
+def _turn_bbwp_condition(frame: pd.DataFrame, end: int) -> Dict[str, Any]:
+    """(b) BBWP > 50, or rising on >= 2 closes."""
+    tail = _turn_tail(frame, "bbwp", end, 3)
+    value = tail[-1] if tail else None
+    above_50 = bool(tail) and value > 50.0
+    rising = len(tail) == 3 and tail[2] > tail[1] > tail[0]
+    return {
+        "met": bool(above_50 or rising),
+        "value": _json_float(value),
+        "above_50": above_50,
+        "rising": rising,
+    }
+
+
+def _turn_konkorde_condition(
+    frame: pd.DataFrame, end: int, direction: str, tf: str
+) -> Dict[str, Any]:
+    """(c) Konkorde marron on the side of the turn — the leg only APPLIES on
+    4h (band table: no Konkorde on the low band). On other TFs `met` is None
+    (never counts toward the confluence) and the value is still recorded."""
+    applies = tf in TURN_IGNITION_KONKORDE_TFS
+    tail = _turn_tail(frame, "konkorde_marron", end, 1)
+    value = tail[-1] if tail else None
+    met: Optional[bool] = None
+    if applies:
+        met = bool(tail) and (value > 0 if direction == "up" else value < 0)
+    return {"applies": applies, "met": met, "value": _json_float(value)}

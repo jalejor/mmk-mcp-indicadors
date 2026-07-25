@@ -24,6 +24,9 @@ API_KEY = "test-key"
 V2_MONITOR_BLOCKS = {
     "false_entry_watch", "tf_status", "false_ignition_watch",
     "contrary_impulse", "confluence", "vol_turn_rounded",
+    # R-TURN-IGNITION (pre-registered 2026-07-25): E1 grade-A standalone
+    # surface, persist-only shadow — additive block like the rest.
+    "turn_ignition",
 }
 V2_FE_KEYS = {
     "timeframe", "direction", "state", "early_warning", "event_age",
