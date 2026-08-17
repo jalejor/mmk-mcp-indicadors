@@ -1421,6 +1421,7 @@ menos apalancamiento" — the wider the timeframe, the lower the leverage.
 | **Designed** | 2026-07-14 (trading analysis) |
 | **Implemented** | 2026-07-16 — `rule_v020.py` (pure detectors/state machines) + `monitors_v020.py` (additive monitor assembly), behind the `RULE_VERSION` gate (default `0.1.0`). See §I.8 for the module map and the ambiguities the implementation had to resolve. |
 | **Revised** | 2026-07-17 — v0.2.1: H1 freshness fix (P0), measured priors, Rule-2 addends zeroed, M2/C1 degraded to evidence, pre-registrations. See §I.9 and the v0.2.1 notes inline in §I.1–§I.5. |
+| **Revised** | 2026-08-16 — §I.9d gate executed: **FAIL** (forward FEC contrary hit-rate 41.4%, n=162, vs >= 0.60). Audible push stays OFF; the three p_false priors become `not_established` (`None`) per the re-council amendment in §I.9d. |
 | **Scope** | Additive to v0.1.0: two new monitor states/machines (M1.1, M2), one hierarchy override (H1), one new detector (E4.1), one new composite setup (C1), plus the v0.2.0-b micro band (15m, M1m, C1-micro). **Nothing here activates until `/mmk-council` gates the `rule_version` bump.** |
 
 > **HARD GATE.** Everything in §I is **implemented but INACTIVE by default**:
@@ -1508,6 +1509,10 @@ ordinary age-5 timeout adjudication (`FALSE_ENTRY_PROBABLE`, 0.70). Whipsaw
 >   **wide confidence interval** — recalibrate as forward data accrues.
 >
 > Reverting these priors is part of the pre-registered failure path (§I.9d).
+>
+> **SUPERSEDED 2026-08-16 — the §I.9d gate FAILED (41.4%, n=162) and its
+> replay harness turned out to be irreproducible. All three values above are
+> now `not_established` (`None`) in `rule_v020.py`. See the §I.9d amendment.**
 
 **Directional table** (color aligned vs flip):
 
@@ -2025,6 +2030,30 @@ A **re-council is MANDATORY** to flip the switch even when the criterion is
 met. If ANY leg fails at the end of the shadow period: **revert the priors**
 to the pre-0.2.1 values (0.80 / 0.70 / 0.65) **and re-council** — the
 measured priors are only as good as the forward data that confirms them.
+
+> **AMENDMENT — gate EXECUTED 2026-08-16, result FAIL; consequence changed by
+> re-council (2026-08-16).**
+>
+> * **Result:** forward FEC contrary hit-rate **41.4% (n=162)** against the
+>   pre-registered **>= 0.60**. FAIL. The audible FEC/CBHT push stays OFF.
+> * **Consequence AMENDED.** The written consequence — revert to 0.80 / 0.70 /
+>   0.65 — was NOT applied: those are owner priors that were never measured,
+>   so reverting would swap an unsupported number for another unsupported
+>   number. The 0.2.1 replay values could not be defended either: **~70% of
+>   that replay used a different yardstick and its harness was never
+>   committed**, making the 0.70 / 0.40 / 0.42 figures irreproducible.
+> * **In force:** `p_false_color`, `p_false_prior` and `p_false_ignition` are
+>   **`not_established` (`None`)** in `rule_v020.py` until a measurement
+>   exists. The state machines are unchanged — an adjudication still fires,
+>   it just carries no probability. Consumers MUST render a missing p_false
+>   as unknown, never as `0`.
+> * **The next yardstick must, BEFORE it runs:** resolve rule versioning +
+>   goldens; define a control group; state the metric in **R** (realized
+>   contrary move), not a binary hit; normalize the threshold by **ATR and
+>   timeframe**; and **commit the harness** in-repo with its manifest. No
+>   number goes back into `rule_v020.py` without all five.
+> * Historical alert docs already persisted in Mongo keep their old `p_false`
+>   — they are a record of what was emitted and are NOT rewritten.
 
 **e) C1-FADE — pre-registered CANDIDATE for v0.3.0, definition FROZEN
 2026-07-17.** Hypothesis: **fade the 5/5** — take the CONTRARY side of a

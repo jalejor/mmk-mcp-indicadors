@@ -4,7 +4,7 @@ Same technique as test_setups_evaluate_endpoint.py: `_enriched_frame` is
 monkeypatched with deterministic frames, no network. One coherent engineered
 market exercises every v0.2.0 block at once:
 
-* 4h  — M11-G1 color flip -> FALSE_ENTRY_CONFIRMED (p_false 0.80)
+* 4h  — M11-G1 color flip -> FALSE_ENTRY_CONFIRMED (p_false not established)
 * 30m — fresh AO cross + E1 turn -> M1 CONFIRMED (the H1 Rule-1 source)
 * 15m — M1m ignition timeout, overridden by the 30m -> CONFIRMED_BY_HIGHER_TF
 * 1h  — FALSE_ENTRY_PROBABLE + contrary AO re-cross with bearish DI -> M2
@@ -165,7 +165,7 @@ def test_v020_color_flip_adjudicates_on_4h(monkeypatch):
     watch = _fe(_get(client).json())[("4h", "up")]
 
     assert watch["state"] == "FALSE_ENTRY_CONFIRMED"
-    assert watch["p_false"] == 0.70  # measured prior (replay 120d 2026-07-16)
+    assert watch["p_false"] is None  # prior not established (spec §I.9d)
     assert watch["color_flip_age"] == 2
     assert watch["event_age"] == 2
     assert watch["higher_tf"] is None
@@ -195,7 +195,7 @@ def test_v020_m2_contrary_impulse_on_1h(monkeypatch):
     body = _get(client).json()
 
     assert _fe(body)[("1h", "up")]["state"] == "FALSE_ENTRY_PROBABLE"
-    assert _fe(body)[("1h", "up")]["p_false"] == 0.40  # measured timeout prior
+    assert _fe(body)[("1h", "up")]["p_false"] is None  # prior not established
 
     contrary = body["monitors"]["contrary_impulse"]
     assert len(contrary) == 1

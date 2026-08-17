@@ -238,6 +238,47 @@ are therefore inconsistent across the surface.
 
 ---
 
+## E14 ⚠️ `tests/test_mcp_auth.py` fails 4/4 on a clean checkout — LOW
+
+**Symptom**: `pytest -q tests/` reports `4 failed, 245 passed` with
+`TypeError: Serve...` in every `test_mcp_auth.py` case, on `development` with
+no local changes.
+
+**Root cause**: dependency drift in the `fastapi-mcp` fork pinned by
+`tests/requirements-test.txt` — the mount signature changed. Nothing in
+`src/` is broken.
+
+**How to avoid**: this is the BASELINE. Always capture `pytest` output before
+touching anything and diff against it; do not chase these four. Cloud Build
+runs the same suite, so a green build means the pin there still resolves.
+
+---
+
+## E15 ⚠️ `p_false` is `null` under rule_version 0.2.x — by design, not a bug
+
+**Symptom**: `monitors.false_entry_watch[].p_false`,
+`false_ignition_watch[].p_false_ignition` and `contrary_impulse[].source.p_false`
+come back `null` on every 0.2.x evaluation. Alerts read `p≈n/a`, the dashboard
+shows `—`.
+
+**Root cause**: the §I.9d gate failed on 2026-08-16 (forward FEC contrary
+hit-rate 41.4%, n=162, vs the pre-registered >= 0.60) and the 120d-replay
+values turned out irreproducible. The re-council set the three priors to
+`not_established` (`None`). Keys stay present; only the values are unset.
+
+**How to avoid**: do NOT "fix" it by restoring a number. Any value returning to
+`rule_v020.py` needs the five §I.9d requirements first (versioning+goldens,
+control group, metric in R, ATR/TF-normalized threshold, committed harness).
+Render a missing `p_false` as unknown, NEVER as `0`.
+
+⚠️ **Gotcha when a prior becomes `None`**: a guard written as
+`if boosts and p_false is not None` reads like arithmetic protection but also
+gates the `p_false_boosts` EVIDENCE payload — with a `None` prior the whole
+evidence array silently vanished from the response. Evidence and arithmetic
+must be separate branches (fixed in `monitors_v020._apply_hierarchy`).
+
+---
+
 ## Non-issues / verified-correct (for reassurance)
 
 - **MCP auth**: the mounted MCP transport *does* enforce the API key on both

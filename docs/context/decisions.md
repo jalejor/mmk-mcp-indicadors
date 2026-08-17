@@ -160,3 +160,36 @@ false` — the watcher persists, NEVER pushes. Ignition gate (pre-registered):
 n >= 30 forward events, favorable >= 0.60 (SHADOW_OUTCOME_* yardstick, mmk-api),
 >= 30 days shadow -> re-council. Goldens pinned in
 `tests/test_turn_ignition_monitor.py`.
+
+## D16 — p_false priors are `not_established`, not reverted (2026-08-16)
+
+The §I.9d pre-registered ignition gate ran and **FAILED**: forward FEC contrary
+hit-rate 41.4% (n=162) vs the required >= 0.60. Its written consequence was
+"revert the priors to 0.80 / 0.70 / 0.65", and the re-council **declined** to
+execute it: those are owner priors that were never measured, so reverting
+trades one unsupported number for another. The 0.2.1 replay values (0.70 /
+0.40 / 0.42) could not be defended either — ~70% of that replay used a
+different yardstick and its harness was never committed, so they are
+irreproducible.
+
+**Decision**: `p_false_prior`, `p_false_color` and `p_false_ignition` are
+`Optional[float] = None` in `rule_v020.py`. The state machines are untouched —
+an adjudication still fires, it just carries no probability; `state` and
+`color_flip_age` carry the distinctions `p_false` used to encode. Consumers
+render a missing value as unknown, never as `0`. Historical alert docs in
+Mongo keep their old `p_false` (a record of what was emitted).
+
+**Alternative discarded**: reverting to the owner priors — see above. Also
+discarded: leaving the replay values in place with a caveat, since an
+irreproducible number in versioned rule data is indistinguishable from a
+measured one to every consumer.
+
+**Re-opening it** requires all five §I.9d gates on the next yardstick:
+versioning+goldens resolved, a control group, the metric expressed in **R**,
+the threshold normalized by ATR and timeframe, and the harness committed
+in-repo with its manifest.
+
+**Status**: vigente. **Out of scope, pending owner**: `setup_service.p_false_prior
+= 0.70` (v0.1.0) is the same never-measured owner prior, and `RULE_VERSION`
+still defaults to `0.1.0` — but zeroing it is a v0.1.0 rule-data change
+(rule_version bump, §0.4) against the "v0.1.0 stays byte-identical" promise.
