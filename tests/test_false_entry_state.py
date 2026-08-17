@@ -35,7 +35,7 @@ def test_m1_g1_false_entry_probable():
     assert fe.state == FE_FALSE_ENTRY_PROBABLE
     assert fe.event_age == 5           # cross at index 1, evaluated at index 6
     assert fe.adx_turn is None         # constant slope -> no turn ever fires
-    assert fe.p_false == 0.70
+    assert fe.p_false is None          # prior not established (spec §I.9d amendment)
     assert fe.early_warning is False   # early_warning is superseded by the terminal state
     assert fe.consecutive_ao_candles >= 2
 
@@ -51,7 +51,7 @@ def test_m1_g1_bearish_mirror():
     assert fe.state == FE_FALSE_ENTRY_PROBABLE
     assert fe.event_age == 5
     assert fe.adx_turn is None
-    assert fe.p_false == 0.70
+    assert fe.p_false is None          # prior not established (spec §I.9d amendment)
 
 
 # ---------------------------------------------------------------------------

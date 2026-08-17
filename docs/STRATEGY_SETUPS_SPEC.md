@@ -85,6 +85,22 @@ Boundary interpretation chosen (provisional — see Open Question **Q6**): "belo
   `tests/test_konkorde_golden.py`). A version with failing goldens cannot be
   activated.
 
+**Registered amendments to shipped rule data**
+
+| Date | Authority | Change | Version label |
+|---|---|---|---|
+| 2026-08-16 | re-council + owner approval | The three v0.2.x `p_false` priors (§I.1, `rule_v020.py`) and the v0.1.0 `p_false_prior` (§B.3.1, `setup_service.py`) become `not_established` (`None`). Detectors, state machines and thresholds untouched. | unchanged — `0.1.0` / `0.2.x` |
+
+Why the labels do not move: the amendment **removes** rule data rather than
+replacing one value with a different one — nothing recomputes differently, an
+adjudication that fired before still fires, it just carries no probability.
+The immutability §0.4 demands is preserved where it matters: every signal
+already emitted keeps the `rule_version` **and** the `p_false` it was emitted
+with (historical alert docs are never rewritten). Whether a returning number
+warrants a version bump is not settled here — it is the FIRST of the five
+requirements the §I.9d amendment pre-registers ("resolve rule versioning +
+goldens") and must be answered there, before any measurement runs.
+
 ---
 
 ## A. The five strategy elements
@@ -955,9 +971,28 @@ confirms anything.)
 |---|---|---|
 | `confirm_candles` | 5 | owner-fixed ("le damos 5 velas de giro"). Deliberately equal to V2 `confirm_window = 5` (§E Q10) — keep the two coupled unless the backtest shows they should diverge **[calibrable]** |
 | `early_warning_candles` | 2 | owner ("las primeras 2 velas seguidas"); consecutive same-direction AO candles post-cross |
-| `p_false_prior` | 0.70 | owner PRIOR, not a measured statistic — see Q17 |
+| `p_false_prior` | `not_established` (`None`) | was 0.70 — owner PRIOR, never a measured statistic (Q17). **SUPERSEDED 2026-08-16**, see the note below |
 | `resolution_horizon` | 10 | closed candles; analyst provisional, outcome resolution only **[calibrable]** |
 | `confirm_bars` (cross) | 1 | same zero-cross event semantics as E2/E3 |
+
+> **SUPERSEDED 2026-08-16 (re-council) — `p_false_prior` is `not_established`
+> (`None`) in `setup_service.py`.** Q17 asked whether the 0.70 was doctrine or
+> a calibration target; the re-council answered neither — it was never
+> measured, which is the same category as the v0.2.x priors unset in the §I.9d
+> amendment. An unmeasured number in versioned rule data is indistinguishable
+> from a measured one to every consumer, so it is removed rather than kept
+> with a caveat.
+>
+> **Every `p_false = 0.70` still printed in this section — the state-machine
+> table, the M1-G1 golden, the "p≈0.70" candidate-orientation note — is
+> HISTORICAL**: it records what v0.1.0 emitted until 2026-08-16, not what it
+> emits now. The state machine itself is UNCHANGED: `FALSE_ENTRY_PROBABLE`
+> still adjudicates at `event_age == confirm_candles`, it just carries no
+> probability. `state` carries the distinction `p_false` used to. Consumers
+> MUST render a missing `p_false` as unknown, NEVER as `0`. Alert docs already
+> persisted in Mongo keep their old value — they are a record of what was
+> emitted and are NOT rewritten. Registered per §0.4; the five requirements
+> any returning number must meet are in the §I.9d amendment.
 
 **TF scope**: provisionally ALL four operative TFs (`1h/4h/1d/1w`, §H). AO
 and ADX are both-band elements (§0.3), so the band table permits M1
@@ -1513,6 +1548,16 @@ ordinary age-5 timeout adjudication (`FALSE_ENTRY_PROBABLE`, 0.70). Whipsaw
 > **SUPERSEDED 2026-08-16 — the §I.9d gate FAILED (41.4%, n=162) and its
 > replay harness turned out to be irreproducible. All three values above are
 > now `not_established` (`None`) in `rule_v020.py`. See the §I.9d amendment.**
+>
+> **Extended 2026-08-16 (owner-approved, same re-council) — the v0.1.0 prior
+> too.** `p_false_prior = 0.70` in `setup_service.py` (§B.3.1) is the SAME
+> never-measured owner prior this note supersedes, and v0.1.0 is the pack
+> feeding the AUDIBLE surface (`RULE_VERSION` defaults to `0.1.0`). Leaving it
+> would have left the only number a trader actually hears as the only
+> unmeasured one. It is now `not_established` (`None`) as well, so **no
+> `p_false` in this repo carries a number under any rule_version** — the 0.70 /
+> 0.80 values printed in §B.3.1 and in the tables and goldens above are
+> historical records of what was emitted, not live rule data.
 
 **Directional table** (color aligned vs flip):
 
@@ -2047,6 +2092,12 @@ measured priors are only as good as the forward data that confirms them.
 >   exists. The state machines are unchanged — an adjudication still fires,
 >   it just carries no probability. Consumers MUST render a missing p_false
 >   as unknown, never as `0`.
+> * **Extended to v0.1.0 the same day (owner-approved).** The v0.1.0
+>   `p_false_prior = 0.70` (§B.3.1, `setup_service.py`) is the same
+>   never-measured owner prior, and v0.1.0 is the pack behind the AUDIBLE
+>   surface — so it is `not_established` (`None`) too. **No `p_false` in this
+>   repo carries a number under any rule_version.** Registered as a §0.4 rule
+>   data amendment; the `rule_version` label is unchanged, see §0.4.
 > * **The next yardstick must, BEFORE it runs:** resolve rule versioning +
 >   goldens; define a control group; state the metric in **R** (realized
 >   contrary move), not a binary hit; normalize the threshold by **ATR and

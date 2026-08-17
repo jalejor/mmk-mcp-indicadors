@@ -189,7 +189,21 @@ versioning+goldens resolved, a control group, the metric expressed in **R**,
 the threshold normalized by ATR and timeframe, and the harness committed
 in-repo with its manifest.
 
-**Status**: vigente. **Out of scope, pending owner**: `setup_service.p_false_prior
-= 0.70` (v0.1.0) is the same never-measured owner prior, and `RULE_VERSION`
-still defaults to `0.1.0` — but zeroing it is a v0.1.0 rule-data change
-(rule_version bump, §0.4) against the "v0.1.0 stays byte-identical" promise.
+**Extended to v0.1.0 the same day** (owner-approved, second PR): the pending
+item this entry left open — `setup_service.FalseEntryParams.p_false_prior =
+0.70` — is now `Optional[float] = None` too. It was the same never-measured
+owner prior (Q17), and v0.1.0 is the pack behind the AUDIBLE surface
+(`RULE_VERSION` defaults to `0.1.0`), so the only number a trader actually
+heard was the only unmeasured one left. **No `p_false` in this repo carries a
+number under any rule_version now.**
+
+The "v0.1.0 stays byte-identical" objection was resolved, not waived: the
+amendment REMOVES rule data instead of substituting a different value, so
+nothing recomputes — `FALSE_ENTRY_PROBABLE` still adjudicates at
+`event_age == confirm_candles`, only the probability field goes unset. The
+`rule_version` labels stay put and the change is registered in the spec §0.4
+amendment table; whether a *returning* number needs a bump is deferred to
+§I.9d requirement #1 (resolve rule versioning + goldens), which must be
+answered before the next measurement runs.
+
+**Status**: vigente, closed end-to-end (both packs).
