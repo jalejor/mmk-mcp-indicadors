@@ -254,17 +254,22 @@ runs the same suite, so a green build means the pin there still resolves.
 
 ---
 
-## E15 ⚠️ `p_false` is `null` under rule_version 0.2.x — by design, not a bug
+## E15 ⚠️ `p_false` is `null` under EVERY rule_version — by design, not a bug
 
-**Symptom**: `monitors.false_entry_watch[].p_false`,
-`false_ignition_watch[].p_false_ignition` and `contrary_impulse[].source.p_false`
-come back `null` on every 0.2.x evaluation. Alerts read `p≈n/a`, the dashboard
-shows `—`.
+**Symptom**: `monitors.false_entry_watch[].p_false` comes back `null` on every
+evaluation — including a `FALSE_ENTRY_PROBABLE` under the **default v0.1.0**
+pack, which is the audible one. Same for the 0.2.x-only
+`false_ignition_watch[].p_false_ignition` and
+`contrary_impulse[].source.p_false`. Alerts read `p≈n/a`, the dashboard shows
+`—`.
 
 **Root cause**: the §I.9d gate failed on 2026-08-16 (forward FEC contrary
 hit-rate 41.4%, n=162, vs the pre-registered >= 0.60) and the 120d-replay
-values turned out irreproducible. The re-council set the three priors to
-`not_established` (`None`). Keys stay present; only the values are unset.
+values turned out irreproducible. The re-council set the three 0.2.x priors to
+`not_established` (`None`); the owner then approved the same for the v0.1.0
+`p_false_prior` (was 0.70, never measured either). Keys stay present; only the
+values are unset. State machines are untouched — an adjudication still fires,
+`state` carries the distinction `p_false` used to encode.
 
 **How to avoid**: do NOT "fix" it by restoring a number. Any value returning to
 `rule_v020.py` needs the five §I.9d requirements first (versioning+goldens,

@@ -277,7 +277,7 @@ def test_m1_monitor_false_entry_probable_on_stale_cross(monkeypatch):
     up_4h = _m1(body)[("4h", "up")]
     assert up_4h["state"] == "FALSE_ENTRY_PROBABLE"
     assert up_4h["event_age"] == 7
-    assert up_4h["p_false"] == 0.70
+    assert up_4h["p_false"] is None    # prior not established (spec §I.9d amendment)
     assert up_4h["adx_turn"] is None  # the late turn does not count
 
 
@@ -308,7 +308,7 @@ def test_m1_monitor_runs_on_1h_frame(monkeypatch):
     up_1h = _m1(body)[("1h", "up")]
     assert up_1h["state"] == "FALSE_ENTRY_PROBABLE"
     assert up_1h["event_age"] == 5
-    assert up_1h["p_false"] == 0.70
+    assert up_1h["p_false"] is None    # prior not established (spec §I.9d amendment)
     # cross candle close = open of the cross candle + 1h.
     expected_close = (index[-1 - 5] + pd.Timedelta(hours=1)).isoformat()
     assert up_1h["cross_candle_ts"] == expected_close
@@ -342,7 +342,7 @@ def test_m1_monitor_runs_on_30m_frame(monkeypatch):
     up_30m = _m1(body)[("30m", "up")]
     assert up_30m["state"] == "FALSE_ENTRY_PROBABLE"
     assert up_30m["event_age"] == 5
-    assert up_30m["p_false"] == 0.70
+    assert up_30m["p_false"] is None   # prior not established (spec §I.9d amendment)
     expected_close = (index[-1 - 5] + pd.Timedelta(minutes=30)).isoformat()
     assert up_30m["cross_candle_ts"] == expected_close
 

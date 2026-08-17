@@ -465,7 +465,10 @@ FE_WHIPSAW = "WHIPSAW"
 class FalseEntryParams:
     confirm_candles: int = 5          # owner-fixed ("le damos 5 velas de giro")
     early_warning_candles: int = 2    # "las primeras 2 velas seguidas"
-    p_false_prior: float = 0.70       # owner PRIOR, not a measured stat (Q17)
+    # NOT ESTABLISHED (re-council 2026-08-16, spec §I.9d amendment): the 0.70
+    # was a never-measured owner prior (Q17), same category as the v0.2.x
+    # priors. No number returns without a measurement. Never render it as 0.
+    p_false_prior: Optional[float] = None
     confirm_bars: int = 1             # zero-cross event semantics (E2/E3)
     resolution_horizon: int = 10      # outcome resolution only (calibration)
 
@@ -491,7 +494,7 @@ class FalseEntryState:
     consecutive_ao_candles: int       # initial run of same-direction AO candles
     adx_turn: Optional[Dict[str, Any]]  # {"fired": True, "age", "grade"} | None
     whipsaw_age: Optional[int]        # age of the opposite re-cross, if any
-    p_false: Optional[float]          # p_false_prior only for FALSE_ENTRY_PROBABLE
+    p_false: Optional[float]          # p_false_prior on FALSE_ENTRY_PROBABLE; prior unset -> always None
 
 
 def _ao_consecutive_run_after(ao: pd.Series, cross_age: int, *, kind: str) -> int:
