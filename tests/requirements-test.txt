@@ -14,3 +14,5 @@ pytest==8.2.0
 httpx==0.28.1
 # Needed by the MCP auth test (public HTTPS fork, not SSH). Same pin as runtime.
 fastapi-mcp @ git+https://github.com/am1ter/fastapi_mcp.git@e121a861a839d1beafd8e554a548f7b54a2e8af6
+# mcp must match the runtime pin: unpinned, pip resolves 2.x and fastapi-mcp breaks.
+mcp==1.10.1

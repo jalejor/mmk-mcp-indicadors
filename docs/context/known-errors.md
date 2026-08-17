@@ -238,19 +238,23 @@ are therefore inconsistent across the surface.
 
 ---
 
-## E14 ⚠️ `tests/test_mcp_auth.py` fails 4/4 on a clean checkout — LOW
+## E14 ✅ FIXED (2026-08-17) — `tests/test_mcp_auth.py` failed 4/4 on a clean checkout
 
-**Symptom**: `pytest -q tests/` reports `4 failed, 245 passed` with
+**Symptom**: `pytest -q tests/` reported `4 failed, 245 passed` with
 `TypeError: Serve...` in every `test_mcp_auth.py` case, on `development` with
-no local changes.
+no local changes. It also FAILED the Cloud Build test gate (first build since
+25-jul hit it on 2026-08-17).
 
-**Root cause**: dependency drift in the `fastapi-mcp` fork pinned by
-`tests/requirements-test.txt` — the mount signature changed. Nothing in
-`src/` is broken.
+**Root cause**: `tests/requirements-test.txt` pinned `fastapi-mcp` but NOT its
+`mcp` dependency, so pip resolved `mcp` 2.x in the test image and the mount
+signature broke. Runtime was never at risk (`requirements.txt` pins
+`mcp==1.10.1`).
 
-**How to avoid**: this is the BASELINE. Always capture `pytest` output before
-touching anything and diff against it; do not chase these four. Cloud Build
-runs the same suite, so a green build means the pin there still resolves.
+**Fix**: `mcp==1.10.1` added to `tests/requirements-test.txt` (same pin as
+runtime). Suite back to 249 passed / 0 failed.
+
+**How to avoid**: every `@ git+...` dependency needs its transitive pins
+mirrored too; test and runtime requirement files must carry the SAME pins.
 
 ---
 
