@@ -51,8 +51,9 @@ FLAT_ADX = _s([20] * 9)
 
 def test_m11_g1_color_flip_confirms_false_entry():
     # Spec M11-G1: cross up at index 1, DI aligned at t0, flips bearish at
-    # post-cross age 2, no favorable turn -> FALSE_ENTRY_CONFIRMED (0.70,
-    # measured prior — replay 120d 2026-07-16, n=243).
+    # post-cross age 2, no favorable turn -> FALSE_ENTRY_CONFIRMED. The
+    # adjudication stands; only its probability is unset (spec §I.9d
+    # amendment, re-council 2026-08-16 — priors not established).
     ao = _s([-0.5, 0.4, 0.9, 0.7])
     plus_di = _s([26, 26, 26, 26, 26, 26, 27, 24, 19])
     minus_di = _s([16, 16, 16, 16, 16, 16, 17, 22, 25])
@@ -62,7 +63,7 @@ def test_m11_g1_color_flip_confirms_false_entry():
     assert fe.state == FE_FALSE_ENTRY_CONFIRMED
     assert fe.event_age == 2
     assert fe.color_flip_age == 2
-    assert fe.p_false == 0.70
+    assert fe.p_false is None
     assert fe.adx_turn is None
 
 
@@ -75,7 +76,7 @@ def test_m11_g1_bearish_mirror():
 
     assert fe.state == FE_FALSE_ENTRY_CONFIRMED
     assert fe.color_flip_age == 2
-    assert fe.p_false == 0.70
+    assert fe.p_false is None
 
 
 def test_m11_g2_flip_at_age_1_is_still_watching():
@@ -93,8 +94,8 @@ def test_m11_g2_flip_at_age_1_is_still_watching():
 
 def test_flip_after_color_max_age_falls_to_timeout():
     # Flip only at post-cross age 5 (> color_max_age=4) -> ordinary age-5
-    # timeout adjudication governs (0.40 measured timeout prior, not the
-    # 0.70 flip prior — replay 120d 2026-07-16).
+    # timeout adjudication governs. Both priors are now unset, so `state` +
+    # `color_flip_age` (not p_false) carry the timeout-vs-flip distinction.
     ao = _s([-0.5, 0.4, 0.8, 1.1, 1.3, 1.6, 1.8])
     plus_di = _s([26, 26, 26, 27, 27, 27, 27, 27, 19])
     minus_di = _s([16, 16, 16, 17, 17, 17, 17, 17, 25])
@@ -102,7 +103,7 @@ def test_flip_after_color_max_age_falls_to_timeout():
     fe = false_entry_state_v2(ao, FLAT_ADX, plus_di, minus_di, direction="up")
 
     assert fe.state == FE_FALSE_ENTRY_PROBABLE
-    assert fe.p_false == 0.40
+    assert fe.p_false is None
     assert fe.color_flip_age is None
 
 
@@ -144,7 +145,7 @@ def test_recross_after_flip_is_fulfilled_prediction_not_whipsaw():
 
     assert fe.state == FE_FALSE_ENTRY_CONFIRMED
     assert fe.color_flip_age == 2
-    assert fe.p_false == 0.70
+    assert fe.p_false is None
 
 
 def test_di_already_contrary_at_cross_never_flips():
@@ -371,7 +372,7 @@ def test_m1m_g2_ignition_without_body():
 
     assert fi.state == FI_FALSE_IGNITION_PROBABLE
     assert fi.t0_age == 8
-    assert fi.p_false_ignition == 0.42
+    assert fi.p_false_ignition is None  # prior not established (spec §I.9d)
     assert fi.confirmed_by is None
 
 

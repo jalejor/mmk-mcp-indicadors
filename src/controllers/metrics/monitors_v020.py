@@ -283,8 +283,12 @@ def _apply_hierarchy(
         record["p_false"] = None
         return
     boosts = p_false_boosts(record["timeframe"], record["direction"], vol_moves)
-    if boosts and record["p_false"] is not None:
-        record["boosts"] = boosts
+    if not boosts:
+        return
+    # Rule-2 boosts are EVIDENCE and ship even with no base prior to add to
+    # (priors not established, spec §I.9d amendment).
+    record["boosts"] = boosts
+    if record["p_false"] is not None:
         record["p_false"] = boosted_p_false(record["p_false"], boosts)
 
 

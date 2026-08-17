@@ -98,7 +98,7 @@ def test_h1_rule2_vol_turn_wiring_emits_with_zeroed_addend():
     watch = _fe(monitors)[("30m", "down")]
     assert watch["state"] == "FALSE_ENTRY_PROBABLE"
     assert watch["p_false_boosts"] == [{"source_tf": "4h", "addend": 0.0}]
-    assert watch["p_false"] == 0.40  # measured timeout prior, unchanged by 0.0
+    assert watch["p_false"] is None  # prior not established (spec §I.9d)
     assert set(watch.keys()) == V2_FE_KEYS
     assert monitors["vol_turn_rounded"] == [
         {"timeframe": "4h", "variant": "v", "move_direction": "down"}
@@ -119,7 +119,7 @@ def test_h1_rule2_zeroed_addends_stack_without_moving_p_false():
         {"source_tf": "4h", "addend": 0.0},
         {"source_tf": "1d", "addend": 0.0},
     ]
-    assert watch["p_false"] == 0.40  # evidence wiring only, no re-weighting
+    assert watch["p_false"] is None  # evidence wiring only, no re-weighting
 
 
 def test_h1_rule2_ignores_watches_aligned_with_the_retracement():
@@ -135,7 +135,7 @@ def test_h1_rule2_ignores_watches_aligned_with_the_retracement():
     }
     watch = _fe(_build(frames))[("30m", "down")]
     assert watch["p_false_boosts"] == []
-    assert watch["p_false"] == 0.40
+    assert watch["p_false"] is None
 
 
 def test_h1_rule1_overrides_and_beats_rule2():
@@ -223,7 +223,7 @@ def test_h1_rule1_stale_m1_confirmed_does_not_rescue():
     watch = fe[("30m", "down")]
     assert watch["state"] == "FALSE_ENTRY_PROBABLE"  # NOT rescued
     assert watch["higher_tf"] is None
-    assert watch["p_false"] == 0.40
+    assert watch["p_false"] is None
     # The stale terminal itself is also past its emission window.
     assert ("1h", "down") not in fe
 
@@ -266,7 +266,7 @@ def test_h1_rule1_stale_m1m_confirmed_does_not_rescue():
     watch = _fi(_build(frames))[("15m", "up")]
     assert watch["state"] == "FALSE_IGNITION_PROBABLE"  # NOT rescued
     assert watch["higher_tf"] is None
-    assert watch["p_false_ignition"] == 0.42
+    assert watch["p_false_ignition"] is None
 
 
 def test_m2_contrary_impulse_emitted_for_adjudicated_watch():
@@ -298,7 +298,7 @@ def test_m2_contrary_impulse_emitted_for_adjudicated_watch():
     assert entry["trigger"] == "contrary_adx_turn"
     assert entry["source"]["kind"] == "m1"
     assert entry["source"]["state"] == "FALSE_ENTRY_PROBABLE"
-    assert entry["source"]["p_false"] == 0.40
+    assert entry["source"]["p_false"] is None
 
 
 def test_tf_status_reports_failed_timeframe_and_others_keep_working():

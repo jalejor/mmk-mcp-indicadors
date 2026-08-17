@@ -3,7 +3,8 @@
 Pure functions over pandas Series/DataFrames of CLOSED candles implementing:
 
 * M1.1 `color_flip` early false-entry adjudication (spec §I.1): extends the
-  §B.3.1 machine with the `FALSE_ENTRY_CONFIRMED` terminal state (p_false 0.70).
+  §B.3.1 machine with the `FALSE_ENTRY_CONFIRMED` terminal state (p_false
+  not established — see the priors note below).
 * M2 `contrary_impulse` (spec §I.2): the contrary move a false entry predicts.
   Evidence only, NO call-grade (council 2026-07-17, spec §I.2 v0.2.1 note).
 * H1 hierarchy (spec §I.3 + addendum B.3.3): Rule 1 `CONFIRMED_BY_HIGHER_TF`
@@ -22,9 +23,17 @@ code: 0.2.1 = 0.2.0 + the H1 freshness fix (P0) + the measured priors below;
 
 Every parameter default below is the versioned rule data of 0.2.1 (checked
 into the repo, never env vars — spec §0.4); changing any of them is a
-rule_version bump. Priors are MEASURED data as of the 120d replay of
-2026-07-16 (BTC/ETH/SOL/BNB, immutable manifest) — provenance is noted on
-each value.
+rule_version bump.
+
+PRIORS ARE `None` = NOT ESTABLISHED (re-council 2026-08-16, spec §I.9d
+amendment). The §I.9d gate ran and FAILED: forward FEC contrary hit-rate
+41.4% (n=162) against the pre-registered >= 0.60. The 120d-replay values
+(0.70 / 0.40 / 0.42) could not be defended either — ~70% of that replay used
+a different yardstick and its harness was never committed, so the numbers are
+irreproducible. The council declined to revert to the owner priors (0.80 /
+0.70 / 0.65, never measured) and left the priors UNSET until a measurement
+with a pre-registered yardstick and a committed harness exists. Consumers
+MUST render a missing p_false as unknown, never as 0.
 """
 
 from __future__ import annotations
@@ -109,17 +118,18 @@ class FalseEntryV2Params:
 
     confirm_candles: int = 5
     early_warning_candles: int = 2
-    # MEASURED (replay 120d 2026-07-16, n=648 timeout adjudications): contrary
-    # hit-rate of the timeout subset is 38%, and 73% of timeouts sat on a real
-    # >= 1 ATR impulse — the owner prior 0.70 did not survive. v0.2.1 data.
-    p_false_prior: float = 0.40
+    # NOT ESTABLISHED (re-council 2026-08-16, spec §I.9d amendment): the 0.40
+    # replay value came from a harness that was never committed and used a
+    # different yardstick — irreproducible, so it is not a value.
+    p_false_prior: Optional[float] = None
     confirm_bars: int = 1
     resolution_horizon: int = 10
     color_min_age: int = 2       # earliest post-cross age a flip adjudicates
     color_max_age: int = 4       # latest; above this the age-5 timeout governs
-    # MEASURED (replay 120d 2026-07-16, n=243 FEC adjudications): contrary
-    # hit-rate 70.0% (IS 71.6% / OOS 64.2%), replacing the owner prior 0.80.
-    p_false_color: float = 0.70
+    # NOT ESTABLISHED (re-council 2026-08-16, spec §I.9d amendment): forward
+    # contrary hit-rate 41.4% (n=162) failed the >= 0.60 gate, and the 0.70
+    # replay value is irreproducible (harness lost, different yardstick).
+    p_false_color: Optional[float] = None
 
 
 FALSE_ENTRY_V2_DEFAULTS = FalseEntryV2Params()
@@ -516,10 +526,10 @@ FI_WHIPSAW = "WHIPSAW"
 @dataclass(frozen=True)
 class FalseIgnitionParams:
     confirm_candles: int = 8       # 15m default (2h wall clock); 6 on 30m shadow
-    # MEASURED (replay 120d 2026-07-16, n=57 FI-probable, interpool): price
-    # hit-rate 42.1%, replacing the 0.65 provisional prior (Q21). NOTE: n=57
-    # gives a WIDE confidence interval — recalibrate as forward data accrues.
-    p_false_ignition: float = 0.42
+    # NOT ESTABLISHED (re-council 2026-08-16, spec §I.9d amendment): the 0.42
+    # replay value shares the irreproducible harness of the M1 priors; no
+    # forward measurement of its own exists.
+    p_false_ignition: Optional[float] = None
     bbwp_rising_closes: int = 3
     scan_window: int = 14          # t0 lookback: confirm_candles + terminal visibility
 
