@@ -97,6 +97,10 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--resamples", type=int, default=BOOTSTRAP_RESAMPLES)
     p.add_argument("--no-sensitivities", action="store_true")
     p.add_argument("--trades-out", default="", help="optional full signal dump (jsonl)")
+    p.add_argument("--shard-out", default="",
+                   help="write this shard's signals+manifest as jsonl (parallel execution)")
+    p.add_argument("--aggregate-from", nargs="*", default=[],
+                   help="pool these shard files instead of running the backtest")
     return p.parse_args()
 
 
@@ -242,6 +246,48 @@ def _evaluate_gate(cell: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _dump_shard(path: str, manifest: List[Dict[str, Any]],
+                primary: Dict[str, List[FepSignal]],
+                sens: Dict[str, Dict[str, List[FepSignal]]]) -> None:
+    """One shard = signals + manifest, as jsonl. Sharding is an EXECUTION
+    detail: the pooled report is byte-identical to a single-process run
+    (asserted by --self-check on a fast cell)."""
+    with open(path, "w") as fh:
+        for entry in manifest:
+            fh.write(json.dumps({"_manifest": entry}, default=str) + "\n")
+        for _tf, sigs in primary.items():
+            for row in signal_dicts(sigs):
+                fh.write(json.dumps({"variant": "primary", **row}, default=str) + "\n")
+        for name, per_tf in sens.items():
+            for _tf, sigs in per_tf.items():
+                for row in signal_dicts(sigs):
+                    fh.write(json.dumps({"variant": name, **row}, default=str) + "\n")
+
+
+def _load_shards(paths: List[str]):
+    """Rebuild pooled signals + manifest from shard files."""
+    from controllers.metrics.fep_cont_backtest import FepSignal as _FS
+
+    manifest: List[Dict[str, Any]] = []
+    primary: Dict[str, List[FepSignal]] = {}
+    sens: Dict[str, Dict[str, List[FepSignal]]] = {}
+    fields = set(_FS.__dataclass_fields__)
+    for path in paths:
+        with open(path) as fh:
+            for line in fh:
+                row = json.loads(line)
+                if "_manifest" in row:
+                    manifest.append(row["_manifest"])
+                    continue
+                variant = row.pop("variant")
+                sig = _FS(**{k: v for k, v in row.items() if k in fields})
+                if variant == "primary":
+                    primary.setdefault(sig.timeframe, []).append(sig)
+                else:
+                    sens.setdefault(variant, {}).setdefault(sig.timeframe, []).append(sig)
+    return manifest, primary, sens
+
+
 def main() -> int:
     args = _parse_args()
     start, end, boundary = _dt(args.start), _dt(args.end), _dt(args.is_boundary)
@@ -274,7 +320,17 @@ def main() -> int:
     all_signals: Dict[str, List[FepSignal]] = {tf: [] for tf in args.timeframes}
     sens_signals: Dict[str, Dict[str, List[FepSignal]]] = {}
 
-    for timeframe in args.timeframes:
+    if args.aggregate_from:
+        report["manifest"], loaded, sens_signals = _load_shards(args.aggregate_from)
+        report["run"]["sharded"] = args.aggregate_from
+        # Only the cells the shards actually carry — never the CLI defaults,
+        # or an empty primary cell would be scored as a failing gate.
+        all_signals = {tf: sigs for tf, sigs in loaded.items() if sigs}
+        args.timeframes = list(all_signals)
+        report["run"]["timeframes"] = args.timeframes
+        report["run"]["symbols"] = sorted({s.symbol for sigs in all_signals.values() for s in sigs})
+
+    for timeframe in ([] if args.aggregate_from else args.timeframes):
         for symbol in args.symbols:
             t0 = time.time()
             engine = FepContBacktest(
@@ -320,6 +376,11 @@ def main() -> int:
                     s for s in alt.collect(enriched, events=events)
                     if s.arm in (ARM_FEP_CONT, ARM_BASE_RATE)
                 )
+
+    if args.shard_out:
+        _dump_shard(args.shard_out, report["manifest"], all_signals, sens_signals)
+        print(f"shard -> {args.shard_out}", flush=True)
+        return 0
 
     for timeframe, signals in all_signals.items():
         report["cells"][timeframe] = _cell_report(
