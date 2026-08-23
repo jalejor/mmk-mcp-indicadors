@@ -2326,3 +2326,85 @@ quantified opportunity cost of the C1-micro deployment delay — input for
 the council gate that prioritises the v0.2.0-b micro band. This is a COST
 golden (evidence for prioritisation), not a backtest golden: it does not
 validate the rule by itself.
+
+---
+
+## K. R-FEP-CONT — the v0.3.0 redesign, measured and REFUTED (2026-08-22)
+
+Status: **CLOSED — NO PASS. The FEC/FEP family is archived.** This section
+records the single redesign the 2026-08-16 re-council allowed for this
+family, executed backtest-first as that acta demanded. Nothing here is wired
+into `setups`, monitors or alerts, and nothing here may be wired in.
+
+### K.0 What the re-council required, and where each requirement landed
+
+| Blocking condition (2026-08-16) | Where it is satisfied |
+|---|---|
+| 1. Control group / base rate | arm `BASE-RATE` — unconditional entry every 20th bar, both sides, same resolver |
+| 2. Outcome resolver = versioned code + golden, `outcome_vara` stamped | `SetupBacktestService._simulate_outcome` called verbatim; `tests/test_fep_cont_golden.py` pins the arithmetic; `outcome_vara` on every record |
+| 3. Metric in R (expectancy with stop/target/fees) | net R per signal, fee 0.10% + slippage 0.05% per side |
+| 4. Threshold normalised by ATR/TF | stop = 1.5 x ATR14 of the trigger TF, target 3R — no flat percentage anywhere |
+| 5. Harness committed in-repo with manifest | `scripts/run_fep_cont_backtest.py` + sha256 per symbol/TF in `fep_cont_v030.json` |
+
+Plus the acta's own rule — *"todo criterio pre-registrado nace con el test que
+lo computa, verde sobre datos sintéticos, el día que se congela"*: the gate
+legs are executable code (`_evaluate_gate`) and the 16 goldens were green the
+day the pre-registration was frozen (commit `0154a40`, before any result).
+
+### K.1 The hypothesis that was tested
+
+R-FEP-CONT: an AO zero-cross of direction `d` that survives
+`confirm_candles = 5` without a favourable ADX turn and without an opposite
+re-cross (engine state `FALSE_ENTRY_PROBABLE`, consumed unchanged) is a
+**continuation** signal in direction `d` — "a real entry going slowly", the
+reading the owner dictated in §J.1 and the shape of the 19.8% contrary rate
+found on 2026-08-16. Tested one-sided: a negative edge refutes it, it does
+not become a fade rule.
+
+Frozen definition, universe, split, statistics and gate:
+`docs/PREREG_FEP_CONT_v0.3.0.md`. Results: `docs/FEP_CONT_V030_RESULTS.md`
+and `fep_cont_v030.json`.
+
+### K.2 Verdict — NO PASS (4 of 5 legs failed)
+
+Primary cell (1h, 4 majors pooled, out-of-sample, n=2,451):
+
+* expectancy **-0.2249 R** net, cluster-CI [-0.299, -0.150] (needed >= +0.15
+  with CI > 0);
+* edge over the unconditional control **+0.0227 R**, CI [-0.045, +0.092],
+  Holm-adjusted p **0.566** (needed >= +0.15 with CI > 0);
+* portfolio basis **-167.5 R/year** (needed >= +1.644, the PB-1D rate);
+* in-sample -0.2188 R, and all 4 symbols and both sides negative.
+
+The rule fails its own gate on **every** timeframe (30m / 1h / 4h / 1d), so
+the verdict is not an artifact of the primary cell. The clearest single fact:
+the unconditional control is worth about **+0.04 R gross on every timeframe**
+and the whole net loss is the fee drag pre-stated in §4 of the
+pre-registration (0.412 / 0.283 / 0.136 / 0.055 R per trade) — FEP-CONT on 1h
+sits 0.02 R from the coin. On 1h the monitor's three terminal states
+(`FALSE_ENTRY_PROBABLE`, `WHIPSAW`, and the coin) are informationally
+indistinguishable.
+
+**Consequence executed as pre-registered**: the FEC/FEP family is archived,
+there is no v0.4.0, and false-entry alerts stay prohibited until evidence
+arrives from a different source. R-TURN-IGNITION (§D15) is recommended for
+archive as an alertable candidate on the same acta.
+
+### K.3 What may NOT be done with this section
+
+* Nothing here may be promoted to a rule. Archiving is the outcome; an
+  mmk-council ratifies it.
+* A secondary timeframe looking better than the primary is **not** a pass
+  (pre-registration §10.3) — 1d clears the economics and stability legs and
+  still fails on both confidence intervals.
+* The one cell whose edge CI excludes zero (`CONFIRMED` on 4h OOS: +0.3097 R,
+  edge +0.3944 R, CI [+0.120, +0.691], no in-sample support, n=162) is
+  recorded as **EXPLORATORY, not evidence**. Acting on it without its own
+  pre-registration is exactly the post-hoc selection that produced the
+  irreproducible 0.70.
+* No `p_false` number returns to `rule_v020.py` from this study: it measured
+  expectancy in R, not a probability of falseness. §I.9d stands.
+* **Untested, not refuted**: this study fixes one exit model (1.5 x ATR /
+  3R). The acta's observation that 76.5% of FEC cases touched the target
+  intravela and gave it back is a hypothesis about **exits**, not entries. It
+  survives this verdict and would need its own pre-registration.

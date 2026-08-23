@@ -288,6 +288,45 @@ must be separate branches (fixed in `monitors_v020._apply_hierarchy`).
 
 ---
 
+## E16 ⚠️ Low-TF rules pay 0.28–0.41 R per round trip in fees alone — MEDIUM
+
+**Symptom**: a rule that looks clearly profitable on gross price movement
+comes out flat or negative in net R on 30m/1h and nobody can point at the
+bug. There is no bug: the costs are the result.
+
+**Root cause**: under the standard mmk trade model (medium profile: stop =
+1.5 x ATR14, target 3R) the round-trip cost expressed in R is
+`2 x (fee + slippage) / (1.5 x ATR/close)`. `ATR/close` shrinks with the
+timeframe, so the same 0.10% + 0.05% per side costs radically different
+amounts of R (measured on BTC/USDT, 2024 medians):
+
+| TF | median ATR14/close | stop distance | fee drag per trade |
+|---|---|---|---|
+| 30m | 0.485% | 0.728% | **0.412 R** |
+| 1h | 0.707% | 1.061% | **0.283 R** |
+| 4h | 1.468% | 2.202% | **0.136 R** |
+| 1d | 3.619% | 5.429% | **0.055 R** |
+
+A 30m rule must therefore find **+0.56 R gross** to show +0.15 R net; the
+same rule on 1d needs +0.21 R. Two thirds of the sub-hour hurdle is the
+broker, not the market.
+
+**How to avoid**: state the fee drag of the timeframe **before** running a
+study, and never compare a low-TF expectancy with a high-TF one without it.
+When a low-TF idea fails only on costs, that is still a failure — mmk pays
+those costs. Pre-registered in `docs/PREREG_FEP_CONT_v0.3.0.md` §4; the
+arithmetic lives in `SetupBacktestService._simulate_outcome`
+(`cost_R = (fee + slip) * (entry + exit) / stop_distance`).
+
+⚠️ Related trap: in 24/7 crypto an "enter at the next open instead of this
+close" sensitivity is nearly a **no-op** (median |next_open − close| ~0.003%
+of price on binance majors; it changes the entry on ~56% of bars but by
+amounts invisible next to a 1–5% stop). It looks like an execution-realism
+check and measures almost nothing. The real execution risk on this stack is
+the watcher's polling lag, not the open/close gap.
+
+---
+
 ## Non-issues / verified-correct (for reassurance)
 
 - **MCP auth**: the mounted MCP transport *does* enforce the API key on both

@@ -207,3 +207,60 @@ amendment table; whether a *returning* number needs a bump is deferred to
 answered before the next measurement runs.
 
 **Status**: vigente, closed end-to-end (both packs).
+
+## D17 — R-FEP-CONT pre-registered, measured, REFUTED; FEC/FEP archived (2026-08-22)
+
+The 2026-08-16 re-council allowed the FEC/FEP family **one** redesign on one
+condition: backtest-first — a falsifiable hypothesis and the PB-1D listón
+written down **before** any new shadow window, deadline 2026-09-30. This is
+that redesign, and it failed.
+
+**Hypothesis**: state `FALSE_ENTRY_PROBABLE` (AO zero-cross surviving 5
+candles with no favourable ADX turn and no opposite re-cross) is a
+**continuation** signal in the direction of the cross — the owner's §J.1
+reading and the shape of the 19.8% contrary rate. Tested one-sided: a
+negative edge refutes it and does not become a fade rule.
+
+**Method** — all five re-council blockers, in order: an unconditional
+`BASE-RATE` control arm; the committed resolver
+(`SetupBacktestService._simulate_outcome`) with numeric goldens and an
+`outcome_vara` stamp; the metric in **net R**; the threshold normalised as
+1.5 x ATR14 of the trigger TF; the harness committed in-repo with a sha256
+manifest. Universe (4 majors, binance, 8 years), split (at the listón's own
+`2024-02-05T09:36Z`), statistics (cluster bootstrap, seed 20260822) and the
+five gate legs were frozen in `docs/PREREG_FEP_CONT_v0.3.0.md` at commit
+`0154a40` **before the first number existed**. 1.04 M signals resolved.
+
+**Result** (primary cell 1h, OOS, n=2,451): expectancy **-0.2249 R**, CI
+[-0.299, -0.150]; edge over the control **+0.0227 R**, CI [-0.045, +0.092],
+Holm p 0.566; portfolio **-167.5 R/yr** against a listón of +1.644 R/yr.
+**4 of 5 legs FAIL.** The rule also fails its own gate on 30m, 4h and 1d, so
+the verdict is not an artifact of the primary cell. Root cause is not the
+strategy being "almost there": the unconditional control is worth ~**+0.04 R
+gross on every timeframe** and the entire net loss is the fee drag that §4 of
+the pre-registration stated in advance.
+
+**Decision**: **the FEC/FEP family is archived.** No v0.4.0. False-entry
+alerts stay prohibited until evidence arrives from a different source.
+R-TURN-IGNITION (D15) is recommended for archive as an alertable candidate on
+the same acta — its own forward run was 22.4% with a *negative mean
+excursion*, which no change of yardstick can rescue, and the nearest arm this
+study measured (`CONFIRMED`, ignition anchored on the AO cross) is +0.0007 R
+over the coin on 1h. Freed cycles go to widening PB-1D's universe.
+
+**Alternative discarded**: promoting the 1d cell (+0.3119 R OOS, +6.94 R/yr).
+It clears the economics and stability legs but both its confidence intervals
+include zero and its Holm-adjusted p is 0.227 — and promoting a secondary
+timeframe because the primary failed is precisely the post-hoc selection that
+produced the irreproducible 0.70. Also discarded: re-cutting this sample by
+regime, session or symbol (pre-registration §10).
+
+**Left open on purpose (untested, NOT refuted)**: this study fixes one exit
+model (1.5 x ATR stop / 3R target). The acta's finding that 76.5% of FEC
+cases touched the contrary move intravela and gave it back is a hypothesis
+about **exits**, not entries; it survives this verdict and would need its own
+pre-registration.
+
+**What it takes to reopen anything in this family**: a new pre-registration
+plus a run of the committed harness — which now exists, so the price is an
+afternoon, not a quarter.
