@@ -133,4 +133,7 @@ INCONCLUSIVE.
 
 ## 10. Result commit
 
-_(filled after the run)_
+Run 2026-11-01 after this file was committed (`26404e4`). Results and
+verdicts: `docs/impulsos-v2-backtest.md` (and §"Backtest results" of
+`docs/impulsos-v2.md`). No mandatory cell PASSES: ancient long/short
+INCONCLUSIVE, pro long/short NO-PASS. No amendment was made.

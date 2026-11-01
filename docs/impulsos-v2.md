@@ -336,3 +336,29 @@ Owner ambiguities and the assumption taken:
 * "MACD" weight: lowest (1), it is a lagging duplicate of AO/Konkorde momentum.
 
 ## Backtest results
+
+Run 2026-11-01 per §g (pre-registration `docs/PREREG_IMPULSOS_v2.md`, commit
+`26404e4`, frozen before the first run). Full detail, data manifest and
+method notes: `docs/impulsos-v2-backtest.md`. BTC/USDT bitget spot, IS
+2024-11-01 -> 2025-12-31, OOS 2026-01-01 -> 2026-10-31, net R after fees,
+slippage and funding; CI = cluster bootstrap, seed 42.
+
+| Cell | Engine | n (IS/OOS) | exp. R net total | CI95 | exp. IS | exp. OOS | PF | max DD R | Verdict |
+|---|---|---|---|---|---|---|---|---|---|
+| 1d long | legacy medium 1.5/3R | 25 (17/8) | +0.215 | [-0.590, 1.101] | +0.111 | +0.437 | 1.30 | 9.0 | INCONCLUSIVE (n<30) |
+| 1d long | new ancient | 7 (6/1) | +0.220 | [-0.711, 1.560] | +0.327 | -0.421 | 1.52 | 2.7 | INCONCLUSIVE (n<30) |
+| 1d short | legacy | N/A — legacy cannot emit shorts | | | | | | | N/A |
+| 1d short | new ancient | 7 (5/2) | -0.363 | [-0.956, 0.304] | -0.440 | -0.169 | 0.42 | 3.2 | INCONCLUSIVE (n<30) |
+| 4h long | legacy medium 1.5/3R | 137 (81/56) | -0.141 | [-0.434, 0.161] | -0.073 | -0.238 | 0.84 | 31.1 | NO-PASS |
+| 4h long | new pro | 41 (22/19) | +0.146 | [-0.368, 0.834] | +0.615 | -0.397 | 1.25 | 8.0 | NO-PASS (CI, OOS) |
+| 4h short | legacy | N/A — legacy cannot emit shorts | | | | | | | N/A |
+| 4h short | new pro | 43 (20/23) | -0.374 | [-0.791, 0.188] | -0.576 | -0.199 | 0.55 | 16.2 | NO-PASS |
+| 1h long (info) | new snipper | 140 (83/57) | -0.306 | [-0.783, 0.340] | -0.108 | -0.594 | 0.71 | 55.7 | NO-PASS |
+| 1h short (info) | new snipper | 153 (91/62) | -0.284 | [-0.663, 0.225] | -0.457 | -0.029 | 0.72 | 45.8 | NO-PASS |
+
+**Verdict: no cell passes; nothing moves to paper.** ancient: INCONCLUSIVE
+(7 trades per direction in 2 years) -> pre-registered follow-up is the same
+rules on ETH/USDT + SOL/USDT pooled, not a looser threshold. pro long beats
+legacy on the total (+0.146 vs -0.141 R, DD 8 vs 31 R) but its OOS half is
+negative and worse than legacy's, so the improvement is not established.
+Buy-and-hold over the window: +11.6%.
