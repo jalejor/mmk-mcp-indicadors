@@ -1,0 +1,431 @@
+{
+  "rule_version": "impulse-2.0.0",
+  "spec": "docs/impulsos-v2.md",
+  "notes": [
+    "Each trigger array is CLOSED candles, oldest -> newest; the LAST element is the candle under evaluation.",
+    "Columns are engine inputs as-is (the engine does not recompute indicators from OHLC in these goldens).",
+    "edge = konkorde_marron - konkorde_media. Konkorde is ignored on low_tf profiles (scalper, snipper).",
+    "position_state.bars_held counts closed trigger bars since entry (entry bar = 0) at the evaluated candle.",
+    "expected.stop_price / exit_price are exact (tolerance 1e-6) when present; confidence_min is a lower bound, confidence_max an upper bound when present."
+  ],
+  "params": {
+    "bbwp_definition": "tv",
+    "compression_max": 30,
+    "compression_lookback": 10,
+    "blue_level": 20,
+    "breakout_level": 50,
+    "breakout_ttl": 3,
+    "exhaustion_level": 90,
+    "red_drop_min": 8,
+    "exit_window": 3,
+    "adx_rising_slope": 0.5,
+    "side_threshold": {"high_tf": 0.5, "low_tf": 0.6},
+    "weights": {"konkorde": 3, "adx": 2, "ao": 2, "macd": 1},
+    "ctx_bias_threshold": 3,
+    "fresh_cross_bars": 5,
+    "adx_turn": {"turn_window": 3, "base_window": 5, "min_slope": 1.0, "min_delta_slope": 1.5, "adx_floor": 10.0},
+    "profiles": {
+      "scalper": {"trigger_tf": "15m", "context_tfs": ["1h", "4h"], "band": "low_tf", "max_leverage": 10, "margin": "isolated", "risk_pct": 0.25, "stop_atr_mult": 2.0, "time_stop_bars": 32},
+      "snipper": {"trigger_tf": "1h", "context_tfs": ["4h", "1d"], "band": "low_tf", "max_leverage": 10, "margin": "isolated", "risk_pct": 0.5, "stop_atr_mult": 1.5, "time_stop_bars": 48},
+      "pro": {"trigger_tf": "4h", "context_tfs": ["1d", "1w"], "band": "high_tf", "max_leverage": 5, "margin": "isolated", "risk_pct": 0.75, "stop_atr_mult": 1.5, "time_stop_bars": 30},
+      "ancient": {"trigger_tf": "1d", "context_tfs": ["1w", "1M"], "band": "high_tf", "max_leverage": 2, "default_leverage": 1, "margin": "isolated", "risk_pct": 1.0, "stop_atr_mult": 2.0, "time_stop_bars": 30}
+    }
+  },
+  "cases": [
+    {
+      "id": "IMP-G01-long-entry-from-compression",
+      "why": "min bbwp 16 (blue), 47->58 breakout on last bar; edge crossed 0 at bar 8 and rising; E1 turn up (24.5, slope 2.167, delta 2.167) with +DI; AO>0 rising; MACD>signal; 1d and 1w bullish. S=1.0, confidence=0.35+0.20+0.15+0.10+0.10+0.10=1.0; stop=70300-1.5*1150.",
+      "profile": "pro",
+      "trigger_tf": "4h",
+      "position": null,
+      "context": {
+        "1d": {"close": 69000, "bbwp": 62, "konkorde_marron": 58.0, "konkorde_media": 55.0, "konkorde_azul": 2.1, "plus_di": 24, "minus_di": 18, "ao": 900, "macd": 300, "macd_signal": 250},
+        "1w": {"close": 69000, "bbwp": 55, "konkorde_marron": 62.0, "konkorde_media": 60.0, "konkorde_azul": 1.5, "plus_di": 22, "minus_di": 19, "ao": 4000, "macd": 1500, "macd_signal": 1400}
+      },
+      "trigger": [
+        {"close": 68000, "high": 68300, "low": 67700, "bbwp": 35, "konkorde_marron": 50.0, "konkorde_media": 53.0, "konkorde_azul": -2.0, "adx14": 18.0, "plus_di": 20, "minus_di": 21, "ao": -420, "macd": -60, "macd_signal": -40, "atr14": 900},
+        {"close": 67900, "high": 68200, "low": 67650, "bbwp": 28, "konkorde_marron": 49.5, "konkorde_media": 52.6, "konkorde_azul": -1.8, "adx14": 18.0, "plus_di": 20, "minus_di": 21, "ao": -380, "macd": -62, "macd_signal": -45, "atr14": 880},
+        {"close": 67950, "high": 68150, "low": 67750, "bbwp": 22, "konkorde_marron": 49.8, "konkorde_media": 52.2, "konkorde_azul": -1.2, "adx14": 18.0, "plus_di": 21, "minus_di": 20, "ao": -330, "macd": -55, "macd_signal": -48, "atr14": 850},
+        {"close": 68050, "high": 68250, "low": 67850, "bbwp": 18, "konkorde_marron": 50.2, "konkorde_media": 51.9, "konkorde_azul": -0.6, "adx14": 18.0, "plus_di": 21, "minus_di": 20, "ao": -290, "macd": -45, "macd_signal": -48, "atr14": 820},
+        {"close": 68000, "high": 68200, "low": 67800, "bbwp": 16, "konkorde_marron": 50.0, "konkorde_media": 51.6, "konkorde_azul": -0.2, "adx14": 18.0, "plus_di": 21, "minus_di": 19, "ao": -240, "macd": -38, "macd_signal": -46, "atr14": 800},
+        {"close": 68100, "high": 68300, "low": 67900, "bbwp": 19, "konkorde_marron": 50.4, "konkorde_media": 51.4, "konkorde_azul": 0.3, "adx14": 18.0, "plus_di": 22, "minus_di": 19, "ao": -180, "macd": -28, "macd_signal": -42, "atr14": 810},
+        {"close": 68200, "high": 68400, "low": 67950, "bbwp": 27, "konkorde_marron": 50.6, "konkorde_media": 51.3, "konkorde_azul": 0.9, "adx14": 18.0, "plus_di": 23, "minus_di": 18, "ao": -110, "macd": -15, "macd_signal": -36, "atr14": 830},
+        {"close": 68150, "high": 68450, "low": 67900, "bbwp": 38, "konkorde_marron": 49.8, "konkorde_media": 51.3, "konkorde_azul": 1.5, "adx14": 18.5, "plus_di": 24, "minus_di": 17, "ao": -40, "macd": 5, "macd_signal": -28, "atr14": 900},
+        {"close": 69100, "high": 69300, "low": 68100, "bbwp": 47, "konkorde_marron": 52.0, "konkorde_media": 51.2, "konkorde_azul": 2.6, "adx14": 21.5, "plus_di": 26, "minus_di": 16, "ao": 35, "macd": 40, "macd_signal": -14, "atr14": 1000},
+        {"close": 70300, "high": 70500, "low": 69000, "bbwp": 58, "konkorde_marron": 54.4, "konkorde_media": 51.6, "konkorde_azul": 4.2, "adx14": 24.5, "plus_di": 28, "minus_di": 15, "ao": 120, "macd": 85, "macd_signal": 6, "atr14": 1150}
+      ],
+      "expected": {
+        "side": "long",
+        "phase": "ignition",
+        "action": "enter",
+        "reasons_include": ["bbwp_compression_recent", "bbwp_breakout_from_compression", "konkorde_edge_positive", "konkorde_edge_cross_up", "adx_di_bullish", "adx_turn_up", "ao_bullish", "macd_bullish", "konkorde_strong_hands_agree", "context_aligned"],
+        "confidence_min": 0.95,
+        "stop_price": 68575.0
+      }
+    },
+    {
+      "id": "IMP-G02-short-entry-from-compression",
+      "why": "Mirror of G01: edge +1.5 -> -0.8 (cross down bar 8) -> -2.8 falling; E1 turn up with -DI dominant; AO<0 falling; MACD<signal. 1d bearish (score -8), 1w neutral (3-2-2-1=-2): ctx_frac=0.5. confidence=0.35+0.10+0.15+0.10+0.10+0.10=0.90; stop=65700+1.5*1150.",
+      "profile": "pro",
+      "trigger_tf": "4h",
+      "position": null,
+      "context": {
+        "1d": {"close": 66000, "bbwp": 60, "konkorde_marron": 50.0, "konkorde_media": 54.0, "konkorde_azul": -2.0, "plus_di": 16, "minus_di": 25, "ao": -900, "macd": -300, "macd_signal": -250},
+        "1w": {"close": 66000, "bbwp": 52, "konkorde_marron": 60.0, "konkorde_media": 58.0, "konkorde_azul": 0.5, "plus_di": 18, "minus_di": 21, "ao": -500, "macd": 1400, "macd_signal": 1450}
+      },
+      "trigger": [
+        {"close": 68000, "high": 68300, "low": 67700, "bbwp": 35, "konkorde_marron": 56.0, "konkorde_media": 53.0, "konkorde_azul": 2.0, "adx14": 18.0, "plus_di": 21, "minus_di": 20, "ao": 420, "macd": 60, "macd_signal": 40, "atr14": 900},
+        {"close": 68100, "high": 68350, "low": 67800, "bbwp": 28, "konkorde_marron": 55.7, "konkorde_media": 52.6, "konkorde_azul": 1.8, "adx14": 18.0, "plus_di": 21, "minus_di": 20, "ao": 380, "macd": 62, "macd_signal": 45, "atr14": 880},
+        {"close": 68050, "high": 68250, "low": 67850, "bbwp": 22, "konkorde_marron": 54.6, "konkorde_media": 52.2, "konkorde_azul": 1.2, "adx14": 18.0, "plus_di": 20, "minus_di": 21, "ao": 330, "macd": 55, "macd_signal": 48, "atr14": 850},
+        {"close": 67950, "high": 68150, "low": 67750, "bbwp": 18, "konkorde_marron": 53.6, "konkorde_media": 51.9, "konkorde_azul": 0.6, "adx14": 18.0, "plus_di": 20, "minus_di": 21, "ao": 290, "macd": 45, "macd_signal": 48, "atr14": 820},
+        {"close": 68000, "high": 68200, "low": 67800, "bbwp": 16, "konkorde_marron": 53.2, "konkorde_media": 51.6, "konkorde_azul": 0.2, "adx14": 18.0, "plus_di": 19, "minus_di": 21, "ao": 240, "macd": 38, "macd_signal": 46, "atr14": 800},
+        {"close": 67900, "high": 68100, "low": 67700, "bbwp": 19, "konkorde_marron": 52.4, "konkorde_media": 51.4, "konkorde_azul": -0.3, "adx14": 18.0, "plus_di": 19, "minus_di": 22, "ao": 180, "macd": 28, "macd_signal": 42, "atr14": 810},
+        {"close": 67800, "high": 68050, "low": 67600, "bbwp": 27, "konkorde_marron": 52.0, "konkorde_media": 51.3, "konkorde_azul": -0.9, "adx14": 18.0, "plus_di": 18, "minus_di": 23, "ao": 110, "macd": 15, "macd_signal": 36, "atr14": 830},
+        {"close": 67850, "high": 68100, "low": 67550, "bbwp": 38, "konkorde_marron": 52.8, "konkorde_media": 51.3, "konkorde_azul": -1.5, "adx14": 18.5, "plus_di": 17, "minus_di": 24, "ao": 40, "macd": -5, "macd_signal": 28, "atr14": 900},
+        {"close": 66900, "high": 67900, "low": 66700, "bbwp": 47, "konkorde_marron": 50.4, "konkorde_media": 51.2, "konkorde_azul": -2.6, "adx14": 21.5, "plus_di": 16, "minus_di": 26, "ao": -35, "macd": -40, "macd_signal": 14, "atr14": 1000},
+        {"close": 65700, "high": 67000, "low": 65500, "bbwp": 58, "konkorde_marron": 48.2, "konkorde_media": 51.0, "konkorde_azul": -3.5, "adx14": 24.5, "plus_di": 15, "minus_di": 29, "ao": -120, "macd": -85, "macd_signal": -6, "atr14": 1150}
+      ],
+      "expected": {
+        "side": "short",
+        "phase": "ignition",
+        "action": "enter",
+        "reasons_include": ["bbwp_breakout_from_compression", "konkorde_edge_negative", "konkorde_edge_cross_down", "adx_di_bearish", "adx_turn_up", "ao_bearish", "macd_bearish", "context_aligned"],
+        "confidence_min": 0.85,
+        "confidence_max": 0.95,
+        "stop_price": 67425.0
+      }
+    },
+    {
+      "id": "IMP-G03-no-entry-ambiguous-side",
+      "why": "Same ignition as G01 but last bar -DI dominant (15/28) and MACD<signal. Votes: K +1 (3), ADX -1 (2, rising with -DI), AO +1 (2), MACD -1 (1): S=(3-2+2-1)/8=0.25 < 0.5; long fails DI hard check, short fails Konkorde hard check -> no side.",
+      "profile": "pro",
+      "trigger_tf": "4h",
+      "position": null,
+      "context": {
+        "1d": {"close": 69000, "bbwp": 62, "konkorde_marron": 58.0, "konkorde_media": 55.0, "konkorde_azul": 2.1, "plus_di": 24, "minus_di": 18, "ao": 900, "macd": 300, "macd_signal": 250},
+        "1w": {"close": 69000, "bbwp": 55, "konkorde_marron": 62.0, "konkorde_media": 60.0, "konkorde_azul": 1.5, "plus_di": 22, "minus_di": 19, "ao": 4000, "macd": 1500, "macd_signal": 1400}
+      },
+      "trigger": [
+        {"close": 68000, "high": 68300, "low": 67700, "bbwp": 35, "konkorde_marron": 50.0, "konkorde_media": 53.0, "konkorde_azul": -2.0, "adx14": 18.0, "plus_di": 20, "minus_di": 21, "ao": -420, "macd": -60, "macd_signal": -40, "atr14": 900},
+        {"close": 67900, "high": 68200, "low": 67650, "bbwp": 28, "konkorde_marron": 49.5, "konkorde_media": 52.6, "konkorde_azul": -1.8, "adx14": 18.0, "plus_di": 20, "minus_di": 21, "ao": -380, "macd": -62, "macd_signal": -45, "atr14": 880},
+        {"close": 67950, "high": 68150, "low": 67750, "bbwp": 22, "konkorde_marron": 49.8, "konkorde_media": 52.2, "konkorde_azul": -1.2, "adx14": 18.0, "plus_di": 21, "minus_di": 20, "ao": -330, "macd": -55, "macd_signal": -48, "atr14": 850},
+        {"close": 68050, "high": 68250, "low": 67850, "bbwp": 18, "konkorde_marron": 50.2, "konkorde_media": 51.9, "konkorde_azul": -0.6, "adx14": 18.0, "plus_di": 21, "minus_di": 20, "ao": -290, "macd": -45, "macd_signal": -48, "atr14": 820},
+        {"close": 68000, "high": 68200, "low": 67800, "bbwp": 16, "konkorde_marron": 50.0, "konkorde_media": 51.6, "konkorde_azul": -0.2, "adx14": 18.0, "plus_di": 21, "minus_di": 19, "ao": -240, "macd": -38, "macd_signal": -46, "atr14": 800},
+        {"close": 68100, "high": 68300, "low": 67900, "bbwp": 19, "konkorde_marron": 50.4, "konkorde_media": 51.4, "konkorde_azul": 0.3, "adx14": 18.0, "plus_di": 22, "minus_di": 19, "ao": -180, "macd": -28, "macd_signal": -42, "atr14": 810},
+        {"close": 68200, "high": 68400, "low": 67950, "bbwp": 27, "konkorde_marron": 50.6, "konkorde_media": 51.3, "konkorde_azul": 0.9, "adx14": 18.0, "plus_di": 23, "minus_di": 18, "ao": -110, "macd": -15, "macd_signal": -36, "atr14": 830},
+        {"close": 68150, "high": 68450, "low": 67900, "bbwp": 38, "konkorde_marron": 49.8, "konkorde_media": 51.3, "konkorde_azul": 1.5, "adx14": 18.5, "plus_di": 20, "minus_di": 21, "ao": -40, "macd": 5, "macd_signal": -28, "atr14": 900},
+        {"close": 68700, "high": 69300, "low": 68100, "bbwp": 47, "konkorde_marron": 52.0, "konkorde_media": 51.2, "konkorde_azul": 2.6, "adx14": 21.5, "plus_di": 18, "minus_di": 24, "ao": 35, "macd": 0, "macd_signal": -14, "atr14": 1000},
+        {"close": 68900, "high": 69800, "low": 68300, "bbwp": 58, "konkorde_marron": 54.4, "konkorde_media": 51.6, "konkorde_azul": 4.2, "adx14": 24.5, "plus_di": 15, "minus_di": 28, "ao": 120, "macd": -20, "macd_signal": 6, "atr14": 1150}
+      ],
+      "expected": {
+        "side": "none",
+        "phase": "ignition",
+        "action": "none",
+        "reasons_include": ["side_ambiguous"],
+        "confidence_min": 0.0
+      }
+    },
+    {
+      "id": "IMP-G04-no-entry-context-against",
+      "why": "Trigger identical to G01 (clean long, S=1.0) but the guardian 1d is bearish (3*-1+2*-1+2*-1+1*-1 = -8 <= -3). 1w bullish does not override: only the guardian can block or permit.",
+      "profile": "pro",
+      "trigger_tf": "4h",
+      "position": null,
+      "context": {
+        "1d": {"close": 66000, "bbwp": 60, "konkorde_marron": 50.0, "konkorde_media": 54.0, "konkorde_azul": -2.0, "plus_di": 16, "minus_di": 25, "ao": -900, "macd": -300, "macd_signal": -250},
+        "1w": {"close": 69000, "bbwp": 55, "konkorde_marron": 62.0, "konkorde_media": 60.0, "konkorde_azul": 1.5, "plus_di": 22, "minus_di": 19, "ao": 4000, "macd": 1500, "macd_signal": 1400}
+      },
+      "trigger": [
+        {"close": 68000, "high": 68300, "low": 67700, "bbwp": 35, "konkorde_marron": 50.0, "konkorde_media": 53.0, "konkorde_azul": -2.0, "adx14": 18.0, "plus_di": 20, "minus_di": 21, "ao": -420, "macd": -60, "macd_signal": -40, "atr14": 900},
+        {"close": 67900, "high": 68200, "low": 67650, "bbwp": 28, "konkorde_marron": 49.5, "konkorde_media": 52.6, "konkorde_azul": -1.8, "adx14": 18.0, "plus_di": 20, "minus_di": 21, "ao": -380, "macd": -62, "macd_signal": -45, "atr14": 880},
+        {"close": 67950, "high": 68150, "low": 67750, "bbwp": 22, "konkorde_marron": 49.8, "konkorde_media": 52.2, "konkorde_azul": -1.2, "adx14": 18.0, "plus_di": 21, "minus_di": 20, "ao": -330, "macd": -55, "macd_signal": -48, "atr14": 850},
+        {"close": 68050, "high": 68250, "low": 67850, "bbwp": 18, "konkorde_marron": 50.2, "konkorde_media": 51.9, "konkorde_azul": -0.6, "adx14": 18.0, "plus_di": 21, "minus_di": 20, "ao": -290, "macd": -45, "macd_signal": -48, "atr14": 820},
+        {"close": 68000, "high": 68200, "low": 67800, "bbwp": 16, "konkorde_marron": 50.0, "konkorde_media": 51.6, "konkorde_azul": -0.2, "adx14": 18.0, "plus_di": 21, "minus_di": 19, "ao": -240, "macd": -38, "macd_signal": -46, "atr14": 800},
+        {"close": 68100, "high": 68300, "low": 67900, "bbwp": 19, "konkorde_marron": 50.4, "konkorde_media": 51.4, "konkorde_azul": 0.3, "adx14": 18.0, "plus_di": 22, "minus_di": 19, "ao": -180, "macd": -28, "macd_signal": -42, "atr14": 810},
+        {"close": 68200, "high": 68400, "low": 67950, "bbwp": 27, "konkorde_marron": 50.6, "konkorde_media": 51.3, "konkorde_azul": 0.9, "adx14": 18.0, "plus_di": 23, "minus_di": 18, "ao": -110, "macd": -15, "macd_signal": -36, "atr14": 830},
+        {"close": 68150, "high": 68450, "low": 67900, "bbwp": 38, "konkorde_marron": 49.8, "konkorde_media": 51.3, "konkorde_azul": 1.5, "adx14": 18.5, "plus_di": 24, "minus_di": 17, "ao": -40, "macd": 5, "macd_signal": -28, "atr14": 900},
+        {"close": 69100, "high": 69300, "low": 68100, "bbwp": 47, "konkorde_marron": 52.0, "konkorde_media": 51.2, "konkorde_azul": 2.6, "adx14": 21.5, "plus_di": 26, "minus_di": 16, "ao": 35, "macd": 40, "macd_signal": -14, "atr14": 1000},
+        {"close": 70300, "high": 70500, "low": 69000, "bbwp": 58, "konkorde_marron": 54.4, "konkorde_media": 51.6, "konkorde_azul": 4.2, "adx14": 24.5, "plus_di": 28, "minus_di": 15, "ao": 120, "macd": 85, "macd_signal": 6, "atr14": 1150}
+      ],
+      "expected": {
+        "side": "none",
+        "phase": "ignition",
+        "action": "none",
+        "reasons_include": ["context_against"],
+        "confidence_min": 0.0
+      }
+    },
+    {
+      "id": "IMP-G05-exit-long-jeisson",
+      "why": "red_drop at bar 3 (96 -> 87 = 9 >= 8, peak 96 >= 90); edge cross + -> - at bar 4 (+0.4 -> -0.9); both inside bars 2..4 with one on the last bar. confidence = 0.6 + 0.2*(1/12) + 0.2*0.5 = 0.7167. Stop 57900 not touched (low 70600).",
+      "profile": "pro",
+      "trigger_tf": "4h",
+      "position": "long",
+      "position_state": {"entry_price": 60000, "stop_price": 57900, "bars_held": 14},
+      "context": {
+        "1d": {"close": 70000, "bbwp": 75, "konkorde_marron": 66.0, "konkorde_media": 61.0, "konkorde_azul": 2.0, "plus_di": 30, "minus_di": 14, "ao": 3000, "macd": 1800, "macd_signal": 1500},
+        "1w": {"close": 70000, "bbwp": 60, "konkorde_marron": 63.0, "konkorde_media": 60.0, "konkorde_azul": 1.5, "plus_di": 24, "minus_di": 17, "ao": 6000, "macd": 2500, "macd_signal": 2200}
+      },
+      "trigger": [
+        {"close": 70000, "high": 70400, "low": 69500, "bbwp": 86, "konkorde_marron": 72.0, "konkorde_media": 66.0, "konkorde_azul": 3.0, "adx14": 38.0, "plus_di": 32, "minus_di": 12, "ao": 2200, "macd": 900, "macd_signal": 700, "atr14": 1300},
+        {"close": 71500, "high": 71900, "low": 69900, "bbwp": 93, "konkorde_marron": 72.5, "konkorde_media": 67.0, "konkorde_azul": 2.5, "adx14": 40.0, "plus_di": 33, "minus_di": 11, "ao": 2400, "macd": 950, "macd_signal": 750, "atr14": 1350},
+        {"close": 72300, "high": 72800, "low": 71200, "bbwp": 96, "konkorde_marron": 69.0, "konkorde_media": 67.8, "konkorde_azul": 1.0, "adx14": 41.0, "plus_di": 31, "minus_di": 13, "ao": 2350, "macd": 940, "macd_signal": 790, "atr14": 1400},
+        {"close": 71800, "high": 72500, "low": 71300, "bbwp": 87, "konkorde_marron": 68.6, "konkorde_media": 68.2, "konkorde_azul": 0.2, "adx14": 40.5, "plus_di": 28, "minus_di": 15, "ao": 2150, "macd": 880, "macd_signal": 808, "atr14": 1400},
+        {"close": 70900, "high": 71900, "low": 70600, "bbwp": 84, "konkorde_marron": 67.6, "konkorde_media": 68.5, "konkorde_azul": -0.8, "adx14": 39.0, "plus_di": 25, "minus_di": 18, "ao": 1850, "macd": 790, "macd_signal": 804, "atr14": 1420}
+      ],
+      "expected": {
+        "side": "long",
+        "phase": "exhaustion",
+        "action": "exit",
+        "reasons_include": ["exit_rule_jeisson", "exit_bbwp_red_drop", "exit_konkorde_cross_against"],
+        "confidence_min": 0.7,
+        "confidence_max": 0.75,
+        "exit_price": 70900.0
+      }
+    },
+    {
+      "id": "IMP-G06-exit-short-jeisson-mirror",
+      "why": "Short: red_drop at last bar (99 -> 89 = 10); edge - -> + on the same bar (-1.0 -> +0.6). Gap 0 -> confidence = 0.6 + 0.2*(2/12) + 0.2*1 = 0.8333. Stop 73500 not touched (high 59600).",
+      "profile": "pro",
+      "trigger_tf": "4h",
+      "position": "short",
+      "position_state": {"entry_price": 70000, "stop_price": 73500, "bars_held": 12},
+      "context": {
+        "1d": {"close": 59000, "bbwp": 78, "konkorde_marron": 40.0, "konkorde_media": 46.0, "konkorde_azul": -2.5, "plus_di": 13, "minus_di": 31, "ao": -3000, "macd": -1800, "macd_signal": -1500},
+        "1w": {"close": 59000, "bbwp": 64, "konkorde_marron": 50.0, "konkorde_media": 54.0, "konkorde_azul": -1.0, "plus_di": 17, "minus_di": 24, "ao": -5000, "macd": -2000, "macd_signal": -1700}
+      },
+      "trigger": [
+        {"close": 60000, "high": 60500, "low": 59600, "bbwp": 88, "konkorde_marron": 38.0, "konkorde_media": 44.0, "konkorde_azul": -3.0, "adx14": 37.0, "plus_di": 12, "minus_di": 33, "ao": -2200, "macd": -900, "macd_signal": -700, "atr14": 1300},
+        {"close": 59000, "high": 60100, "low": 58600, "bbwp": 91, "konkorde_marron": 37.5, "konkorde_media": 43.0, "konkorde_azul": -2.5, "adx14": 39.0, "plus_di": 11, "minus_di": 34, "ao": -2400, "macd": -950, "macd_signal": -750, "atr14": 1350},
+        {"close": 58200, "high": 59200, "low": 57700, "bbwp": 99, "konkorde_marron": 41.2, "konkorde_media": 42.2, "konkorde_azul": -1.0, "adx14": 40.0, "plus_di": 13, "minus_di": 31, "ao": -2350, "macd": -940, "macd_signal": -790, "atr14": 1400},
+        {"close": 59100, "high": 59600, "low": 58100, "bbwp": 89, "konkorde_marron": 42.4, "konkorde_media": 41.8, "konkorde_azul": 0.5, "adx14": 39.5, "plus_di": 16, "minus_di": 27, "ao": -2100, "macd": -870, "macd_signal": -806, "atr14": 1420}
+      ],
+      "expected": {
+        "side": "short",
+        "phase": "exhaustion",
+        "action": "exit",
+        "reasons_include": ["exit_rule_jeisson", "exit_bbwp_red_drop", "exit_konkorde_cross_against"],
+        "confidence_min": 0.8,
+        "confidence_max": 0.85,
+        "exit_price": 59100.0
+      }
+    },
+    {
+      "id": "IMP-G07-no-exit-drop-7-points",
+      "why": "Peak 95 then 88: drop 7 < 8 (no red_drop); next bar 88 -> 86 has peak < 90. Edge crosses + -> - on the last bar (+0.5 -> -0.6), so only one leg is in the window -> hold. Phase expansion (86 > 50, no red_drop in window). S_dir = (-3 + 0 + 0 - 1)/8 = -0.5 -> hold confidence = 0.5.",
+      "profile": "pro",
+      "trigger_tf": "4h",
+      "position": "long",
+      "position_state": {"entry_price": 60000, "stop_price": 57900, "bars_held": 10},
+      "context": {
+        "1d": {"close": 71000, "bbwp": 74, "konkorde_marron": 66.0, "konkorde_media": 61.0, "konkorde_azul": 2.0, "plus_di": 30, "minus_di": 14, "ao": 3000, "macd": 1800, "macd_signal": 1500},
+        "1w": {"close": 71000, "bbwp": 60, "konkorde_marron": 63.0, "konkorde_media": 60.0, "konkorde_azul": 1.5, "plus_di": 24, "minus_di": 17, "ao": 6000, "macd": 2500, "macd_signal": 2200}
+      },
+      "trigger": [
+        {"close": 70000, "high": 70400, "low": 69500, "bbwp": 85, "konkorde_marron": 71.0, "konkorde_media": 66.0, "konkorde_azul": 3.0, "adx14": 38.0, "plus_di": 32, "minus_di": 12, "ao": 2200, "macd": 900, "macd_signal": 700, "atr14": 1300},
+        {"close": 71200, "high": 71700, "low": 69900, "bbwp": 92, "konkorde_marron": 71.5, "konkorde_media": 67.0, "konkorde_azul": 2.5, "adx14": 40.0, "plus_di": 33, "minus_di": 11, "ao": 2400, "macd": 950, "macd_signal": 750, "atr14": 1350},
+        {"close": 72000, "high": 72500, "low": 71000, "bbwp": 95, "konkorde_marron": 69.5, "konkorde_media": 68.0, "konkorde_azul": 1.0, "adx14": 41.0, "plus_di": 31, "minus_di": 13, "ao": 2350, "macd": 940, "macd_signal": 790, "atr14": 1400},
+        {"close": 71700, "high": 72300, "low": 71200, "bbwp": 88, "konkorde_marron": 68.9, "konkorde_media": 68.4, "konkorde_azul": 0.2, "adx14": 40.5, "plus_di": 28, "minus_di": 15, "ao": 2150, "macd": 880, "macd_signal": 808, "atr14": 1400},
+        {"close": 71000, "high": 71800, "low": 70700, "bbwp": 86, "konkorde_marron": 68.0, "konkorde_media": 68.6, "konkorde_azul": -0.5, "adx14": 39.0, "plus_di": 25, "minus_di": 18, "ao": 1850, "macd": 790, "macd_signal": 804, "atr14": 1420}
+      ],
+      "expected": {
+        "side": "long",
+        "phase": "expansion",
+        "action": "hold",
+        "reasons_include": ["hold_exit_incomplete", "konkorde_edge_cross_down"],
+        "confidence_min": 0.4
+      }
+    },
+    {
+      "id": "IMP-G08-no-exit-cross-on-candle-4",
+      "why": "red_drop at bar 3 (97 -> 86 = 11). Edge stays >= 0 on bars 3, 4, 5 and crosses + -> - only at bar 6 (+0.2 -> -0.5) = 4th candle counting the drop candle as 1. Window at bar 6 is bars 4..6: drop is outside -> hold. Phase expansion (73 > 50; no bar >= 90 in window).",
+      "profile": "pro",
+      "trigger_tf": "4h",
+      "position": "long",
+      "position_state": {"entry_price": 60000, "stop_price": 57900, "bars_held": 18},
+      "context": {
+        "1d": {"close": 70200, "bbwp": 74, "konkorde_marron": 66.0, "konkorde_media": 61.0, "konkorde_azul": 2.0, "plus_di": 30, "minus_di": 14, "ao": 3000, "macd": 1800, "macd_signal": 1500},
+        "1w": {"close": 70200, "bbwp": 60, "konkorde_marron": 63.0, "konkorde_media": 60.0, "konkorde_azul": 1.5, "plus_di": 24, "minus_di": 17, "ao": 6000, "macd": 2500, "macd_signal": 2200}
+      },
+      "trigger": [
+        {"close": 70000, "high": 70400, "low": 69500, "bbwp": 88, "konkorde_marron": 68.0, "konkorde_media": 66.0, "konkorde_azul": 2.0, "adx14": 40.0, "plus_di": 32, "minus_di": 12, "ao": 2200, "macd": 900, "macd_signal": 700, "atr14": 1300},
+        {"close": 71500, "high": 71900, "low": 69900, "bbwp": 94, "konkorde_marron": 69.0, "konkorde_media": 66.8, "konkorde_azul": 1.8, "adx14": 41.0, "plus_di": 33, "minus_di": 11, "ao": 2400, "macd": 950, "macd_signal": 750, "atr14": 1350},
+        {"close": 72000, "high": 72600, "low": 71300, "bbwp": 97, "konkorde_marron": 69.2, "konkorde_media": 67.4, "konkorde_azul": 1.2, "adx14": 41.0, "plus_di": 31, "minus_di": 13, "ao": 2350, "macd": 940, "macd_signal": 790, "atr14": 1400},
+        {"close": 71400, "high": 72200, "low": 71000, "bbwp": 86, "konkorde_marron": 68.9, "konkorde_media": 67.8, "konkorde_azul": 0.8, "adx14": 40.0, "plus_di": 28, "minus_di": 15, "ao": 2150, "macd": 880, "macd_signal": 808, "atr14": 1400},
+        {"close": 71000, "high": 71700, "low": 70600, "bbwp": 80, "konkorde_marron": 68.6, "konkorde_media": 68.0, "konkorde_azul": 0.4, "adx14": 39.0, "plus_di": 27, "minus_di": 16, "ao": 1950, "macd": 830, "macd_signal": 812, "atr14": 1400},
+        {"close": 70700, "high": 71300, "low": 70300, "bbwp": 76, "konkorde_marron": 68.3, "konkorde_media": 68.1, "konkorde_azul": 0.1, "adx14": 38.0, "plus_di": 26, "minus_di": 17, "ao": 1750, "macd": 790, "macd_signal": 808, "atr14": 1390},
+        {"close": 70200, "high": 70900, "low": 69900, "bbwp": 73, "konkorde_marron": 67.6, "konkorde_media": 68.1, "konkorde_azul": -0.3, "adx14": 37.0, "plus_di": 25, "minus_di": 18, "ao": 1550, "macd": 740, "macd_signal": 794, "atr14": 1380}
+      ],
+      "expected": {
+        "side": "long",
+        "phase": "expansion",
+        "action": "hold",
+        "reasons_include": ["hold_exit_incomplete"],
+        "confidence_min": 0.4
+      }
+    },
+    {
+      "id": "IMP-G09-exit-long-stop-atr",
+      "why": "Entry 60000, stop 57900 (1.5 * 1400). Last low 57650 <= 57900 -> exit at stop price, confidence 1.0. Takes precedence over every other exit.",
+      "profile": "pro",
+      "trigger_tf": "4h",
+      "position": "long",
+      "position_state": {"entry_price": 60000, "stop_price": 57900, "bars_held": 3},
+      "context": {
+        "1d": {"close": 58100, "bbwp": 58, "konkorde_marron": 56.0, "konkorde_media": 55.0, "konkorde_azul": 0.5, "plus_di": 21, "minus_di": 19, "ao": 300, "macd": 120, "macd_signal": 110},
+        "1w": {"close": 58100, "bbwp": 55, "konkorde_marron": 60.0, "konkorde_media": 58.0, "konkorde_azul": 1.0, "plus_di": 22, "minus_di": 19, "ao": 3000, "macd": 1400, "macd_signal": 1300}
+      },
+      "trigger": [
+        {"close": 60500, "high": 60900, "low": 59800, "bbwp": 62, "konkorde_marron": 54.0, "konkorde_media": 52.5, "konkorde_azul": 1.5, "adx14": 24.0, "plus_di": 27, "minus_di": 16, "ao": 150, "macd": 90, "macd_signal": 40, "atr14": 1400},
+        {"close": 59600, "high": 60600, "low": 59200, "bbwp": 58, "konkorde_marron": 52.8, "konkorde_media": 52.6, "konkorde_azul": 0.4, "adx14": 24.5, "plus_di": 23, "minus_di": 20, "ao": 110, "macd": 70, "macd_signal": 46, "atr14": 1420},
+        {"close": 58100, "high": 59700, "low": 57650, "bbwp": 55, "konkorde_marron": 51.0, "konkorde_media": 52.4, "konkorde_azul": -0.9, "adx14": 25.0, "plus_di": 19, "minus_di": 25, "ao": 40, "macd": 30, "macd_signal": 43, "atr14": 1450}
+      ],
+      "expected": {
+        "side": "long",
+        "phase": "expansion",
+        "action": "exit",
+        "reasons_include": ["exit_stop_atr"],
+        "confidence_min": 0.99,
+        "exit_price": 57900.0
+      }
+    },
+    {
+      "id": "IMP-G10-hold-healthy-expansion",
+      "why": "BBWP 58 -> 77 rising (< 90), edge positive rising (+3.3), ADX slope (31-22)/3=3 with +DI, AO>0 rising, MACD>signal: S_dir=1.0, phase expansion -> hold confidence = 0.5 + 0.5 = 1.0.",
+      "profile": "pro",
+      "trigger_tf": "4h",
+      "position": "long",
+      "position_state": {"entry_price": 60000, "stop_price": 57900, "bars_held": 6},
+      "context": {
+        "1d": {"close": 63500, "bbwp": 64, "konkorde_marron": 60.0, "konkorde_media": 56.0, "konkorde_azul": 1.5, "plus_di": 26, "minus_di": 15, "ao": 1500, "macd": 700, "macd_signal": 550},
+        "1w": {"close": 63500, "bbwp": 55, "konkorde_marron": 62.0, "konkorde_media": 60.0, "konkorde_azul": 1.5, "plus_di": 22, "minus_di": 19, "ao": 4000, "macd": 1500, "macd_signal": 1400}
+      },
+      "trigger": [
+        {"close": 61000, "high": 61300, "low": 60400, "bbwp": 58, "konkorde_marron": 52.8, "konkorde_media": 52.0, "konkorde_azul": 1.5, "adx14": 22.0, "plus_di": 26, "minus_di": 16, "ao": 300, "macd": 120, "macd_signal": 60, "atr14": 1400},
+        {"close": 61900, "high": 62200, "low": 60900, "bbwp": 66, "konkorde_marron": 54.0, "konkorde_media": 52.4, "konkorde_azul": 2.0, "adx14": 25.0, "plus_di": 28, "minus_di": 15, "ao": 450, "macd": 150, "macd_signal": 78, "atr14": 1420},
+        {"close": 62700, "high": 63000, "low": 61700, "bbwp": 72, "konkorde_marron": 55.4, "konkorde_media": 52.9, "konkorde_azul": 2.6, "adx14": 28.0, "plus_di": 29, "minus_di": 14, "ao": 620, "macd": 180, "macd_signal": 98, "atr14": 1450},
+        {"close": 63500, "high": 63800, "low": 62500, "bbwp": 77, "konkorde_marron": 56.8, "konkorde_media": 53.5, "konkorde_azul": 3.0, "adx14": 31.0, "plus_di": 30, "minus_di": 14, "ao": 800, "macd": 200, "macd_signal": 120, "atr14": 1480}
+      ],
+      "expected": {
+        "side": "long",
+        "phase": "expansion",
+        "action": "hold",
+        "reasons_include": ["hold_expansion_healthy"],
+        "confidence_min": 0.95
+      }
+    },
+    {
+      "id": "IMP-G11-snipper-low-tf-long-entry-konkorde-ignored",
+      "why": "1h = low_tf: Konkorde columns are present and strongly bearish (edge -3.7 falling) but must be ignored. Votes ADX +1 (2), AO +1 (2), MACD +1 (1): S=5/5=1.0 >= 0.6. Guardian 4h and 1d bullish. confidence = 0.35 + 0.20 + 0 (min bbwp 24 > 20, 46->53 no zone jump) + 0.10 (E1 turn) + 0.10 (AO zero cross up at bar 8) + 0 (no divergence) = 0.75. stop = 68900 - 1.5*400.",
+      "profile": "snipper",
+      "trigger_tf": "1h",
+      "position": null,
+      "context": {
+        "4h": {"close": 68900, "bbwp": 58, "konkorde_marron": 57.0, "konkorde_media": 54.0, "konkorde_azul": 1.2, "plus_di": 25, "minus_di": 17, "ao": 600, "macd": 200, "macd_signal": 150},
+        "1d": {"close": 68900, "bbwp": 62, "konkorde_marron": 58.0, "konkorde_media": 55.0, "konkorde_azul": 2.1, "plus_di": 24, "minus_di": 18, "ao": 900, "macd": 300, "macd_signal": 250}
+      },
+      "trigger": [
+        {"close": 67800, "high": 67950, "low": 67650, "bbwp": 40, "konkorde_marron": 50.0, "konkorde_media": 52.0, "konkorde_azul": -1.0, "adx14": 18.0, "plus_di": 20, "minus_di": 21, "ao": -90, "macd": -20, "macd_signal": -12, "atr14": 330},
+        {"close": 67750, "high": 67900, "low": 67600, "bbwp": 33, "konkorde_marron": 49.5, "konkorde_media": 51.8, "konkorde_azul": -1.0, "adx14": 18.0, "plus_di": 20, "minus_di": 21, "ao": -80, "macd": -21, "macd_signal": -14, "atr14": 320},
+        {"close": 67800, "high": 67920, "low": 67680, "bbwp": 29, "konkorde_marron": 49.0, "konkorde_media": 51.6, "konkorde_azul": -1.0, "adx14": 18.0, "plus_di": 21, "minus_di": 20, "ao": -70, "macd": -18, "macd_signal": -15, "atr14": 310},
+        {"close": 67850, "high": 67950, "low": 67720, "bbwp": 26, "konkorde_marron": 48.8, "konkorde_media": 51.4, "konkorde_azul": -1.0, "adx14": 18.0, "plus_di": 21, "minus_di": 20, "ao": -60, "macd": -14, "macd_signal": -15, "atr14": 300},
+        {"close": 67820, "high": 67930, "low": 67700, "bbwp": 24, "konkorde_marron": 48.5, "konkorde_media": 51.2, "konkorde_azul": -1.0, "adx14": 18.0, "plus_di": 21, "minus_di": 19, "ao": -50, "macd": -11, "macd_signal": -14, "atr14": 295},
+        {"close": 67880, "high": 67990, "low": 67760, "bbwp": 27, "konkorde_marron": 48.2, "konkorde_media": 51.0, "konkorde_azul": -1.0, "adx14": 18.0, "plus_di": 22, "minus_di": 19, "ao": -40, "macd": -7, "macd_signal": -13, "atr14": 300},
+        {"close": 67950, "high": 68080, "low": 67800, "bbwp": 31, "konkorde_marron": 48.0, "konkorde_media": 50.8, "konkorde_azul": -1.0, "adx14": 18.0, "plus_di": 23, "minus_di": 18, "ao": -30, "macd": -2, "macd_signal": -11, "atr14": 310},
+        {"close": 68000, "high": 68150, "low": 67850, "bbwp": 39, "konkorde_marron": 47.5, "konkorde_media": 50.6, "konkorde_azul": -1.0, "adx14": 18.5, "plus_di": 24, "minus_di": 17, "ao": -12, "macd": 4, "macd_signal": -8, "atr14": 330},
+        {"close": 68400, "high": 68500, "low": 67950, "bbwp": 46, "konkorde_marron": 47.0, "konkorde_media": 50.4, "konkorde_azul": -1.0, "adx14": 21.5, "plus_di": 26, "minus_di": 16, "ao": 15, "macd": 15, "macd_signal": -3, "atr14": 360},
+        {"close": 68900, "high": 69000, "low": 68350, "bbwp": 53, "konkorde_marron": 46.5, "konkorde_media": 50.2, "konkorde_azul": -1.0, "adx14": 24.5, "plus_di": 27, "minus_di": 14, "ao": 40, "macd": 30, "macd_signal": 10, "atr14": 400}
+      ],
+      "expected": {
+        "side": "long",
+        "phase": "ignition",
+        "action": "enter",
+        "reasons_include": ["band_konkorde_excluded", "bbwp_breakout_from_compression", "adx_di_bullish", "adx_turn_up", "ao_bullish", "ao_zero_cross_up", "macd_bullish"],
+        "confidence_min": 0.7,
+        "confidence_max": 0.8,
+        "stop_price": 68300.0
+      }
+    },
+    {
+      "id": "IMP-G12-no-entry-breakout-without-compression",
+      "why": "49 -> 55 crosses 50 on the last bar but min(bbwp, 10 bars) = 38 > 30: no compression, not an ignition. Votes would be a clean long; still no entry.",
+      "profile": "pro",
+      "trigger_tf": "4h",
+      "position": null,
+      "context": {
+        "1d": {"close": 69000, "bbwp": 62, "konkorde_marron": 58.0, "konkorde_media": 55.0, "konkorde_azul": 2.1, "plus_di": 24, "minus_di": 18, "ao": 900, "macd": 300, "macd_signal": 250},
+        "1w": {"close": 69000, "bbwp": 55, "konkorde_marron": 62.0, "konkorde_media": 60.0, "konkorde_azul": 1.5, "plus_di": 22, "minus_di": 19, "ao": 4000, "macd": 1500, "macd_signal": 1400}
+      },
+      "trigger": [
+        {"close": 68000, "high": 68300, "low": 67700, "bbwp": 45, "konkorde_marron": 50.0, "konkorde_media": 53.0, "konkorde_azul": -2.0, "adx14": 18.0, "plus_di": 20, "minus_di": 21, "ao": -420, "macd": -60, "macd_signal": -40, "atr14": 900},
+        {"close": 67900, "high": 68200, "low": 67650, "bbwp": 42, "konkorde_marron": 49.5, "konkorde_media": 52.6, "konkorde_azul": -1.8, "adx14": 18.0, "plus_di": 20, "minus_di": 21, "ao": -380, "macd": -62, "macd_signal": -45, "atr14": 880},
+        {"close": 67950, "high": 68150, "low": 67750, "bbwp": 40, "konkorde_marron": 49.8, "konkorde_media": 52.2, "konkorde_azul": -1.2, "adx14": 18.0, "plus_di": 21, "minus_di": 20, "ao": -330, "macd": -55, "macd_signal": -48, "atr14": 850},
+        {"close": 68050, "high": 68250, "low": 67850, "bbwp": 38, "konkorde_marron": 50.2, "konkorde_media": 51.9, "konkorde_azul": -0.6, "adx14": 18.0, "plus_di": 21, "minus_di": 20, "ao": -290, "macd": -45, "macd_signal": -48, "atr14": 820},
+        {"close": 68000, "high": 68200, "low": 67800, "bbwp": 39, "konkorde_marron": 50.0, "konkorde_media": 51.6, "konkorde_azul": -0.2, "adx14": 18.0, "plus_di": 21, "minus_di": 19, "ao": -240, "macd": -38, "macd_signal": -46, "atr14": 800},
+        {"close": 68100, "high": 68300, "low": 67900, "bbwp": 41, "konkorde_marron": 50.4, "konkorde_media": 51.4, "konkorde_azul": 0.3, "adx14": 18.0, "plus_di": 22, "minus_di": 19, "ao": -180, "macd": -28, "macd_signal": -42, "atr14": 810},
+        {"close": 68200, "high": 68400, "low": 67950, "bbwp": 44, "konkorde_marron": 50.6, "konkorde_media": 51.3, "konkorde_azul": 0.9, "adx14": 18.0, "plus_di": 23, "minus_di": 18, "ao": -110, "macd": -15, "macd_signal": -36, "atr14": 830},
+        {"close": 68150, "high": 68450, "low": 67900, "bbwp": 47, "konkorde_marron": 49.8, "konkorde_media": 51.3, "konkorde_azul": 1.5, "adx14": 18.5, "plus_di": 24, "minus_di": 17, "ao": -40, "macd": 5, "macd_signal": -28, "atr14": 900},
+        {"close": 69100, "high": 69300, "low": 68100, "bbwp": 49, "konkorde_marron": 52.0, "konkorde_media": 51.2, "konkorde_azul": 2.6, "adx14": 21.5, "plus_di": 26, "minus_di": 16, "ao": 35, "macd": 40, "macd_signal": -14, "atr14": 1000},
+        {"close": 70300, "high": 70500, "low": 69000, "bbwp": 55, "konkorde_marron": 54.4, "konkorde_media": 51.6, "konkorde_azul": 4.2, "adx14": 24.5, "plus_di": 28, "minus_di": 15, "ao": 120, "macd": 85, "macd_signal": 6, "atr14": 1150}
+      ],
+      "expected": {
+        "side": "none",
+        "phase": "expansion",
+        "action": "none",
+        "reasons_include": ["no_compression_breakout"],
+        "confidence_min": 0.0
+      }
+    },
+    {
+      "id": "IMP-G13-exit-long-phase-lost",
+      "why": "No red zone ever (max 62). BBWP falls to 48 <= 50 while edge is negative (-1.4) against the long -> exit_phase_lost, confidence 0.6. Phase contraction (30 < 48 <= 50, earlier bars > 50). Stop 57900 untouched.",
+      "profile": "pro",
+      "trigger_tf": "4h",
+      "position": "long",
+      "position_state": {"entry_price": 60000, "stop_price": 57900, "bars_held": 9},
+      "context": {
+        "1d": {"close": 60100, "bbwp": 55, "konkorde_marron": 56.0, "konkorde_media": 55.5, "konkorde_azul": 0.2, "plus_di": 21, "minus_di": 20, "ao": 100, "macd": 60, "macd_signal": 65},
+        "1w": {"close": 60100, "bbwp": 55, "konkorde_marron": 60.0, "konkorde_media": 58.0, "konkorde_azul": 1.0, "plus_di": 22, "minus_di": 19, "ao": 3000, "macd": 1400, "macd_signal": 1300}
+      },
+      "trigger": [
+        {"close": 61000, "high": 61400, "low": 60500, "bbwp": 62, "konkorde_marron": 53.5, "konkorde_media": 53.0, "konkorde_azul": 0.5, "adx14": 26.0, "plus_di": 24, "minus_di": 18, "ao": 400, "macd": 150, "macd_signal": 140, "atr14": 1300},
+        {"close": 60600, "high": 61200, "low": 60200, "bbwp": 57, "konkorde_marron": 52.8, "konkorde_media": 53.1, "konkorde_azul": 0.1, "adx14": 25.0, "plus_di": 22, "minus_di": 19, "ao": 300, "macd": 120, "macd_signal": 136, "atr14": 1250},
+        {"close": 60300, "high": 60900, "low": 59900, "bbwp": 53, "konkorde_marron": 52.2, "konkorde_media": 53.0, "konkorde_azul": -0.3, "adx14": 24.0, "plus_di": 21, "minus_di": 20, "ao": 180, "macd": 95, "macd_signal": 128, "atr14": 1200},
+        {"close": 60100, "high": 60600, "low": 59800, "bbwp": 48, "konkorde_marron": 51.5, "konkorde_media": 52.9, "konkorde_azul": -0.6, "adx14": 23.0, "plus_di": 20, "minus_di": 21, "ao": 60, "macd": 70, "macd_signal": 116, "atr14": 1150}
+      ],
+      "expected": {
+        "side": "long",
+        "phase": "contraction",
+        "action": "exit",
+        "reasons_include": ["exit_phase_lost"],
+        "confidence_min": 0.55,
+        "exit_price": 60100.0
+      }
+    },
+    {
+      "id": "IMP-G14-exit-long-time-stop",
+      "why": "bars_held 30 = pro time_stop_bars; unrealised (60600-60000)/2100 = 0.286 R < 0.5 R -> exit_time_stop, confidence 0.5. BBWP 60 > 50 (no phase loss), no red zone, stop untouched.",
+      "profile": "pro",
+      "trigger_tf": "4h",
+      "position": "long",
+      "position_state": {"entry_price": 60000, "stop_price": 57900, "bars_held": 30},
+      "context": {
+        "1d": {"close": 60600, "bbwp": 52, "konkorde_marron": 56.0, "konkorde_media": 55.0, "konkorde_azul": 0.3, "plus_di": 21, "minus_di": 19, "ao": 150, "macd": 70, "macd_signal": 60},
+        "1w": {"close": 60600, "bbwp": 55, "konkorde_marron": 60.0, "konkorde_media": 58.0, "konkorde_azul": 1.0, "plus_di": 22, "minus_di": 19, "ao": 3000, "macd": 1400, "macd_signal": 1300}
+      },
+      "trigger": [
+        {"close": 60800, "high": 61100, "low": 60500, "bbwp": 64, "konkorde_marron": 53.4, "konkorde_media": 53.0, "konkorde_azul": 0.3, "adx14": 20.0, "plus_di": 22, "minus_di": 19, "ao": 120, "macd": 40, "macd_signal": 38, "atr14": 1100},
+        {"close": 60700, "high": 61000, "low": 60400, "bbwp": 61, "konkorde_marron": 53.3, "konkorde_media": 53.0, "konkorde_azul": 0.2, "adx14": 19.5, "plus_di": 21, "minus_di": 19, "ao": 100, "macd": 36, "macd_signal": 37, "atr14": 1080},
+        {"close": 60600, "high": 60900, "low": 60300, "bbwp": 60, "konkorde_marron": 53.2, "konkorde_media": 53.0, "konkorde_azul": 0.1, "adx14": 19.0, "plus_di": 21, "minus_di": 20, "ao": 80, "macd": 33, "macd_signal": 36, "atr14": 1060}
+      ],
+      "expected": {
+        "side": "long",
+        "phase": "expansion",
+        "action": "exit",
+        "reasons_include": ["exit_time_stop"],
+        "confidence_min": 0.45,
+        "exit_price": 60600.0
+      }
+    }
+  ]
+}
