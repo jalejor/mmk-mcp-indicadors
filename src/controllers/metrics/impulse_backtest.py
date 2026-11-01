@@ -829,8 +829,8 @@ class LedgerConfig:
     r_equity_pct: float = 0.75  # only for R_BASIS_EQUITY_PCT (pro risk/trade)
 
     def __post_init__(self) -> None:
-        if self.margin_mode != "cross":
-            raise ValueError("only cross margin is modelled (owner: pro 5x cross)")
+        if self.margin_mode not in ("cross", "isolated"):
+            raise ValueError("margin_mode must be 'cross' (pro 5x) or 'isolated' (snipper 10x, round 4)")
         if self.leverage <= 0 or self.initial_equity <= 0:
             raise ValueError("leverage and initial_equity must be > 0")
         if self.r_basis not in (R_BASIS_LAYER1, R_BASIS_EQUITY_PCT):
@@ -878,6 +878,7 @@ class LedgerTrade:
     cluster: str
     confidence: Optional[float] = None
     reasons: List[str] = field(default_factory=list)
+    partial_takes: List[Dict[str, Any]] = field(default_factory=list)  # round 4 (§R4.d)
 
 
 class PositionLedger:
@@ -933,11 +934,23 @@ class PositionLedger:
         eq = self.equity(price)
         return self.notional(price) / eq if eq > 0 else float("inf")
 
+    @property
+    def position_margin(self) -> float:
+        """Isolated margin backing the open layers (sum of notional / leverage at fill)."""
+        return sum(layer.margin for layer in self.layers)
+
     def liquidation_price(self) -> Optional[float]:
-        """Price where cash + uPnL == maintenance x notional (cross margin)."""
+        """Price where backing + uPnL == maintenance x notional.
+
+        cross: backing = realised wallet (`cash`); isolated: backing = the
+        position margin only, so the wallet outside the position is never at
+        risk and the distance is set by the leverage (round 4, Bitget isolated:
+        long ~ avg x (1 - 1/lev + mmr), short ~ avg x (1 + 1/lev - mmr)).
+        """
         if not self.is_open:
             return None
-        q, a, e, m = self.qty, float(self.avg_price), self.cash, self.cfg.maintenance_rate
+        q, a, m = self.qty, float(self.avg_price), self.cfg.maintenance_rate
+        e = self.position_margin if self.cfg.margin_mode == "isolated" else self.cash
         if self.side == "long":
             price = (q * a - e) / (q * (1.0 - m))
             return price if price > 0 else None
@@ -982,6 +995,8 @@ class PositionLedger:
         layer = self._add(bar, time_, price, notional)
         if layer is None:
             self.side, self._open = None, {}
+        else:
+            self._open["layer1_qty"] = layer.qty
         return layer
 
     def add_layer(self, bar: int, time_: str, price: float, notional: float) -> Optional[Layer]:
@@ -998,8 +1013,40 @@ class PositionLedger:
         if inv is None:
             return None
         first = self.layers[0]
-        risk = first.qty * abs(first.price - float(inv))
+        # Layer-1 risk at its ORIGINAL qty: a partial take must not shrink the R unit.
+        qty1 = self._open.get("layer1_qty", first.qty)
+        risk = qty1 * abs(first.price - float(inv))
         return risk if risk > 0 else None
+
+    def reduce(self, bar: int, time_: str, price: float, fraction: float, reason: str = "partial_take") -> Dict[str, Any]:
+        """Partial take (round 4): close `fraction` of every layer at `price`.
+
+        Realises the gross PnL of the closed qty, pays the E16 exit cost on the
+        closed notional, keeps the layers (scaled) and records the take on the
+        open trade. Never closes the position: fraction is clamped to < 1.
+        """
+        if not self.is_open:
+            raise RuntimeError("no open position to reduce")
+        fraction = min(max(float(fraction), 0.0), 0.999)
+        price = float(price)
+        sign = 1.0 if self.side == "long" else -1.0
+        closed_qty = 0.0
+        gross = 0.0
+        for layer in self.layers:
+            cut = layer.qty * fraction
+            gross += sign * cut * (price - layer.price)
+            layer.qty -= cut
+            layer.notional -= cut * layer.price
+            layer.margin = layer.notional / self.cfg.leverage
+            closed_qty += cut
+        exit_cost = self._side_cost(closed_qty * price)
+        self.cash += gross - exit_cost
+        self._open["cost"] += exit_cost
+        self._open["partial_gross"] = self._open.get("partial_gross", 0.0) + gross
+        take = {"bar": bar, "time": time_, "price": price, "fraction": fraction, "qty": closed_qty,
+                "pnl_gross_usdt": round(gross, 4), "cost_usdt": round(exit_cost, 4), "reason": reason}
+        self._open.setdefault("partial_takes", []).append(take)
+        return take
 
     def close(self, bar: int, time_: str, price: float, reason: str) -> LedgerTrade:
         if not self.is_open:
@@ -1008,6 +1055,14 @@ class PositionLedger:
         exit_cost = self._side_cost(self.notional(price))
         gross = self.unrealized(price)
         self.cash += gross - exit_cost
+        if reason == "liquidation" and self.cfg.margin_mode == "isolated":
+            # Bitget keeps the maintenance remainder as the liquidation clearance
+            # fee: the whole isolated margin is lost, never more (wallet outside
+            # the position is untouched).
+            remainder = max(0.0, self.position_margin + gross)
+            self.cash -= remainder
+            exit_cost += remainder
+        gross += self._open.get("partial_gross", 0.0)  # partial takes already realised
         cost = self._open["cost"] + exit_cost
         funding = self._open["funding"]
         net = gross - cost - funding
@@ -1030,6 +1085,7 @@ class PositionLedger:
             block=BLOCK_IS if self.split is None or utc(entry_dt) < self.split else BLOCK_OOS,
             cluster=f"{self.symbol}|{utc(entry_dt):%Y-%m}",
             confidence=self._open["confidence"], reasons=self._open["reasons"],
+            partial_takes=list(self._open.get("partial_takes", [])),
         )
         self.trades.append(trade)
         self.side, self.layers, self._open = None, [], {}
@@ -1174,6 +1230,17 @@ def load_sequential_frames(params: Any, loader: Callable[[str], pd.DataFrame]) -
     return frames, status
 
 
+def _sequential_params(rule: str, profile: str, **overrides: Any) -> Any:
+    """`r2` -> `impulse-2.1.0` (`ImpulseParams.sequential`); `r4` -> `impulse-2.2.0` (`r4_params`)."""
+    from .impulse_sequential import r4_params, sequential_params
+
+    if rule == "r2":
+        return sequential_params(profile, **overrides)
+    if rule == "r4":
+        return r4_params(profile, **overrides)
+    raise ValueError(f"unknown rule {rule!r} (use 'r2' or 'r4')")
+
+
 def ledger_for(params: Any, *, split: datetime, symbol: str,
                fee: float = DEFAULT_FEE_RATE_PER_SIDE, slip: float = DEFAULT_SLIPPAGE_PER_SIDE) -> PositionLedger:
     cfg = LedgerConfig(initial_equity=float(params.equity_usdt), leverage=float(params.leverage),
@@ -1224,6 +1291,8 @@ def drive_sequential(machine: Any, ledger: PositionLedger, trigger_df: pd.DataFr
                         reasons=list(d.reasons), confidence=d.confidence)
         elif d.action == "add_layer" and ledger.is_open:
             ledger.add_layer(i, t, price, float(d.notional))
+        elif d.action == "reduce" and ledger.is_open:
+            ledger.reduce(i, t, price, float(d.context.get("reduce_fraction", 0.0)), "partial_take_mlrsi")
         elif d.action == "exit" and ledger.is_open:
             codes = [r for r in d.reasons if str(r).startswith("exit_")]
             ledger.close(i, t, price, codes[0] if codes else "signal_exit")
@@ -1251,15 +1320,15 @@ def run_sequential(
     *, profile: str, symbol: str, start: datetime, end: datetime, split: datetime,
     directions: Sequence[str], loader: Callable[[str], pd.DataFrame], mlrsi_gate: bool = False,
     overrides: Optional[Dict[str, Any]] = None, fee: float = DEFAULT_FEE_RATE_PER_SIDE,
-    slip: float = DEFAULT_SLIPPAGE_PER_SIDE,
+    slip: float = DEFAULT_SLIPPAGE_PER_SIDE, rule: str = "r2",
 ) -> Dict[str, Any]:
     """Round-2 cell run: `ImpulseParams.sequential(profile)` (+ `mlrsi_gate` for H2) over
     the cached frames, one book long-or-short, scored by the layered ledger
-    (1R = layer-1 risk to the invalidation = 2% E0 unless the exposure cap binds)."""
-    from .impulse_service import ImpulseParams
+    (1R = layer-1 risk to the invalidation = 2% E0 unless the exposure cap binds).
+    `rule="r4"` builds `impulse-2.2.0` params (`impulse_sequential.r4_params`) instead."""
     from .impulse_sequential import SequentialMachine
 
-    params = ImpulseParams.sequential(profile, mlrsi_gate=mlrsi_gate, **(overrides or {}))
+    params = _sequential_params(rule, profile, mlrsi_gate=mlrsi_gate, **(overrides or {}))
     frames, status = load_sequential_frames(params, loader)
     trigger_df = frames[params.trigger_tf]
     first = max(WARMUP_BARS, int(trigger_df.index.searchsorted(pd.Timestamp(utc(start)))))
@@ -1280,13 +1349,12 @@ def run_sequential(
 def run_anchored(
     *, profile: str, frames: Mapping[str, pd.DataFrame], anchor_bar: int, side: str, symbol: str,
     split: datetime, mlrsi_gate: bool = False, fee: float = DEFAULT_FEE_RATE_PER_SIDE,
-    slip: float = DEFAULT_SLIPPAGE_PER_SIDE,
+    slip: float = DEFAULT_SLIPPAGE_PER_SIDE, rule: str = "r2", overrides: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """§R2.g.4: force layer 1 at `anchor_bar` close, then the real re-buy / exit rules to the end."""
-    from .impulse_service import ImpulseParams
     from .impulse_sequential import SequentialMachine
 
-    params = ImpulseParams.sequential(profile, mlrsi_gate=mlrsi_gate)
+    params = _sequential_params(rule, profile, mlrsi_gate=mlrsi_gate, **(overrides or {}))
     trigger_df = frames[params.trigger_tf]
     machine = SequentialMachine(params, frames, equity=params.equity_usdt)
     ledger = ledger_for(params, split=split, symbol=symbol, fee=fee, slip=slip)
@@ -1322,6 +1390,7 @@ def ledger_metrics(ledger: PositionLedger, trades: Optional[Sequence[LedgerTrade
         "avg_layers": round(sum(t.n_layers for t in trades) / len(trades), 2) if trades else 0.0,
         "max_exposure_x": round(max((t.exposure_max for t in trades), default=0.0), 3),
         "skipped_layers": ledger.skipped_layers,
+        "partial_takes": sum(len(t.partial_takes) for t in trades),
         "exit_reasons": reasons,
         "cost_usdt": round(sum(t.cost_usdt for t in trades), 2),
         "funding_usdt": round(sum(t.funding_usdt for t in trades), 2),

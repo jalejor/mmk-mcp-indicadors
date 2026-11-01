@@ -45,6 +45,7 @@ from .setup_service import LOW_TF_BAND
 from .trade_profiles import DEFAULT_PROFILE, TRADE_PROFILES, get_trade_profile
 
 RULE_VERSION = "impulse-2.1.0"
+RULE_VERSION_R4 = "impulse-2.2.0"  # round 4b exit chain (impulse_sequential.r4_params)
 
 # verde = the TV "yellow area" crossing 0 (owner decision 3, 2026-11-01; check:
 # labs data/results/konkorde_verde_check.md). edge = marron - media (2.0.0).
@@ -163,6 +164,25 @@ class ImpulseParams:
     invalidation_on: str = "close"
     phase_lost_requires_verde_against: bool = True
     mlrsi_gate: bool = False  # H2 variant (§R2.e2)
+    # -- Round 4b (§R4, `impulse-2.2.0`): exit chain rebuilt around the owner's exits.
+    # `phase_lost_exit=False` turns `exit_phase_lost` into the informational reason
+    # `info_phase_lost` (owner 2026-11-01: it closed 36/57 round-2 trades and would have
+    # cut his October short the next day).
+    phase_lost_exit: bool = True
+    # Close this fraction of the open qty ONCE per trade when the ML RSI regime leaves the
+    # position's colour for gray (short: red -> gray; long: green -> gray). 0.0 = off.
+    partial_take_fraction: float = 0.0
+    # Structural invalidation: the trade's `inv` is the WIDEST of the trigger range
+    # (a-9..e), 3 ATR and the guardian swing (min low / max high of the last
+    # `ctx_swing_back` CLOSED guardian candles at entry); the exit fires when a guardian
+    # candle closed AFTER entry CLOSES beyond `inv` (never on a trigger close or a wick).
+    ctx_structural_exit: bool = False
+    ctx_swing_back: int = 10
+    # Exit when the guardian's ML RSI regime (causal percentiles) is the position's
+    # contrary colour (short: green; long: red). Gray never exits.
+    ctx_mlrsi_exit: bool = False
+    # Optional target by levels, in R of layer 1 (None = no target; round 4b runs None).
+    target_r: Optional[float] = None
     mlrsi_rsi_period: int = 19
     mlrsi_alma_window: int = 4
     mlrsi_alma_sigma: float = 1.0
@@ -178,6 +198,12 @@ class ImpulseParams:
         if self.model == "sequential":
             if int(self.n_confirm) < 1 or int(self.max_layers) < 1:
                 raise ValueError("n_confirm and max_layers must be >= 1")
+            if not (0.0 <= float(self.partial_take_fraction) < 1.0):
+                raise ValueError("partial_take_fraction must be in [0, 1)")
+            if int(self.ctx_swing_back) < 1:
+                raise ValueError("ctx_swing_back must be >= 1")
+            if self.target_r is not None and float(self.target_r) <= 0:
+                raise ValueError("target_r must be > 0 or None")
             for fam, w in self.confirm_window_bars.items():
                 if fam not in self.follower_families or int(w) < 1:
                     raise ValueError(f"bad confirm window {fam}={w}")
@@ -1075,6 +1101,7 @@ class ImpulseEvaluationService:
 
 __all__: Sequence[str] = (
     "RULE_VERSION",
+    "RULE_VERSION_R4",
     "ImpulseParams",
     "ImpulseDecision",
     "ImpulseEngine",

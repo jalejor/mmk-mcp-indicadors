@@ -109,7 +109,7 @@ def test_r_basis_equity_pct():
 
 def test_config_validation():
     with pytest.raises(ValueError):
-        LedgerConfig(margin_mode="isolated")
+        LedgerConfig(margin_mode="portfolio")  # only cross (pro) and isolated (snipper, round 4) are modelled
     with pytest.raises(ValueError):
         LedgerConfig(r_basis="whatever")
     with pytest.raises(RuntimeError):

@@ -806,3 +806,78 @@ USDT = −0.18 R) — it would not have held the owner's short to 77551.91
 verde against) is far more active than the owner's own exit rule and cuts
 trades that the owner would keep.
 5. (2026-11-01) Plan del owner: cerrar el short actual (objetivo ~70k) y DESPUES operar con el motor nuevo en perfil **SNIPPER 1h (ctx 4h) a 10x** con recompras. Condicion: ronda 4 (backtest snipper 1h 10x con recompras, OOS) debe pasar; si no pasa, no se activa. Alertas por un bot de Telegram NUEVO (no el de Hermes) que el owner crea y pone en .env.
+6. (2026-11-01, ronda 4b) **Eliminar `phase_lost` como SALIDA** (queda como aviso `info_phase_lost`): en ronda 2 cerró 36/57 trades y habría sacado el short del owner al día siguiente (−0,18 R) cuando el owner lo llevó a +5,9 %. Salidas válidas: a) regla de Jeisson (BBWP >= 90 con giro >= 8 + amarilla `konkorde_verde` cruza 0 en contra, ventana 3 velas); b) toma PARCIAL cuando ML RSI pasa de rojo a gris (short) o de verde a gris (long); c) invalidación AMPLIA estructural (cierre del TF de contexto más allá del último swing / régimen ML RSI contrario en el contexto); d) objetivo opcional por niveles. Se mantienen el filtro ML RSI de régimen (percentiles 25/75 como TV) y las recompras. Criterio GO pre-registrado: OOS expectancy > 0, PF > 1,2, 0 liquidaciones, DD < 35 %, n suficiente (si n bajo, inconcluso). Si snipper 10x NO-GO, decir el apalancamiento máximo que pasa. Implementado como `impulse-2.2.0` (§R4).
+
+---
+
+## Round 4b — `impulse-2.2.0` (exit chain without `phase_lost`; owner decision 6)
+
+| | |
+|---|---|
+| **rule_version** | `impulse-2.2.0` (`model: "sequential"`, `impulse_sequential.r4_params(profile)`) |
+| **Status** | Spec for `backend`. NOT active. Backtest pre-registered in `docs/PREREG_IMPULSOS_v2_r4.md` (frozen 2026-11-01, replaces the cut round-4 draft). |
+| **Tests** | `tests/test_impulse_r4.py` (rule-derived: params, phase_lost = warning, Jeisson still exits, partial take once, structural invalidation on the guardian close, guardian ML RSI contrary, optional target, isolated liquidation, partial-take ledger) |
+| **Binding input** | Decisions 5 and 6 above. Entry side, machine, re-buys and ML RSI gate = §R2 unchanged. |
+
+### R4.a Profiles and books
+
+| Profile | Trigger / guardian / informational | Book | Notes |
+|---|---|---|---|
+| `pro` | 4h / 1d / 1w | 1300 USDT, 5x **cross**, mmr 0.5 % | as §R2.c |
+| `pro_1d` | 1d / 1w / 1M | same | separate book, expected INCONCLUSIVE |
+| `snipper` | **1h / 4h / 1d** | **1700 USDT, 10x isolated**, mmr **0.56 %** (Bitget BTCUSDT tier-1 0.40 % + 0.16 % clearance) | Konkorde `verde` IS a leader on 1h by owner order (supersedes §0.3 for this profile; the vote model still excludes it below 4h). Windows 1h `ao 2 / adx 5 / macd 3 / rsi 3`, ttl 5 (`docs/impulsos-v2-lead-time-1h.md`). |
+
+Isolated liquidation (snipper): backing = position margin = Σ notional / leverage;
+long `(q·avg − margin) / (q·(1 − mmr))`, short `(margin + q·avg) / (q·(1 + mmr))`
+≈ avg × (1 ∓ (1/lev − mmr)) → ~9.4 % adverse at 10x. Checked INTRABAR on every
+trigger candle at the adverse wick; a liquidation loses the whole position
+margin (clearance = maintenance remainder), the wallet outside is untouched.
+Funding 0.01 % / 8 h on the open notional, every candle.
+
+### R4.b Exit chain (first match wins, on the closed trigger candle; all layers exit together)
+
+| # | Code | Rule | Fill |
+|---|---|---|---|
+| 0 | `liquidation` (backtest ledger; must never happen) | §R4.a, intrabar | liquidation price |
+| 1 | `exit_rule_jeisson` + `exit_bbwp_red_turn` + `exit_konkorde_zero_cross_against` | as §R2.d #1 (trigger TF, 3-candle window) | `close[j]` |
+| 2 | `exit_invalidation` + `exit_invalidation_ctx_close` | **structural**: `inv` (set at ENTER, fixed) = WIDEST of {trigger range `a−9..e`, `close[e] ∓ 3 ATR`, guardian swing = min low / max high of the last `ctx_swing_back = 10` CLOSED guardian candles (`invalidation_ctx_swing`)}; fires when a guardian candle closed AFTER the entry CLOSES beyond `inv`. A trigger close beyond `inv` alone = `hold_beyond_invalidation_awaiting_ctx_close`. No guardian frame → trigger close (`exit_invalidation_trigger_close_fallback`). | `close[j]` |
+| 3 | `exit_ctx_mlrsi_against` (+ `ctx_mlrsi_green` / `ctx_mlrsi_red`) | guardian's own ML RSI regime (causal percentiles on guardian closes) = contrary colour (short: green; long: red). Gray never exits. At ENTER the same condition blocks the entry (`ctx_mlrsi_against`). | `close[j]` |
+| 4 | `exit_target_r` | optional target by levels, `unrealized / 1R >= target_r`; **`None` in 4b** | `close[j]` |
+| — | `info_phase_lost` | BBWP <= 50 with verde against: WARNING only (decision 6). `phase_lost_exit = False`. | — |
+| — | time stop | **removed** (`time_stop_bars = None`) | — |
+
+**Partial take** (`partial_take_fraction = 0.5`, action `reduce`, reasons
+`partial_take_mlrsi` + `mlrsi_red_to_gray` / `mlrsi_green_to_gray`): after the
+exit chain, once per trade, never on the entry candle, when the TRIGGER ML RSI
+regime goes from the position's colour (seen on `j−1`) to gray on `j`: close
+50 % of every layer at `close[j]` (E16 on the closed notional). 1R keeps the
+ORIGINAL layer-1 qty; adds keep scaling from the ORIGINAL layer-1 notional;
+re-buys remain allowed afterwards (§R2.c).
+
+### R4.c Parameters added to the rule doc (copy as-is; everything else = §R2.f)
+
+| Field | 2.1.0 | **2.2.0** |
+|---|---|---|
+| `rule_version` | `impulse-2.1.0` | `impulse-2.2.0` |
+| `phase_lost_exit` | true | **false** |
+| `time_stop_bars` | 60 | **null** |
+| `mlrsi_gate` | H2 only | **true** |
+| `partial_take_fraction` | 0 | **0.5** |
+| `ctx_structural_exit` / `ctx_swing_back` | false / — | **true / 10** |
+| `ctx_mlrsi_exit` | false | **true** |
+| `target_r` | — | null |
+| snipper book: `equity_usdt` / `leverage` / `margin_mode` / `maintenance_margin_rate` | — | 1700 / 10 / `"isolated"` / 0.0056 |
+
+Decision output adds: action `reduce`, `context.partial_taken`,
+`context.ctx_swing_level`, `context.ctx_mlrsi_regime`; `invalidation_source`
+may be `invalidation_ctx_swing`.
+
+### R4.d Backtest (pre-registered in `PREREG_IMPULSOS_v2_r4.md`)
+
+Order: 1) PRO 4h + PRO 1d, 5x cross, 1300, re-buys; 2) SNIPPER 1h 10x isolated,
+1700, re-buys, wick liquidation + funding, then the leverage sweep 7/5/3/2/1x;
+3) owner-short replay (82450, 2026-10-09) on 4h and 1h. BTC/USDT bitget 2 years,
+long and short, IS/OOS, costs E16. GO per cell iff n >= 30 AND n_oos >= 10 AND
+expectancy OOS > 0 AND PF >= 1.2 AND liquidations 0 AND max DD (cumulative net
+USDT of the cell) < 35 % of the start. Comparison vs round 2-3 `pro:H2` and
+buy-and-hold. Results: section "Round 4b results" below (after the run).

@@ -33,7 +33,7 @@ from .ml_rsi import MlRsiParams, ml_rsi_frame, regime_series
 
 FAMILIES: Tuple[str, ...] = ("ao", "adx", "macd", "rsi")
 STATES = ("flat", "alert", "in_position")
-ACTIONS = ("none", "alert", "enter", "hold", "add_layer", "exit")
+ACTIONS = ("none", "alert", "enter", "hold", "add_layer", "reduce", "exit")
 
 # PRO profile for the machine (spec §R2.c / §R2.e): same book parameters on the
 # 4h trigger (guardian 1d) and on the 1d read (guardian 1w). Kept apart from
@@ -43,14 +43,41 @@ SEQUENTIAL_PROFILES: Dict[str, Dict[str, Any]] = {
             "window_bounds": (2, 8), "window_default": 4},
     "pro_1d": {"trigger_tf": "1d", "confirm_tf": "1w", "context_tfs": ("1w", "1M"),
                "window_bounds": (2, 6), "window_default": 3},
+    # Round 4 (owner decision 5): SNIPPER 1h trigger, guardian 4h, 1d informational,
+    # 1700 USDT, 10x ISOLATED (Bitget BTCUSDT tier-1 MMR 0.40 % + 0.16 % clearance),
+    # same layer caps as PRO. Konkorde verde is a LEADER on 1h here by owner order
+    # (supersedes the §0.3 band rule for this profile; the vote model still excludes
+    # it below 4h).
+    "snipper": {"trigger_tf": "1h", "confirm_tf": "4h", "context_tfs": ("4h", "1d"),
+                "window_bounds": (2, 8), "window_default": 4,
+                "book": {"equity_usdt": 1700.0, "leverage": 10.0, "margin_mode": "isolated",
+                         "maintenance_margin_rate": 0.0056}},
+}
+
+# Round 4b exit chain (docs/impulsos-v2.md §R4, owner decision 6, 2026-11-01):
+# phase_lost is informational, no time stop, ML RSI regime gate on, 50 % partial
+# take on the regime leaving the position's colour, structural invalidation on
+# the guardian close, guardian ML RSI contrary = exit, no target.
+R4_OVERRIDES: Dict[str, Any] = {
+    "rule_version": base.RULE_VERSION_R4,
+    "phase_lost_exit": False,
+    "time_stop_bars": None,
+    "mlrsi_gate": True,
+    "partial_take_fraction": 0.5,
+    "ctx_structural_exit": True,
+    "ctx_swing_back": 10,
+    "ctx_mlrsi_exit": True,
+    "target_r": None,
 }
 
 # Follower windows fitted on IS 2024-11-01 -> 2025-12-31 (docs/impulsos-v2-lead-time.md,
 # §R2.b formula W_f = clamp(ceil(p75(lag_f)), lo, hi); adx on 1d had 6 pairs -> default 3).
 # FROZEN before the round-2 backtest (docs/PREREG_IMPULSOS_v2_r2.md).
+# snipper (1h): docs/impulsos-v2-lead-time-1h.md, frozen before round 4 (PREREG_IMPULSOS_v2_r4.md).
 FITTED_WINDOWS: Dict[str, Dict[str, int]] = {
     "pro": {"ao": 2, "adx": 4, "macd": 3, "rsi": 2},
     "pro_1d": {"ao": 3, "adx": 3, "macd": 2, "rsi": 5},
+    "snipper": {"ao": 2, "adx": 5, "macd": 3, "rsi": 3},  # 1h IS fit (573/111/348/441 pairs), ttl 5
 }
 
 
@@ -68,8 +95,14 @@ def sequential_params(profile: str = "pro", **overrides: Any) -> "base.ImpulsePa
         "atr_mult_stop": None,  # §R2.d: no ATR stop
         "time_stop_bars": 60,
     }
+    values.update(cfg.get("book", {}))
     values.update(overrides)
     return base.ImpulseParams(**values)
+
+
+def r4_params(profile: str = "snipper", **overrides: Any) -> "base.ImpulseParams":
+    """`impulse-2.2.0`: the 2.1.0 machine and book of `profile` with the round-4b exit chain."""
+    return sequential_params(profile, **{**R4_OVERRIDES, **overrides})
 
 
 # ---------------------------------------------------------------------------
@@ -200,6 +233,11 @@ class Position:
     alert_bar: int
     entry_bar: int
     last_layer_bar: int
+    partial_taken: bool = False  # §R4.d: at most one partial take per trade
+    last_regime: Optional[int] = None  # ML RSI regime seen on the previous candle while open
+    layer1_notional_usdt: float = 0.0  # adds scale from the ORIGINAL layer 1, partial takes aside
+    ctx_entry_pos: int = -1  # guardian candle index aligned to the entry candle (§R4.c)
+    ctx_swing_level: Optional[float] = None  # guardian swing used in the invalidation (informational)
 
     @property
     def qty(self) -> float:
@@ -224,14 +262,36 @@ class Position:
     def exposure(self, price: float, equity: float) -> float:
         return self.qty * price / equity if equity > 0 else float("inf")
 
-    def liquidation_price(self, equity: float, mmr: float) -> Optional[float]:
+    def margin(self, leverage: float) -> float:
+        """Isolated margin backing the position: sum of layer notionals / leverage."""
+        return self.total_notional / leverage if leverage > 0 else float("inf")
+
+    def liquidation_price(self, equity: float, mmr: float, *, margin_mode: str = "cross",
+                          leverage: float = 1.0) -> Optional[float]:
+        """Price where (backing margin + uPnL) == mmr x notional.
+
+        cross: the whole realised wallet backs the position; isolated: only the
+        position margin (notional / leverage) does, so the distance depends on
+        the leverage alone (10x, mmr 0.56%: ~9.4% adverse from avg entry).
+        """
         q, a = self.qty, self.avg_entry
         if q <= 0 or not math.isfinite(a):
             return None
+        backing = self.margin(leverage) if margin_mode == "isolated" else equity
         if self.side == 1:
-            price = (q * a - equity) / (q * (1.0 - mmr))
+            price = (q * a - backing) / (q * (1.0 - mmr))
             return price if price > 0 else None
-        return (equity + q * a) / (q * (1.0 + mmr))
+        return (backing + q * a) / (q * (1.0 + mmr))
+
+    def reduce(self, fraction: float) -> float:
+        """Close `fraction` of every layer's qty (partial take); returns the qty closed."""
+        closed = 0.0
+        for layer in self.layers:
+            cut = layer.qty * fraction
+            layer.qty -= cut
+            layer.notional_usdt -= cut * layer.price
+            closed += cut
+        return closed
 
 
 # ---------------------------------------------------------------------------
@@ -269,6 +329,18 @@ class SequentialMachine:
                 self.ctx_idx[tf] = np.full(self.trig.n, d.n - 1, dtype=int)
         self.windows = {fam: int(params.confirm_window_bars.get(fam, params.window_default)) for fam in FAMILIES}
         self.ttl = int(params.alert_ttl_bars) if params.alert_ttl_bars else max(self.windows.values())
+        # §R4.c: the guardian's own ML RSI regime (+1/-1/0/NaN per guardian candle), causal.
+        self.ctx_mlrsi: Optional[np.ndarray] = None
+        gdf = frames.get(params.confirm_tf)
+        if params.ctx_mlrsi_exit and gdf is not None and len(gdf):
+            if "ml_rsi_regime" in gdf.columns:
+                self.ctx_mlrsi = _regime_from_column(gdf["ml_rsi_regime"])
+            elif "close" in gdf.columns:
+                mp = MlRsiParams(rsi_period=params.mlrsi_rsi_period, alma_window=params.mlrsi_alma_window,
+                                 alma_sigma=params.mlrsi_alma_sigma, alma_offset=params.mlrsi_alma_offset,
+                                 threshold_method=params.mlrsi_threshold_method, max_points=params.mlrsi_max_points)
+                self.ctx_mlrsi = regime_series(
+                    ml_rsi_frame(pd.Series(gdf["close"].to_numpy(dtype=float)), mp, mode="causal")).to_numpy(dtype=float)
         self.equity = float(equity if equity is not None else params.equity_usdt)
         self.alert: Optional[Alert] = None
         self.pos: Optional[Position] = None
@@ -288,7 +360,7 @@ class SequentialMachine:
             self.equity = float(equity)
         dec = self._base(i)
         if self.pos is not None:
-            if not self._exit_check(i, dec):
+            if not self._exit_check(i, dec) and not self._partial_take(i, dec):
                 self._rebuy(i, dec)
         else:
             self._flat_or_alert(i, dec)
@@ -397,10 +469,42 @@ class SequentialMachine:
             dec.invalidation_source = pos.invalidation_source
             dec.one_r_usdt = round(pos.one_r_usdt, 4)
             dec.stop_price = pos.invalidation
-            dec.liquidation_price = pos.liquidation_price(self.equity, self.p.maintenance_margin_rate)
+            dec.liquidation_price = pos.liquidation_price(self.equity, self.p.maintenance_margin_rate,
+                                                          margin_mode=self.p.margin_mode, leverage=self.p.leverage)
             dec.context.update({"bars_held": i - pos.entry_bar, "entry_price": pos.layers[0].price,
                                 "unrealized_usdt": round(pos.unrealized(close), 4),
-                                "unrealized_r": round(pos.unrealized(close) / pos.one_r_usdt, 4) if pos.one_r_usdt else None})
+                                "unrealized_r": round(pos.unrealized(close) / pos.one_r_usdt, 4) if pos.one_r_usdt else None,
+                                "partial_taken": pos.partial_taken, "ctx_swing_level": pos.ctx_swing_level,
+                                "ctx_mlrsi_regime": self._ctx_regime_label(i)})
+
+    def _ctx_regime(self, i: int) -> Optional[int]:
+        """Guardian ML RSI regime aligned to trigger candle i (None = unknown / not computed)."""
+        if self.ctx_mlrsi is None:
+            return None
+        idx = self.ctx_idx.get(self.p.confirm_tf)
+        if idx is None or int(idx[i]) < 0:
+            return None
+        v = float(self.ctx_mlrsi[int(idx[i])])
+        return int(v) if math.isfinite(v) else None
+
+    def _ctx_regime_label(self, i: int) -> Optional[str]:
+        r = self._ctx_regime(i)
+        return {1: "green", -1: "red", 0: "gray"}.get(r) if r is not None else None
+
+    def _ctx_swing(self, i: int, side: int) -> Tuple[Optional[float], int]:
+        """§R4.c: min low (long) / max high (short) of the last `ctx_swing_back` CLOSED guardian
+        candles at trigger candle i, and the aligned guardian index (-1 when unavailable)."""
+        d = self.contexts.get(self.p.confirm_tf)
+        idx = self.ctx_idx.get(self.p.confirm_tf)
+        if d is None or idx is None or int(idx[i]) < 0:
+            return None, -1
+        pos = int(idx[i])
+        lo = max(0, pos - int(self.p.ctx_swing_back) + 1)
+        window = d["low"][lo: pos + 1] if side == 1 else d["high"][lo: pos + 1]
+        if not len(window) or not np.isfinite(window).any():
+            return None, pos
+        level = float(np.nanmin(window)) if side == 1 else float(np.nanmax(window))
+        return level, pos
 
     # -- FLAT / ALERT ---------------------------------------------------------------
     def _flat_or_alert(self, i: int, dec: base.ImpulseDecision) -> None:
@@ -504,6 +608,11 @@ class SequentialMachine:
             if int(regime) == -a.side:
                 reasons.append("mlrsi_gate_against")
                 return
+        if p.ctx_mlrsi_exit:  # §R4.c: a contrary guardian regime invalidates the trade before it exists
+            ctx_regime = self._ctx_regime(i)
+            if ctx_regime is not None and ctx_regime == -a.side:
+                reasons.append("ctx_mlrsi_against")
+                return
         confirms = {k: dict(v) for k, v in a.confirms.items() if v["side"] == a.side}
         self.alert = None
         self._enter(i, a.side, dec, alert_bar=a.bar, confirms=confirms)
@@ -516,15 +625,20 @@ class SequentialMachine:
         close = float(T["close"][i])
         atr = float(T["atr"][i])
         lo_idx = max(0, alert_bar - p.invalidation_range_back)
+        ctx_level, ctx_pos = (self._ctx_swing(i, side) if p.ctx_structural_exit else (None, -1))
         if side == 1:
             range_level = float(np.nanmin(T["low"][lo_idx: i + 1]))
             atr_level = close - p.invalidation_atr_mult * atr if math.isfinite(atr) and atr > 0 else float("nan")
             candidates = [(range_level, "invalidation_range"), (atr_level, "invalidation_atr")]
+            if ctx_level is not None:
+                candidates.append((ctx_level, "invalidation_ctx_swing"))
             inv, source = min((c for c in candidates if math.isfinite(c[0])), key=lambda c: c[0])
         else:
             range_level = float(np.nanmax(T["high"][lo_idx: i + 1]))
             atr_level = close + p.invalidation_atr_mult * atr if math.isfinite(atr) and atr > 0 else float("nan")
             candidates = [(range_level, "invalidation_range"), (atr_level, "invalidation_atr")]
+            if ctx_level is not None:
+                candidates.append((ctx_level, "invalidation_ctx_swing"))
             inv, source = max((c for c in candidates if math.isfinite(c[0])), key=lambda c: c[0])
         dist = abs(close - inv)
         if not (dist > 0):
@@ -535,9 +649,12 @@ class SequentialMachine:
         e0 = self.equity
         notional = min(p.layer1_risk_pct / 100.0 * e0 * close / dist, p.layer1_max_exposure_x * e0)
         qty = notional / close
+        regime0 = base._f(T["mlrsi"], i)
         self.pos = Position(side=side, layers=[Layer(i, close, notional, qty)], invalidation=inv,
                             invalidation_source=source, one_r_usdt=qty * dist, e0=e0,
-                            alert_bar=alert_bar, entry_bar=i, last_layer_bar=i)
+                            alert_bar=alert_bar, entry_bar=i, last_layer_bar=i,
+                            last_regime=int(regime0) if regime0 is not None else None,
+                            layer1_notional_usdt=notional, ctx_entry_pos=ctx_pos, ctx_swing_level=ctx_level)
         dec.action = "enter"
         dec.side = base.SIDE_LABELS[side]
         dec.notional = round(notional, 4)
@@ -561,16 +678,40 @@ class SequentialMachine:
         if drops and crosses and (i in drops or i in crosses):
             reasons += ["exit_rule_jeisson", "exit_bbwp_red_turn", "exit_konkorde_zero_cross_against"]
             return self._exit(i, dec, close, 0.8)
-        if (s == 1 and close <= pos.invalidation) or (s == -1 and close >= pos.invalidation):
+        # Invalidation. 2.1.0: trigger close beyond `inv`. 2.2.0 (§R4.c, structural): a guardian
+        # candle closed AFTER the entry closes beyond `inv`; the trigger close alone never exits.
+        # Without a guardian frame the 2.2.0 rule degrades to the trigger close (reported).
+        if p.ctx_structural_exit and self._has_guardian():
+            ctx_close = self._ctx_close_after_entry(i)
+            if ctx_close is not None and ((s == 1 and ctx_close <= pos.invalidation) or (s == -1 and ctx_close >= pos.invalidation)):
+                reasons += ["exit_invalidation", "exit_invalidation_ctx_close"]
+                return self._exit(i, dec, close, 1.0)
+            if (s == 1 and close <= pos.invalidation) or (s == -1 and close >= pos.invalidation):
+                reasons.append("hold_beyond_invalidation_awaiting_ctx_close")
+        elif (s == 1 and close <= pos.invalidation) or (s == -1 and close >= pos.invalidation):
             reasons.append("exit_invalidation")
+            if p.ctx_structural_exit:
+                reasons.append("exit_invalidation_trigger_close_fallback")
             return self._exit(i, dec, close, 1.0)
+        # §R4.c: guardian ML RSI in the contrary colour (short: green; long: red). Gray never exits.
+        if p.ctx_mlrsi_exit:
+            ctx_regime = self._ctx_regime(i)
+            if ctx_regime is not None and ctx_regime == -s:
+                reasons += ["exit_ctx_mlrsi_against", "ctx_mlrsi_green" if ctx_regime == 1 else "ctx_mlrsi_red"]
+                return self._exit(i, dec, close, 0.7)
+        # §R4.d optional target by levels (None in round 4b).
+        if p.target_r is not None and pos.one_r_usdt > 0 and pos.unrealized(close) / pos.one_r_usdt >= float(p.target_r):
+            reasons.append("exit_target_r")
+            return self._exit(i, dec, close, 0.6)
         bbwp = float(T["bbwp"][i])
         verde = float(T["edge"][i])
         if math.isfinite(bbwp) and bbwp <= p.phase_lost_level:
             if math.isfinite(verde) and verde * s < 0:
-                reasons.append("exit_phase_lost")
-                return self._exit(i, dec, close, p.phase_lost_confidence)
-            if p.phase_lost_requires_verde_against:
+                if p.phase_lost_exit:
+                    reasons.append("exit_phase_lost")
+                    return self._exit(i, dec, close, p.phase_lost_confidence)
+                reasons.append("info_phase_lost")  # 2.2.0: a warning, never an exit (owner decision 6)
+            elif p.phase_lost_requires_verde_against:
                 reasons.append("phase_lost_suppressed_verde_favor")
         held = i - pos.entry_bar
         if p.time_stop_bars is not None and held >= int(p.time_stop_bars) and pos.one_r_usdt > 0:
@@ -581,6 +722,23 @@ class SequentialMachine:
             reasons.append("hold_exit_incomplete")
         return False
 
+    def _has_guardian(self) -> bool:
+        return self.p.confirm_tf in self.contexts and self.p.confirm_tf in self.ctx_idx
+
+    def _ctx_close_after_entry(self, i: int) -> Optional[float]:
+        """Close of the guardian candle aligned to trigger candle i, only if that guardian candle
+        closed AFTER the entry's aligned guardian candle (§R4.c); else None."""
+        pos = self.pos
+        d = self.contexts.get(self.p.confirm_tf)
+        idx = self.ctx_idx.get(self.p.confirm_tf)
+        if pos is None or d is None or idx is None:
+            return None
+        g = int(idx[i])
+        if g < 0 or g <= pos.ctx_entry_pos:
+            return None
+        c = float(d["close"][g])
+        return c if math.isfinite(c) else None
+
     def _exit(self, i: int, dec: base.ImpulseDecision, price: float, confidence: float) -> bool:
         dec.action = "exit"
         dec.exit_price = price
@@ -588,6 +746,30 @@ class SequentialMachine:
         self._stamp(i, dec)  # report the book that is being closed
         self.pos, self.exit_bar = None, i
         return True
+
+    # -- IN_POSITION: partial take on the ML RSI regime (§R4.d) --------------------------
+    def _partial_take(self, i: int, dec: base.ImpulseDecision) -> bool:
+        """Short: regime red -> gray (long: green -> gray) on candle i, first time only ->
+        close `partial_take_fraction` of the qty at close[i]. Never a full exit, never
+        on the entry candle; the regime is tracked only while the position is open."""
+        p, T, pos = self.p, self.trig, self.pos
+        frac = float(p.partial_take_fraction or 0.0)
+        regime = base._f(T["mlrsi"], i)
+        current = int(regime) if regime is not None else None
+        prev, pos.last_regime = pos.last_regime, current
+        if frac <= 0.0 or pos.partial_taken or i == pos.entry_bar:
+            return False
+        if prev == pos.side and current == 0:
+            closed = pos.reduce(frac)
+            pos.partial_taken = True
+            dec.action = "reduce"
+            dec.side = base.SIDE_LABELS[pos.side]
+            dec.exit_price = float(T["close"][i])
+            dec.notional = round(closed * float(T["close"][i]), 4)
+            dec.context["reduce_fraction"] = frac
+            dec.reasons += ["partial_take_mlrsi", "mlrsi_red_to_gray" if pos.side == -1 else "mlrsi_green_to_gray"]
+            return True
+        return False
 
     # -- IN_POSITION: re-buys ---------------------------------------------------------
     def _rebuy(self, i: int, dec: base.ImpulseDecision) -> None:
@@ -620,7 +802,7 @@ class SequentialMachine:
         if guardian is None or guardian == -s:
             reasons.append("add_rejected_context")
             return
-        notional = p.layer_add_scale * pos.layers[0].notional_usdt
+        notional = p.layer_add_scale * (pos.layer1_notional_usdt or pos.layers[0].notional_usdt)
         qty = notional / close
         if pos.open_risk + qty * abs(close - pos.invalidation) > p.max_open_risk_pct / 100.0 * pos.e0 + 1e-9:
             reasons.append("add_rejected_risk_cap")
@@ -642,6 +824,6 @@ class SequentialMachine:
 
 
 __all__: Sequence[str] = (
-    "FAMILIES", "STATES", "ACTIONS", "SEQUENTIAL_PROFILES", "FITTED_WINDOWS", "sequential_params",
-    "derive_sequential", "Alert", "Layer", "Position", "SequentialMachine",
+    "FAMILIES", "STATES", "ACTIONS", "SEQUENTIAL_PROFILES", "FITTED_WINDOWS", "R4_OVERRIDES",
+    "sequential_params", "r4_params", "derive_sequential", "Alert", "Layer", "Position", "SequentialMachine",
 )

@@ -312,8 +312,8 @@ def follower_window(p75_lag: Optional[float], lo: int, hi: int) -> Optional[int]
     return int(min(max(math.ceil(p75_lag), lo), hi))
 
 
-WINDOW_BOUNDS = {"4h": (2, 8), "1d": (2, 6)}
-WINDOW_DEFAULT = {"4h": 4, "1d": 3}
+WINDOW_BOUNDS = {"1h": (2, 8), "4h": (2, 8), "1d": (2, 6)}  # 1h: round 4, same bounds as 4h
+WINDOW_DEFAULT = {"1h": 4, "4h": 4, "1d": 3}
 WINDOW_MIN_PAIRS = 10
 
 # Spec §R2.b follower FAMILIES and the leader events that open an alert (the exit
