@@ -32,3 +32,7 @@ api_v1.include_router(prefix="/backtest", router=backtest_router)
 # Strategy setups (F0 live evaluation)
 from .setups_routing import setups_router  # noqa: E402
 api_v1.include_router(prefix="/setups", router=setups_router)
+
+# Impulse engine v2 (impulsos-v2)
+from .impulse_routing import impulse_router  # noqa: E402
+api_v1.include_router(prefix="/impulse", router=impulse_router)

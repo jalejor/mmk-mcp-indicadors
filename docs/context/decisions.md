@@ -267,3 +267,78 @@ pre-registration.
 **What it takes to reopen anything in this family**: a new pre-registration
 plus a run of the committed harness — which now exists, so the price is an
 afternoon, not a quarter.
+
+## D18 — Koncorde ported bar-exact from Blai5's Pine; BBWP = the owner's chart (2026-11-01)
+
+The Konkorde audit (commit `406b69c`) found that the old `_calc_konkorde` was
+not Koncorde: EMA255 of PVI/NVI, `azul` = PVI, no stochastic, RSI on close,
+Bollinger at 2σ, and the D6 "re-centring" (−50) that patched a symptom. It is
+now a Pine-exact port in `koncorde.py`: `pine_ema`, Wilder RSI, MFI on hlc3,
+BollOsc 25/2 over 4σ, stoch 21/3 on ohlc4,
+`marron = (RSI + MFI + BollOsc + stoc/3) / 2`, `verde = marron + oscp`,
+`azul` = NVI oscillator, `media = EMA15(marron)`. Reconciled live against the
+owner's TradingView on 1w: media 79.03 / verde 86.00 / BBWP 47.27.
+
+Consequences:
+
+* `konkorde_marron` is a 0–100 series, **not** centred on zero. `marron > 0`
+  is not a usable condition: `RulesService` now votes marron vs media. The
+  zero-crossing lines are `azul`, `oscp` (verde − marron) and `edge`
+  (marron − media, Blai5's own signal).
+* The owner's "yellow area" is `verde`.
+* `bbwp` defaults to the TradingView series (`bbwp_definition="tv"`,
+  The_Caretaker SMA13/256) for `/v1/metrics` and `/v1/charts`. The versioned
+  packs keep `RULE_PACK_BBWP_DEFINITION = "legacy"` because their goldens were
+  pinned on it; moving them is a rule-input change (spec §0.4: bump + goldens).
+* `1M` now drops the forming candle (`_month_candle_close_ms`).
+* E3 (`konkorde_zero_cross`) is pending re-specification by the owner.
+* D6 is superseded.
+
+**Known fallout (open)**: `test_konkorde_golden.py::test_marron_is_a_0_100_style_average_not_centred_on_zero`
+returns NaN (its fixture has a constant ohlc4, so BollOsc is `na` by Pine
+semantics) and `test_v020_real_goldens.py::test_c1_g1_bear_confluence...`
+fails on the 4h Konkorde leg (v0.2.x reads the marron sign). Both need an
+owner/analyst call, not a code tweak.
+
+**Status**: vigente.
+
+## D19 — Impulse engine v2 (impulsos-v2), additive to the legacy vote (2026-11-01)
+
+The owner trades impulses in both directions; the legacy `RulesService` vote
+cannot short and cannot see turns. `impulse_service.py` implements
+`docs/impulsos-v2.md` (`rule_version = impulse-2.0.0`, 14 goldens in
+`tests/fixtures/impulse_golden_cases.json`, pinned by
+`tests/test_impulse_golden.py`).
+
+Design:
+
+* **Columns in, decision out.** `ImpulseEngine.evaluate(frames, position=…)`
+  reads indicator columns only (`close, high, low, bbwp, konkorde_*, adx14,
+  plus_di, minus_di, ao, macd, macd_signal, atr14`), so analyst goldens run
+  without OHLCV. Every row is a closed candle; context frames are cut at the
+  trigger close (§0.2), or use their last row when they carry no timestamps.
+* **All thresholds are data** (`ImpulseParams`, spec names accepted through
+  `from_mapping`); `ImpulseParams.for_profile` binds TFs, ATR stop and time
+  stop from `trade_profiles.TRADE_PROFILES` — the single source mmk-api must
+  mirror. `confirm_tf` is the guardian (first context TF).
+* **Vectorised + O(n) replay.** Phases, votes, crosses, E1 turns and E2
+  divergences are precomputed causally over the whole frame; `replay` only
+  iterates the position state machine (17.2k 4h decisions in a few seconds).
+  E2 is a vectorised re-implementation of `setup_service.ao_divergence`
+  (same pivots, lookback, ttl, invalidation) because calling it per bar is
+  O(n²).
+* **Bands enforced at runtime** (§0.3): below 4h Konkorde never votes or
+  feeds context bias, and the Konkorde leg of the owner's exit becomes the AO
+  zero-cross (`exit_ao_cross_against`).
+* **Additive surface.** New route `GET /v1/impulse/evaluate`; `/v1/metrics/get`
+  only adds the `impulse` key when `impulse_profile` is passed, so the
+  watcher's payload and latency are unchanged (pinned by a key-snapshot test).
+
+**Alternatives discarded**: extending `RulesService` (it is the watcher's
+contract and long-only by construction); reusing `SetupService` (declarative
+condition packs, no position state, no exit chain); per-bar
+`IndicatorsService` recomputation in replay (O(n²), and the indicators are
+already causal).
+
+**Status**: implemented, NOT active. Paper-first gates in spec §h; backtest per
+spec §g by the backtest harness (`impulse_backtest.py`).

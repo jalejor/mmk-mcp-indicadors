@@ -71,6 +71,7 @@ src/
 - `exchange` (string, opcional): Exchange a usar (default: "binance")
 - `timeframe` (string, opcional): Marco temporal (default: "1h")
 - `limit` (int, opcional): Número de velas (default: 500)
+- `impulse_profile` (string, opcional, default: ninguno): `scalper | snipper | pro | ancient`. Si se envía, el payload gana la clave aditiva `impulse` con la misma respuesta de `GET /v1/impulse/evaluate` (ver más abajo). Sin este parámetro el payload es idéntico al histórico (el watcher de mmk-api no cambia).
 
 **Ejemplo de Request**:
 ```bash
@@ -364,6 +365,51 @@ ETH_USDT_RSI_OVERSOLD=25.0
 - Ratios riesgo-beneficio definidos por perfil
 - Stop-loss y targets calculados automáticamente
 - Consideración de volatilidad del activo
+
+---
+
+### ⚡ GET `/v1/impulse/evaluate`
+**Propósito**: Motor de impulsos v2 (`rule_version: impulse-2.0.0`, spec `docs/impulsos-v2.md`). Evalúa la última vela CERRADA del TF gatillo del perfil y devuelve `enter | none` (sin posición) o `exit | hold` (con `position`). Aditivo: no reemplaza a `/v1/metrics/get` ni a `/v1/setups/evaluate`. NO activo para trading: paper-first (spec §h).
+
+**Parámetros**:
+- `symbol` (string, requerido): Par, ej. `BTC/USDT`
+- `profile` (string, opcional, default `pro`): `scalper` (15m, guardián 1h) · `snipper` (1h, guardián 4h) · `pro` (4h, guardián 1d) · `ancient` (1d, guardián 1w). Tabla completa en `src/controllers/metrics/trade_profiles.py`.
+- `exchange` (string, opcional, default `DEFAULT_EXCHANGE` = bitget)
+- `position` (string, opcional): `long | short`; vacío = sin posición
+- `entry_price` (float, opcional): precio de entrada de la posición abierta
+- `stop_price` (float, opcional): stop inicial (define 1R). Si falta y hay `entry_price`, se deriva con el ATR actual
+- `bars_held` (int, opcional): velas gatillo cerradas desde la entrada (entrada = 0); habilita el time stop
+
+**Carga de datos**: TF gatillo + guardián + contexto vía `MarketDataService` (descarta la vela en formación), enriquecidos con `IndicatorsService(bbwp_definition="tv")`. Si un TF de contexto falla (p.ej. poca historia en `1M`) queda `failed:<Error>` en `tf_status` y su sesgo en `null`; si falla el gatillo, error 400/500.
+
+**Ejemplo**:
+```bash
+curl -H "X-API-Key: $KEY" \
+"http://localhost:9000/v1/impulse/evaluate?symbol=BTC/USDT&profile=pro"
+```
+
+**Respuesta** (forma estable):
+```json
+{
+  "timestamp": 1761969600000, "timeframe": "4h", "trigger_tf": "4h",
+  "candle_close": "2026-11-01T04:00:00+00:00", "profile": "pro",
+  "side": "long", "phase": "ignition", "action": "enter",
+  "reasons": ["bbwp_compression_recent", "bbwp_breakout_from_compression", "konkorde_edge_positive", "adx_di_bullish", "ao_bullish", "macd_bullish", "context_aligned"],
+  "confidence": 0.8, "side_score": 1.0, "context_bias": {"1d": 1, "1w": 0},
+  "stop_price": 68575.0, "exit_price": null,
+  "context": {"band": "high_tf", "guardian": "1d", "votes": {}, "values": {}, "timeframes": {}},
+  "rule_version": "impulse-2.0.0",
+  "symbol": "BTC/USDT", "exchange": "bitget", "evaluated_at": "2026-11-01T04:00:31+00:00",
+  "trade_profile": {"trigger_tf": "4h", "max_leverage": 5.0, "risk_pct": 0.75, "atr_mult_stop": 1.5, "time_stop_bars": 30},
+  "tf_status": {"4h": "ok", "1d": "ok", "1w": "ok"}
+}
+```
+
+- `side`: `long | short | none` (`none` en `action: none`; con posición = lado de la posición).
+- `phase`: `exhaustion | ignition | expansion | compression | contraction | building | unknown`.
+- `reasons`: códigos snake_case de la spec §d (entrada, no-entrada, `exit_stop_atr`, `exit_rule_jeisson` + `exit_bbwp_red_drop` + `exit_konkorde_cross_against`/`exit_ao_cross_against`, `exit_phase_lost`, `exit_time_stop`, `hold_*`).
+- `stop_price`: en `enter` es el stop inicial `close ∓ atr_mult_stop × atr14`; `exit_price`: precio de salida (stop, o apertura si hubo gap).
+- Errores: perfil o `position` desconocidos → 400 `{"error": ...}`.
 
 ---
 

@@ -19,6 +19,14 @@ async def get_metrics(
     exchange: str = Query(DEFAULT_EXCHANGE, description="Exchange a usar"),
     timeframe: str = Query("1h", description="Marco temporal"),
     limit: int = Query(500, description="Número de velas"),
+    impulse_profile: str | None = Query(
+        None,
+        description="Opt-in impulse engine v2 profile (scalper | snipper | pro | ancient); adds the `impulse` key",
+    ),
 ):
     controller = _get_controller(exchange)
+    if impulse_profile:
+        return controller.process_symbol(
+            symbol=symbol, timeframe=timeframe, limit=limit, impulse_profile=impulse_profile
+        )
     return controller.process_symbol(symbol=symbol, timeframe=timeframe, limit=limit)
