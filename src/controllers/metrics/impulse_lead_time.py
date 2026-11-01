@@ -306,16 +306,117 @@ def measure(
 
 
 def follower_window(p75_lag: Optional[float], lo: int, hi: int) -> Optional[int]:
-    """PROPOSAL (until the trading spec fixes it): clamp(ceil(p75(lag)), lo, hi)."""
+    """Spec §R2.b: W_f = clamp(ceil(p75(lag_f)), lo, hi)."""
     if p75_lag is None:
         return None
     return int(min(max(math.ceil(p75_lag), lo), hi))
 
 
 WINDOW_BOUNDS = {"4h": (2, 8), "1d": (2, 6)}
+WINDOW_DEFAULT = {"4h": 4, "1d": 3}
+WINDOW_MIN_PAIRS = 10
+
+# Spec §R2.b follower FAMILIES and the leader events that open an alert (the exit
+# leg `bbwp_red_turn` is not an entry leader).
+FAMILIES: Dict[str, Sequence[str]] = {
+    "ao": ("ao_zero_cross_up", "ao_zero_cross_down", "ao_turn_up", "ao_turn_down"),
+    "adx": ("adx_turn_up_long", "adx_turn_up_short"),
+    "macd": ("macd_cross_up", "macd_cross_down"),
+    "rsi": ("rsi_cross_50_up", "rsi_cross_50_down", "rsi_exit_oversold", "rsi_exit_overbought"),
+}
+ENTRY_LEADERS = ("konkorde_zero_cross_up", "konkorde_zero_cross_down", "konkorde_turn_up",
+                 "konkorde_turn_down", "bbwp_ignition")
+
+
+def family_windows(
+    df: pd.DataFrame,
+    in_block: np.ndarray,
+    timeframe: str,
+    p: LeadTimeParams = LeadTimeParams(),
+) -> Dict[str, Any]:
+    """Spec §R2.h lag per FAMILY and §R2.b window formula (IS fit).
+
+    For every move start m (side s): l(m) = EARLIEST entry-leader event bar
+    matched to m; f_bar = EARLIEST same-side event of family f matched to m;
+    lag_f(m) = f_bar - l(m) when both exist (negative allowed). Then
+    W_f = clamp(ceil(p75(lag_f)), lo, hi), or `window_default` with fewer than
+    `WINDOW_MIN_PAIRS` pairs. Also runs the pre-declared "leaders lead" test:
+    median lead of the entry leaders > median lead of EVERY follower family.
+    """
+    in_block = np.asarray(in_block, dtype=bool)
+    events = detect_events(df, p)
+    starts = movement_starts(df, p)
+    lo, hi = WINDOW_BOUNDS.get(timeframe, (2, 8))
+    default = WINDOW_DEFAULT.get(timeframe, 4)
+
+    leader_first: Dict[tuple, int] = {}
+    leader_leads: List[int] = []
+    for name in ENTRY_LEADERS:
+        spec = SPEC_BY_NAME[name]
+        for j in np.flatnonzero(events[name] & in_block):
+            m, s = _match(int(j), spec.side, starts, p)
+            if m is None:
+                continue
+            leader_leads.append(m - int(j))
+            key = (m, s)
+            leader_first[key] = min(leader_first.get(key, int(j)), int(j))
+
+    out: Dict[str, Any] = {"timeframe": timeframe, "bounds": [lo, hi], "default": default,
+                           "min_pairs": WINDOW_MIN_PAIRS, "moves_with_leader": len(leader_first),
+                           "leader_lead": _quantiles(leader_leads), "families": {}, "windows": {}}
+    follower_medians: Dict[str, Optional[float]] = {}
+    for fam, names in FAMILIES.items():
+        first: Dict[tuple, int] = {}
+        leads: List[int] = []
+        for name in names:
+            spec = SPEC_BY_NAME[name]
+            for j in np.flatnonzero(events[name] & in_block):
+                m, s = _match(int(j), spec.side, starts, p)
+                if m is None or s != spec.side:
+                    continue
+                leads.append(m - int(j))
+                key = (m, s)
+                first[key] = min(first.get(key, int(j)), int(j))
+        lags = [first[k] - leader_first[k] for k in first if k in leader_first]
+        q = _quantiles(lags)
+        fitted = len(lags) >= WINDOW_MIN_PAIRS
+        w = follower_window(q["p75"], lo, hi) if fitted else default
+        out["families"][fam] = {"n_pairs": len(lags), **q, "fitted": fitted, "window": w,
+                                "follower_first_pct": round(100 * sum(v < 0 for v in lags) / len(lags), 1) if lags else None,
+                                "lead": _quantiles(leads)}
+        out["windows"][fam] = w
+        follower_medians[fam] = _quantiles(leads)["median"]
+    leader_median = out["leader_lead"]["median"]
+    out["leaders_lead_test"] = {
+        "leader_median_lead": leader_median,
+        "follower_median_lead": follower_medians,
+        "supported": bool(leader_median is not None and all(
+            v is not None and leader_median > v for v in follower_medians.values())),
+    }
+    return out
+
+
+def konkorde_base_rates(df: pd.DataFrame, in_block: np.ndarray, alarm_min_crosses: int = 10) -> Dict[str, Any]:
+    """Spec §R2.a base-rate alarm: share of bars with verde > 0 and zero crosses per side."""
+    in_block = np.asarray(in_block, dtype=bool)
+    verde = _col(df, "konkorde_verde")
+    up = _cross_up(verde, 0.0).fillna(False).to_numpy(dtype=bool) & in_block
+    down = _cross_down(verde, 0.0).fillna(False).to_numpy(dtype=bool) & in_block
+    v = verde.to_numpy(dtype=float)[in_block]
+    v = v[np.isfinite(v)]
+    crosses = int(up.sum() + down.sum())
+    return {
+        "bars": int(len(v)),
+        "verde_positive_pct": round(100.0 * float((v > 0).mean()), 1) if len(v) else None,
+        "zero_cross_up": int(up.sum()),
+        "zero_cross_down": int(down.sum()),
+        "zero_crosses": crosses,
+        "konkorde_line_alarm": crosses < alarm_min_crosses,
+    }
 
 
 __all__: Sequence[str] = (
-    "LeadTimeParams", "EventSpec", "EVENT_SPECS", "detect_events", "movement_starts",
-    "nearest_start", "measure", "follower_window", "WINDOW_BOUNDS",
+    "LeadTimeParams", "EventSpec", "EVENT_SPECS", "FAMILIES", "ENTRY_LEADERS", "detect_events",
+    "movement_starts", "nearest_start", "measure", "follower_window", "family_windows",
+    "konkorde_base_rates", "WINDOW_BOUNDS", "WINDOW_DEFAULT", "WINDOW_MIN_PAIRS",
 )

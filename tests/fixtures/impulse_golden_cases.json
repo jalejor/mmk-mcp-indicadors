@@ -1,7 +1,9 @@
 {
-  "rule_version": "impulse-2.0.0",
+  "rule_version": "impulse-2.1.0",
   "spec": "docs/impulsos-v2.md",
+  "vote_cases_konkorde_line": "edge",
   "notes": [
+    "2.1.0 (round 2): these 14 cases are the model='vote' REGRESSION block (spec §R2.i); they keep the round-1 zero line edge = marron - media, declared in vote_cases_konkorde_line. Sequential goldens S01-S11: tests/test_impulse_sequential.py.",
     "Each trigger array is CLOSED candles, oldest -> newest; the LAST element is the candle under evaluation.",
     "Columns are engine inputs as-is (the engine does not recompute indicators from OHLC in these goldens).",
     "edge = konkorde_marron - konkorde_media. Konkorde is ignored on low_tf profiles (scalper, snipper).",

@@ -27,11 +27,15 @@ import pandas as pd  # noqa: E402
 from controllers.metrics.impulse_backtest import ohlcv_sha256, rows_to_frame  # noqa: E402
 from controllers.metrics.impulse_lead_time import (  # noqa: E402
     EVENT_SPECS,
+    FAMILIES,
     WINDOW_BOUNDS,
     LeadTimeParams,
+    family_windows,
     follower_window,
+    konkorde_base_rates,
     measure,
 )
+from controllers.metrics.ml_rsi import MlRsiParams, ml_rsi_frame  # noqa: E402
 from controllers.metrics.indicators_service import IndicatorsService  # noqa: E402
 
 BLOCKS = {"is": ("2024-11-01", "2026-01-01"), "oos": ("2026-01-01", "2026-11-01")}
@@ -104,7 +108,7 @@ def lag_table(tf: str, res: Dict[str, Dict[str, Any]]) -> List[str]:
         f"### {tf} — lag follower - leader (candles) for pairs preceding the SAME move",
         "",
         "Negative = the follower fired first. `W proposal` = clamp(ceil(IS pooled p75), "
-        f"{lo}, {hi}) — **PROPOSAL, pending the trading spec**.",
+        f"{lo}, {hi}) per LEADER EVENT — informational; the engine windows are the per-FAMILY table above (§R2.b).",
         "",
         "| leader | follower | IS pairs | IS median | IS p75 | IS follower first % | OOS pairs | OOS median | OOS p75 |",
         "|---|---|---|---|---|---|---|---|---|",
@@ -124,6 +128,64 @@ def lag_table(tf: str, res: Dict[str, Dict[str, Any]]) -> List[str]:
             f"{_f(pooled['p75'])} | | {opooled['n_pairs']} | {_f(opooled['median'])} | {_f(opooled['p75'])} |"
         )
     return out
+
+
+def family_table(tf: str, fw: Dict[str, Dict[str, Any]]) -> List[str]:
+    """Spec §R2.b windows per FAMILY (IS fit) + §R2.a base rates + 'leaders lead' test."""
+    is_, oos = fw["is"], fw["oos"]
+    lo, hi = is_["bounds"]
+    out = [
+        f"### {tf} — follower windows per FAMILY (spec §R2.b: W_f = clamp(ceil(p75(lag_f)), {lo}, {hi}); "
+        f"default {is_['default']} if < {is_['min_pairs']} IS pairs) — **FITTED ON IS, FROZEN**",
+        "",
+        "lag_f(m) = first same-side event of family f - EARLIEST entry leader (Konkorde zero cross / turn, "
+        "bbwp_ignition) matched to the same move m.",
+        "",
+        "| family | IS pairs | IS median lag | IS p25 | IS p75 | IS follower first % | **W_f** | fitted | OOS pairs | OOS median | OOS p75 |",
+        "|---|---|---|---|---|---|---|---|---|---|---|",
+    ]
+    for fam in FAMILIES:
+        a, b = is_["families"][fam], oos["families"][fam]
+        out.append(
+            f"| `{fam}` | {a['n_pairs']} | {_f(a['median'])} | {_f(a['p25'])} | {_f(a['p75'])} | "
+            f"{_f(a['follower_first_pct'])} | **{a['window']}** | {'yes' if a['fitted'] else 'no (default)'} | "
+            f"{b['n_pairs']} | {_f(b['median'])} | {_f(b['p75'])} |"
+        )
+    t = is_["leaders_lead_test"]
+    fm = ", ".join(f"{k} {_f(v)}" for k, v in t["follower_median_lead"].items())
+    out += [
+        "",
+        f"`alert_ttl_bars = max(W_f) = {max(is_['windows'].values())}`. Moves with an entry leader (IS): "
+        f"{is_['moves_with_leader']}.",
+        "",
+        f"**Pre-declared test 'leaders lead' (IS {tf})**: leader median lead {_f(t['leader_median_lead'])} vs "
+        f"follower family medians {fm} -> **{'SUPPORTED' if t['supported'] else 'NOT SUPPORTED'}** "
+        "(the machine runs unchanged either way).",
+        "",
+    ]
+    br_is, br_oos = fw["base_rates"]["is"], fw["base_rates"]["oos"]
+    out += [
+        f"**Konkorde base rates (§R2.a)**: IS verde > 0 on {br_is['verde_positive_pct']}% of bars, zero crosses "
+        f"{br_is['zero_cross_up']} up / {br_is['zero_cross_down']} down"
+        f"{' — ⚠️ konkorde_line_alarm (< 10 crosses)' if br_is['konkorde_line_alarm'] else ''}; "
+        f"OOS {br_oos['verde_positive_pct']}%, {br_oos['zero_cross_up']} up / {br_oos['zero_cross_down']} down.",
+        "",
+        f"**ML RSI regime (informational)**: IS transitions {fw['mlrsi']['is']['transitions']} "
+        f"(green {fw['mlrsi']['is']['green_pct']}% / gray {fw['mlrsi']['is']['gray_pct']}% / red {fw['mlrsi']['is']['red_pct']}%); "
+        f"OOS transitions {fw['mlrsi']['oos']['transitions']} "
+        f"(green {fw['mlrsi']['oos']['green_pct']}% / gray {fw['mlrsi']['oos']['gray_pct']}% / red {fw['mlrsi']['oos']['red_pct']}%).",
+        "",
+    ]
+    return out
+
+
+def mlrsi_summary(df: pd.DataFrame, mask) -> Dict[str, Any]:
+    reg = ml_rsi_frame(df["close"], MlRsiParams())["ml_rsi_regime"][mask].tolist()
+    known = [r for r in reg if r is not None]
+    n = len(known) or 1
+    transitions = sum(1 for a, b in zip(known, known[1:]) if a != b)
+    return {"bars": len(known), "transitions": transitions,
+            **{f"{c}_pct": round(100.0 * known.count(c) / n, 1) for c in ("green", "gray", "red")}}
 
 
 def main() -> int:
@@ -186,10 +248,21 @@ def main() -> int:
             path = out_dir / f"lead_time_{tf}_{block}.json"
             path.write_text(json.dumps(r, indent=2))
             print(f"[out] {path}", flush=True)
+        fw: Dict[str, Any] = {"base_rates": {}, "mlrsi": {}}
+        for block, (a, b) in BLOCKS.items():
+            mask = ((df.index >= pd.Timestamp(a, tz="UTC")) & (df.index < pd.Timestamp(b, tz="UTC")))
+            fw[block] = family_windows(df, mask, tf, p)
+            fw["base_rates"][block] = konkorde_base_rates(df, mask)
+            fw["mlrsi"][block] = mlrsi_summary(df, mask)
+        fw["data"] = manifest[tf]
+        path = out_dir / f"lead_time_windows_{tf}.json"
+        path.write_text(json.dumps(fw, indent=2, default=str))
+        print(f"[out] {path}", flush=True)
+        print(f"[windows] {tf}: {fw['is']['windows']} leaders_lead={fw['is']['leaders_lead_test']['supported']}", flush=True)
         md += [f"## {tf}", "",
                f"Bars IS {res['is']['bars']} / OOS {res['oos']['bars']}; move starts IS "
                f"{res['is']['move_starts']} / OOS {res['oos']['move_starts']}.", ""]
-        md += event_table(tf, res) + [""] + reading(tf, res) + [""] + lag_table(tf, res) + [""]
+        md += family_table(tf, fw) + event_table(tf, res) + [""] + reading(tf, res) + [""] + lag_table(tf, res) + [""]
     md += ["## Data", "", "```json", json.dumps(manifest, indent=2), "```", ""]
     Path(args.md_out).write_text("\n".join(md))
     print(f"[out] {args.md_out}")

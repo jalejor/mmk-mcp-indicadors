@@ -2,11 +2,20 @@
 
 | | |
 |---|---|
-| **rule_version** | `impulse-2.0.0` |
-| **Status** | Spec for `backend`. NOT active. Paper-first gates in §h. |
+| **rule_version** | `impulse-2.0.0` (round 1, sections a-h) -> **`impulse-2.1.0`** (round 2, section "Round 2" at the end) |
+| **Status** | Spec for `backend`. NOT active. Paper-first gates in §h / §R2.k. |
 | **Author / date** | trading analyst, 2026-11-01 (branch `impulsos-v2`, after Konkorde audit `406b69c`) |
 | **Goldens** | `tests/fixtures/impulse_golden_cases.json` (14 cases) |
 | **Scope** | NEW additive engine. `rules_service.py` (legacy vote engine) and its watcher output stay untouched. |
+
+> **SUPERSEDED where they conflict (2026-11-01).** Round 1 (sections a-h,
+> `impulse-2.0.0`) is kept as the record of what was tested and refuted.
+> Round 2 (`impulse-2.1.0`, last section) replaces: the Konkorde line
+> (`edge` -> `verde`), the side vote of §c (-> sequential leader/follower
+> machine), the single-entry sizing and exit chain of §d/§f (-> PRO re-buys,
+> wide invalidation, no 1.5 ATR stop, no 30-bar time stop) and the profile
+> scope (PRO 4h + PRO read on 1d). §b phases, §e alignment rules and §g
+> costs/split are reused unchanged unless Round 2 says otherwise.
 
 Owner (Jeisson) does not hold longs: he trades **impulses in both directions**.
 The legacy engine (sign vote, entry = buy, exit = leave the long) cannot short and
@@ -65,6 +74,10 @@ before computing anything.
 
 ### Konkorde line choice (decision)
 
+> **SUPERSEDED in `impulse-2.1.0`**: the owner validated against TradingView
+> Konkorde 2.0 that the line that crosses 0 is `konkorde_verde` (yellow
+> area). See §R2.a. The text below is the round-1 record.
+
 `edge = konkorde_marron - konkorde_media` is THE Konkorde line of this engine,
 for both side and exit. **Why**: it is Blai5's own signal (marron/media
 cross), it is centred on zero on every TF (marron itself sits ~+55 and the
@@ -103,6 +116,9 @@ Definitions:
 
 ## c. Side rule
 
+> **SUPERSEDED in `impulse-2.1.0`** by the sequential machine (§R2.b): the
+> owner's strategy is not a vote. Kept as the `model="vote"` regression path.
+
 Four votes `v in {-1, 0, +1}` on the trigger TF, closed bar `-1`:
 
 | Element | Weight | +1 (long) | -1 (short) | Band |
@@ -133,6 +149,9 @@ No weighted tie-breaking, no "best guess": if no clear side -> no entry.
 ---
 
 ## d. Entry, exit and confidence
+
+> **SUPERSEDED in `impulse-2.1.0`** for the sequential model: entry §R2.b,
+> re-buys §R2.c, exit chain §R2.d (no `exit_stop_atr`, time stop >= 60 bars).
 
 ### Entry (position flat)
 
@@ -368,3 +387,325 @@ Buy-and-hold over the window: +11.6%.
 2. La estrategia NO es votacion: los indicadores son CONFIRMACION de entrada o salida. Algunos ADELANTAN a los otros: **Konkorde y BBWP son los lideres** (avisan primero); AO, ADX, MACD, RSI confirman despues. Modelo: aviso temprano (lideres) -> confirmacion (seguidores) -> accion.
 3. Konkorde validada contra TradingView (Konkorde 2.0, diario 01-nov): el AREA AMARILLA que cruza 0 = `konkorde_verde` de mmk (no marron-media; la marron es 0-100). Linea verde de TV = `konkorde_media`. BBWP diario cuadra (TV 59,77 vs mmk 57).
 4. (2026-11-01) Agregar **ML RSI [BackQuant]** como SEGUIDOR/filtro de regimen: RSI 19 close, ALMA(4, sigma 1), umbrales adaptativos por k-means 1D sobre RSI (rango 10-90 paso 5, memory 10, max 3000 puntos). Rojo (< umbral bajo) = solo cortos; verde (> umbral alto) = solo largos; gris = no operar. Ref TV diario 01-nov: valor 40,07, umbrales 59,74 / 44,30 (rojo). Implementar SIN lookahead (umbrales calculados solo con velas pasadas) y medir repintado vs version full-history.
+
+---
+
+## Round 2 — `impulse-2.1.0` (sequential model, PRO re-buys)
+
+| | |
+|---|---|
+| **rule_version** | `impulse-2.1.0` (`model: "sequential"`) |
+| **Status** | Spec for `backend`. NOT active. Backtest pre-registered in `docs/PREREG_IMPULSOS_v2_r2.md` (frozen 2026-11-01). |
+| **Goldens** | `tests/fixtures/impulse_golden_cases.json`: `cases` (14, round-1 vote model ported to `verde`, regression) + `cases_sequential` (11, this section) |
+| **Binding input** | "Decisiones del owner (2026-11-01)" above. Where this section and those decisions disagree, the decisions win and this section has a bug. |
+
+Notation as round 1: every index is a CLOSED trigger candle; `j` = candle
+under evaluation; `x[j-1]` the previous closed one. Forming candle dropped
+before anything is computed (§0.1). Context alignment as §e.
+
+### R2.a Konkorde line (correction) and what happens to `edge`
+
+* The Konkorde line of 2.1.0 is **`konkorde_verde`** (`verde = marron + oscp`,
+  `koncorde.py`), the yellow area of TV Konkorde 2.0 (owner decision 3).
+  `konkorde_media` (TV green line) is its reference for the TURN.
+  `konkorde_marron` is 0-100 and never crosses 0: it is not a trigger.
+* `konkorde_line` param values: `"verde"` (default 2.1.0), `"edge"`
+  (`marron - media`, round-1 line, kept only to reproduce round 1, never the
+  default), `"azul"`, `"oscp"` (informational). Every place round 1 used
+  `edge` (side vote, context score, against-cross, phase_lost) now reads the
+  configured line; reason codes renamed `konkorde_edge_*` -> **`konkorde_verde_*`**.
+* **Base-rate alarm (risk flagged, not a tweak):** `verde = marron + oscp`
+  with `marron` around +50 means `verde < 0` needs `oscp` below about -50.
+  If `verde` is positive most of the time, short-side zero crosses and the
+  long exit leg are rare, and the model becomes asymmetric. Backend reports
+  in the lead-time study the fraction of IS bars with `verde > 0` and the
+  count of zero crosses per side and TF. If 4h IS has `< 10` zero crosses
+  (both sides together) the result is flagged `konkorde_line_alarm` to the
+  owner. Nothing is changed in this run because of it.
+
+### R2.b Sequential state machine (replaces the §c vote)
+
+Leaders warn, followers confirm, then act. One machine per
+symbol x profile x trigger TF; states `FLAT -> ALERT -> IN_POSITION -> FLAT`.
+
+**Events on candle `j`** (all strict/loose signs exactly as written; NaN in
+any operand = no event):
+
+| Event | Kind | Side | Definition |
+|---|---|---|---|
+| `konkorde_zero_cross_up` / `_down` | leader | +1 / -1 | `verde[j-1] <= 0 < verde[j]` / `verde[j-1] >= 0 > verde[j]` |
+| `konkorde_turn_up` / `_down` | leader | +1 / -1 | `verde[j-1] <= media[j-1] AND verde[j] > media[j]` / `verde[j-1] >= media[j-1] AND verde[j] < media[j]` |
+| `bbwp_ignition` | leader | none | `bbwp[j-1] <= 50 < bbwp[j]` AND `min(bbwp[j-9..j]) <= 30` (bars available, `j` included) |
+| `bbwp_red_turn` | exit leg | none | `bbwp[j-1] >= 90` AND `bbwp[j-1] - bbwp[j] >= 8` (= round-1 `red_drop`) |
+| `ao_zero_cross_up` / `_down` | follower `ao` | +1 / -1 | `ao[j-1] <= 0 < ao[j]` / `ao[j-1] >= 0 > ao[j]` |
+| `ao_turn_up` / `_down` | follower `ao` | +1 / -1 | `ao[j]-ao[j-1] > 0 AND ao[j-1]-ao[j-2] <= 0` / `ao[j]-ao[j-1] < 0 AND ao[j-1]-ao[j-2] >= 0` |
+| `adx_turn_up` | follower `adx` | `sign(plus_di[j]-minus_di[j])` (0 = no event) | E1 `adx_turn_up` condition (defaults 3/5/1.0/1.5/10) TRUE at `j` and FALSE at `j-1` (rising edge, one event per turn) |
+| `macd_cross_up` / `_down` | follower `macd` | +1 / -1 | `macd[j-1] <= macd_signal[j-1] AND macd[j] > macd_signal[j]` / mirror (`>=`, `<`) |
+| `rsi_cross_50_up` / `_down` | follower `rsi` | +1 / -1 | `rsi14[j-1] <= 50 < rsi14[j]` / `rsi14[j-1] >= 50 > rsi14[j]` |
+| `rsi_exit_oversold` / `rsi_exit_overbought` | follower `rsi` | +1 / -1 | `rsi14[j-1] < 30 <= rsi14[j]` / `rsi14[j-1] > 70 >= rsi14[j]` |
+
+Follower FAMILIES are `ao, adx, macd, rsi` (4). Confirmation counts
+distinct families, not events. Within a window, a family's vote is the side
+of its LATEST event (an AO turn up followed by an AO zero cross down = AO
+votes short). A follower event confirms at most one alert.
+
+**FLAT.** On a leader event at `j` (and `j` is not the exit candle of the
+previous position: no same-candle flip) -> `ALERT` with `a = j`.
+`alert_side` = the Konkorde leader's side; if the only leader on `j` is
+`bbwp_ignition`, `alert_side` is undecided until the first candle `>= a`
+whose directional follower events are unanimous; that follower's family is
+the first confirmation (reason `side_from_follower`). Konkorde and
+`bbwp_ignition` on the same candle: side from Konkorde. Action `alert`.
+
+**ALERT** (candle `j`, `a <= j <= a + alert_ttl_bars`):
+
+* `confirm(f)` = side of family `f`'s latest event in `[a, min(j, a + W_f)]`.
+  A confirmation outside its own window `W_f` does not count.
+* `n_same` = families with `confirm == alert_side`; `n_opp` = families
+  with `confirm == -alert_side`.
+* **ENTER** at `j` iff ALL: `n_same >= n_confirm` (= 2); `50 < bbwp[j] < 90`
+  (owner's >50 regime filter; below 90 = not late); guardian bias
+  `!= -alert_side` (§e with `verde`); H2 only: ML RSI regime agrees (§R2.e2).
+  Fill `close[j]`, layer 1 per §R2.c. Action `enter`.
+* Confirmed but a gate fails -> stay ALERT, action `alert`, reason
+  `entry_wait_bbwp_regime` (bbwp <= 50), `entry_blocked_exhaustion` (>= 90),
+  `context_against`, `mlrsi_gate_gray` / `mlrsi_gate_against`.
+* `n_opp >= n_confirm` -> cancel (`alert_cancelled_contrary`) -> FLAT.
+* Opposite Konkorde leader at `j` -> replace: new alert, `a = j`, side
+  flipped, confirmations reset (`alert_replaced_opposite_leader`). A
+  same-side leader or a new `bbwp_ignition` does NOT reset `a`.
+* First candle with `j > a + alert_ttl_bars` and no ENTER -> FLAT, reason
+  `alert_expired`; that candle is then evaluated as FLAT (it may open a new
+  alert if it carries a leader event). `alert_ttl_bars = max_f W_f`.
+
+**IN_POSITION**: exits §R2.d first; if none fires, re-buys §R2.c; leaders do
+not open alerts. After an exit -> FLAT; leaders count from `exit_bar + 1`.
+
+**Why `n_confirm = 2` (4h and 1d).** 1 confirmation is noise-level: AO turns
+and MACD crosses fire every few 4h candles, so "leader + any follower" is
+almost "leader alone". 3 of 4 would in practice demand three momentum
+oscillators that are mostly the same signal (AO, MACD and RSI are all
+derivatives of price momentum) or the rare ADX turn, and with `W <= 8`
+candles it pushes the entry deep into the impulse; round 1 already showed
+the 4h edge decays fast after ignition. 2 = the minimum independent
+corroboration. Fixed a priori; not fitted.
+
+**Windows by pre-registered formula (the only IS-fitted parameters).**
+`W_f = clamp(ceil(p75(lag_f)), 2, 8)` candles on 4h; `clamp(..., 2, 6)` on
+1d. `lag_f` per §R2.h. If family `f` has fewer than `window_min_pairs = 10`
+lag pairs in IS, `W_f = window_default` (4 on 4h, 3 on 1d). Values are
+written to the rule doc and the result JSON BEFORE the backtest runs.
+Goldens use the fixed `W_f = 4` for every family (golden params).
+
+**Guardian (context).** As §e, with `verde` in place of `edge`:
+`ctx_score = 3*sign(verde) + 2*sign(plus_di - minus_di) + 2*sign(ao) + 1*sign(macd - macd_signal)`;
+bias `+1` if `>= 3`, `-1` if `<= -3`, else 0. PRO 4h: guardian 1d, 1w only
+informational. PRO-1d: guardian 1w, 1M informational (NaN on bitget, §e).
+The guardian blocks ENTER and re-buys; it never forces an exit. (Because of
+R2.a, `sign(verde)` is +1 most of the time: a 1d guardian will rarely be
+bearish; expected, reported, not fixed.)
+
+### R2.c Re-buys (layers) for PRO — 1300 USDT, 5x cross
+
+Linear USDT perp. Layer `i`: fill price `P_i`, notional `N_i` (USDT at
+fill), `qty_i = N_i / P_i`. Side `s = +1/-1`.
+
+* `avg_entry = sum(N_i) / sum(qty_i)` (qty-weighted); `total_notional = sum(N_i)`;
+  `exposure_x = sum(qty_i) * close / equity`;
+  `unrealized = sum(qty_i * (close - P_i)) * s` (gross);
+  `open_risk = sum(qty_i * |P_i - inv|)` = loss if closed at the invalidation.
+* `equity` = realized wallet (starts 1300, compounds with realized net PnL).
+  Every cap of a trade uses `E0` = equity at the ENTER candle.
+* **Layer 1 (ENTER):** risk `layer1_risk_pct = 2.0%` of `E0` to the
+  invalidation: `N_1 = min(0.02 * E0 * P_1 / |P_1 - inv|, 1.5 * E0)`.
+  `1R_usdt = qty_1 * |P_1 - inv|` (= 26.00 USDT at E0 = 1300 when the cap
+  does not bind). Margin used `N/5`.
+* **Layer k+1 (`add_layer`)**, candidate only if a NEW follower event of
+  the position side exists on candle `j` (after the last layer candle) and
+  no follower event against it on `j`. Then, in order, first failure emits
+  its reason and the action is `hold`:
+  1. layers `< max_layers = 3` -> `add_rejected_max_layers`;
+  2. candles since last layer `>= layer_min_gap_bars = 3` -> `add_rejected_min_gap`;
+  3. `unrealized > 0` at `close[j]` -> `add_rejected_not_in_profit`;
+  4. phase(j) in {`ignition`, `expansion`} (§b) -> `add_rejected_phase`;
+  5. guardian bias `!= -s` -> `add_rejected_context`;
+  6. `N_{k+1} = layer_add_scale * N_1 = 0.5 * N_1`; `open_risk` after the add
+     `<= max_open_risk_pct = 6.0%` of `E0` -> `add_rejected_risk_cap`;
+  7. `total_notional` after the add `<= max_exposure_x = 3.0` x `E0` -> `add_rejected_exposure_cap`;
+  8. H2 only: ML RSI regime == `s` -> `add_rejected_mlrsi`.
+  Fill `close[j]`; reasons `add_layer_follower_confirm` + the event code.
+* The invalidation price does NOT move when layers are added.
+* **Liquidation guard (cross, approximate).** Liquidation when
+  `equity + unrealized(worst) <= mmr * sum(qty_i) * worst`, `mmr = 0.005`,
+  `worst` = candle low (long) / high (short). Guarantee: losing everything
+  open at the invalidation costs `<= 6% E0`, while liquidation needs a loss
+  of `>= E0 - 0.005 * 3 * E0 = 98.5% E0`, i.e. an adverse move of `>= 32.8%`
+  from `avg_entry` at the maximum notional (3 x E0) — always `> 16x` the
+  distance to the invalidation. Backtest checks liquidation INTRABAR on every
+  candle; any liquidation fails H1 regardless of R (it means a gap of >30%
+  or a bug).
+* Worked example (golden S02/S05): E0 1300, `P_1 = 61300`, inv `59200` ->
+  `N_1 = 758.95`, `1R = 26.00`; add at `63000`: `N_2 = 379.48`,
+  `avg_entry = 61856.38`, `open_risk = 48.89` (3.76% E0), exposure 0.89x.
+
+### R2.d Exit chain (first match wins, on the closed candle; all layers exit together)
+
+| # | Code | Rule | Fill |
+|---|---|---|---|
+| 0 | `exit_liquidation` (backtest only; must never happen) | §R2.c guard, intrabar | liquidation price |
+| 1 | `exit_rule_jeisson` + `exit_bbwp_red_turn` + `exit_konkorde_zero_cross_against` | a `bbwp_red_turn` and a `konkorde_zero_cross` AGAINST the position (`_down` for long, `_up` for short), both in `[j-2, j]`, at least one on `j`, order free (round-1 window semantics) | `close[j]` |
+| 2 | `exit_invalidation` | long: `close[j] <= inv`; short: `close[j] >= inv` (CLOSE, not wick) | `close[j]` |
+| 3 | `exit_phase_lost` | `bbwp[j] <= 50` AND `verde` on the wrong side of 0 (long `verde[j] < 0`; short `verde[j] > 0`). If `bbwp <= 50` but `verde` still on the position's side: no exit, reason `phase_lost_suppressed_verde_favor` | `close[j]` |
+| 4 | `exit_time_stop` | `bars_held >= 60` AND `unrealized / 1R_usdt < +0.5` | `close[j]` |
+
+**Invalidation (set at ENTER, fixed for the trade):**
+* `range_level` = long: `min(low[a-9 .. e])`; short: `max(high[a-9 .. e])`
+  (`a` = alert candle, `e` = entry candle; bars available). For a
+  `bbwp_ignition` alert this is the compression range; for a Konkorde alert
+  it is the setup range before the warning.
+* `atr_level` = `close[e] -/+ 3.0 * atr14[e]` (`invalidation_atr_mult = 3.0`).
+* `inv` = the WIDER of the two (long: the lower; short: the higher). Reason
+  `invalidation_range` or `invalidation_atr`. Width never limits the loss
+  in USDT: layer 1 is sized to 2% `E0` at any width and all layers together
+  to <= 6% `E0` (`max_open_risk_pct`); this is the "never more than X% of
+  equity", **X = 6%**.
+* No 1.5 ATR stop, no 30-candle time stop (`atr_mult_stop = null`).
+
+### R2.e PRO read on 1d (owner reads 4h and 1d)
+
+Same machine and parameters on trigger 1d (`profile = "pro_1d"`, guardian
+1w, informational 1M): windows clamp 2..6 (default 3), `time_stop_bars = 60`
+(daily candles), same sizing/caps. It is a separate book (separate cells),
+not a filter of the 4h book. The 4h result JSON also carries, per 4h ENTER,
+the 1d machine state at that moment (informational, never a gate in 2.1.0).
+
+### R2.e2 ML RSI [BackQuant] — owner decision 4 (variant H2)
+
+* Column `mlrsi` = ALMA(window 4, sigma 1, offset 0.85) of RSI(close, 19);
+  thresholds `mlrsi_upper` / `mlrsi_lower` from 1-D k-means over past
+  `mlrsi` values with the owner's TV settings (threshold range 10-90 step 5,
+  memory 10, max 3000 points). Backend ports BackQuant's public Pine logic
+  (read-only, supply-chain rule) and computes thresholds ONLY from candles
+  `< j` (no lookahead); repaint vs the full-history version is measured and
+  reported.
+* Regime: `green` iff `mlrsi > mlrsi_upper` (longs only), `red` iff
+  `mlrsi < mlrsi_lower` (shorts only), `gray` otherwise (no ENTER, no
+  re-buy). It never forces an exit.
+* Parity gate (test `test_mlrsi_tv_parity`): 1d BTC/USDT closed candle
+  2026-10-31 must give `mlrsi` 40.07, upper 59.74, lower 44.30 each within
+  +/- 2.0 pts (owner's TV reading, 01-nov). If parity fails, H2 is reported
+  `NOT RUN — mlrsi parity failed` and nothing else changes.
+* H1 = machine without the gate; H2 = H1 + gate. Both pre-registered.
+
+### R2.f Parameters (rule doc `impulse-2.1.0`, copy as-is)
+
+| Field | Value | Note |
+|---|---|---|
+| `rule_version` | `"impulse-2.1.0"` | |
+| `model` | `"sequential"` | `"vote"` = round-1 path (regression goldens only) |
+| `konkorde_line` | `"verde"` | `"edge"` allowed, never default |
+| `bbwp_definition` | `"tv"` | |
+| `bbwp_compression_max` / `compression_lookback` | 30 / 10 | ignition |
+| `bbwp_expansion_min` | 50 | ignition cross (strict) and entry floor (strict) |
+| `bbwp_red_zone` / `bbwp_exit_drop_pts` | 90 / 8 | red turn; entry ceiling `< 90` |
+| `follower_families` | `["ao","adx","macd","rsi"]` | |
+| `rsi_mid` / `rsi_oversold` / `rsi_overbought` | 50 / 30 / 70 | column `rsi14` |
+| `adx_turn_*` | 3 / 5 / 1.0 / 1.5 / 10.0 | E1 defaults |
+| `n_confirm` | 2 | distinct families |
+| `confirm_window_bars` | fitted per §R2.b formula, per family | goldens: 4 each |
+| `window_min` / `window_max` | 2 / 8 (4h), 2 / 6 (1d) | |
+| `window_default` / `window_min_pairs` | 4 (4h), 3 (1d) / 10 | |
+| `alert_ttl_bars` | `max(confirm_window_bars)` | |
+| `ctx_weights` / `ctx_bias_threshold` | verde 3, di 2, ao 2, macd 1 / 3 | |
+| `equity_usdt` / `leverage` / `margin_mode` | 1300 / 5 / `"cross"` | |
+| `layer1_risk_pct` / `layer1_max_exposure_x` | 2.0 / 1.5 | |
+| `layer_add_scale` / `max_layers` / `layer_min_gap_bars` | 0.5 / 3 / 3 | |
+| `max_open_risk_pct` / `max_exposure_x` | 6.0 / 3.0 | X of "never more than X% equity" |
+| `maintenance_margin_rate` | 0.005 | liquidation guard |
+| `invalidation_atr_mult` / `invalidation_range_back` / `invalidation_on` | 3.0 / 9 (`a-9`) / `"close"` | |
+| `atr_mult_stop` | `null` | no ATR stop |
+| `exit_window_candles` | 3 | Jeisson |
+| `phase_lost_level` / `phase_lost_requires_verde_against` | 50 / true | |
+| `time_stop_bars` / `time_stop_min_r` | 60 / 0.5 | |
+| `move_horizon_bars` / `move_atr_mult` / `lead_min_bars` / `lead_max_bars` | 10 / 2.0 / -2 / 12 | §R2.h |
+| `mlrsi_rsi_period` / `mlrsi_alma_window` / `mlrsi_alma_sigma` / `mlrsi_alma_offset` | 19 / 4 / 1.0 / 0.85 | H2 |
+| `mlrsi_range_min` / `mlrsi_range_max` / `mlrsi_range_step` / `mlrsi_memory` / `mlrsi_max_points` | 10 / 90 / 5 / 10 / 3000 | H2 |
+
+Decision output adds to round 1's: `state` (`flat|alert|in_position`),
+`action` in `none|alert|enter|hold|add_layer|exit`, `alert_side`,
+`alert_age`, `confirmations` (family -> event, bar), `layers`
+(`[{price, notional_usdt, qty, bar}]`), `avg_entry`, `total_notional_usdt`,
+`open_risk_usdt`, `exposure_x`, `invalidation_price`, `invalidation_source`,
+`one_r_usdt`, `liquidation_price` (null when unreachable), `mlrsi_regime`.
+
+### R2.g The owner's open short (October 2026) — what the run must report
+
+Reference: owner short at ~82450 in October 2026 (1d closes near it:
+2026-10-09 82621, 2026-10-15 82232); last close in the window 2026-10-31
+77551.91 (1d).
+
+1. Locate the 4h closed candle with close nearest 82450 between
+   2026-10-08 00:00 and 2026-10-16 00:00 UTC (tie -> earliest); report its
+   time and close (`owner_bar`).
+2. Machine state at `owner_bar` on 4h and at the 1d candle closed at or
+   before it: state, alert side and age, confirmations by family, phase,
+   bbwp, verde, media, guardian bias, ML RSI regime (H2).
+3. Model's own short: first `enter short` between 2026-09-15 and
+   2026-10-31 (H1 and H2, 4h and 1d): candle, price, invalidation and
+   source, layers added (candle, price, notional) and rejections with
+   reason, exit if fired (candle, code). If the model was in a long or FLAT
+   throughout, say so and why (last reason codes).
+4. Anchored replay: force layer 1 short at `owner_bar` close with the §R2.c
+   sizing and the §R2.d invalidation (`a = e = owner_bar`), then run the
+   real re-buy and exit rules to 2026-10-31 close. Report: did any exit fire
+   (code, candle) and, if still open at 77551.91, unrealized PnL gross and
+   net (fees, slippage, funding to date) in USDT and in R
+   (`(82450 - 77551.91) / 82450 = 5.94%` move on layer 1 before costs).
+5. Informational only: it is ONE trade; it validates nothing.
+
+### R2.h Lead-time study (before the backtest, IS only, 4h and 1d)
+
+Data: IS 2024-11-01 -> 2025-12-31, BTC/USDT bitget, closed candles.
+
+* Move start up at `m`: `max(close[m+1 .. m+10]) - close[m] >= 2.0 * atr14[m]`
+  and no other move start up in `[m-10, m-1]` (dedupe). Mirror down with
+  `close[m] - min(close[m+1..m+10])`. H = 10, K = 2.0 (unchanged from the
+  contract).
+* Lead of directional event at `j` = `m - j` for the nearest same-side move
+  start with `-2 <= m - j <= 12`; else `miss`. `bbwp_ignition` (no side)
+  matches the nearest move start of either side.
+* Leader of a move `m`: `l(m)` = EARLIEST leader event matched to `m`.
+  Follower of family `f` for `m`: EARLIEST same-side event of `f` matched to
+  `m`. `lag_f(m) = f_bar - l(m)` when both exist (negative allowed).
+* Report per event and per family: n events, hit rate (matched / n), median
+  and p25/p75 lead, and per family n pairs, median, p25/p75 of `lag_f`, the
+  resulting `W_f`; base rates of R2.a; ML RSI regime transitions
+  (informational).
+* Pre-declared test of the owner's ordering ("leaders lead"): supported iff
+  the median lead of the leader events is greater than the median lead of
+  every follower family on 4h. Not supported -> reported as such; the
+  machine runs unchanged.
+
+### R2.i Goldens
+
+`cases_sequential` S01-S11 (golden params block `params_sequential`): alert
+without confirmation, enter long (Konkorde leader), enter short
+(`bbwp_ignition` leader, side from follower, range invalidation),
+confirmation outside window (expired), valid re-buy, re-buy rejected (max
+layers), re-buy rejected (not in profit), full Jeisson exit with 2 layers,
+wide invalidation exit (short), `phase_lost` suppressed by `verde`, ML RSI
+gray gate (H2). Every expected value is derived in its `why` from the rule,
+not from code. The 14 round-1 `cases` are now `model="vote"` regression with
+`konkorde_verde` carrying the old edge values.
+
+### R2.k What is missing to activate it
+
+1. `backend`: rule doc `impulse-2.1.0` (§R2.f), sequential machine, layers,
+   exit chain, ML RSI (H2) with parity test; all goldens green (both blocks);
+   no golden edited to make code pass.
+2. Lead-time study (§R2.h) committed with the fitted windows BEFORE the
+   backtest; then the backtest per `PREREG_IMPULSOS_v2_r2.md`.
+3. Only PASS cells go to paper: >= 30 days AND >= 30 closed paper trades,
+   with layers logged per `rule_version`.
+4. `/mmk-council` before any real money. Default until then: not yet.
+5. (2026-11-01) Plan del owner: cerrar el short actual (objetivo ~70k) y DESPUES operar con el motor nuevo en perfil **SNIPPER 1h (ctx 4h) a 10x** con recompras. Condicion: ronda 4 (backtest snipper 1h 10x con recompras, OOS) debe pasar; si no pasa, no se activa. Alertas por un bot de Telegram NUEVO (no el de Hermes) que el owner crea y pone en .env.

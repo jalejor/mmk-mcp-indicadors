@@ -29,7 +29,7 @@ import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 import pandas as pd
 
@@ -795,5 +795,537 @@ def buy_and_hold_pct(df: pd.DataFrame, start: datetime, end: datetime) -> Option
     return round((float(win["close"].iloc[-1]) / float(win["close"].iloc[0]) - 1.0) * 100.0, 2)
 
 
-def trade_dicts(trades: Sequence[SimTrade]) -> List[Dict[str, Any]]:
+def trade_dicts(trades: Sequence[Any]) -> List[Dict[str, Any]]:
     return [asdict(t) for t in trades]
+
+
+# ----------------------------------------------------------------------
+# Round 2: layered position ledger in USDT (re-buys, cross margin, liquidation)
+# ----------------------------------------------------------------------
+#
+# Owner decision 1 (docs/impulsos-v2.md, 2026-11-01): profile PRO, 1300 USDT,
+# with RE-BUYS. A trade is no longer one entry + one ATR stop: it is a stack
+# of layers on one side, closed together. Additive: round-1 `SimTrade`,
+# `simulate_decisions`, `run_legacy`, `run_new` are untouched.
+
+LEDGER_INITIAL_EQUITY = 1300.0
+LEDGER_LEVERAGE = 5.0  # pro: 5x cross (mmk-api today)
+LEDGER_MAINTENANCE_RATE = 0.005  # liquidation when equity + uPnL <= 0.5% of notional
+R_BASIS_LAYER1 = "layer1_invalidation"  # 1R = USDT risk of layer 1 to its invalidation
+R_BASIS_EQUITY_PCT = "equity_pct"  # 1R = r_equity_pct % of equity at the first entry
+LEDGER_ACTIONS = ("enter", "add_layer", "exit", "hold", "alert", "none")
+
+
+@dataclass(frozen=True)
+class LedgerConfig:
+    initial_equity: float = LEDGER_INITIAL_EQUITY
+    leverage: float = LEDGER_LEVERAGE
+    margin_mode: str = "cross"
+    maintenance_rate: float = LEDGER_MAINTENANCE_RATE
+    fee: float = DEFAULT_FEE_RATE_PER_SIDE  # per side, per layer (E16)
+    slip: float = DEFAULT_SLIPPAGE_PER_SIDE  # per side, per layer (E16)
+    funding_rate_per_8h: float = FUNDING_RATE_PER_8H  # on total notional, any sign
+    r_basis: str = R_BASIS_LAYER1
+    r_equity_pct: float = 0.75  # only for R_BASIS_EQUITY_PCT (pro risk/trade)
+
+    def __post_init__(self) -> None:
+        if self.margin_mode != "cross":
+            raise ValueError("only cross margin is modelled (owner: pro 5x cross)")
+        if self.leverage <= 0 or self.initial_equity <= 0:
+            raise ValueError("leverage and initial_equity must be > 0")
+        if self.r_basis not in (R_BASIS_LAYER1, R_BASIS_EQUITY_PCT):
+            raise ValueError(f"unknown r_basis {self.r_basis!r}")
+
+
+@dataclass
+class Layer:
+    bar: int
+    time: str
+    price: float
+    qty: float  # base units, always > 0 (side lives on the position)
+    notional: float  # qty x price at the fill
+    margin: float  # notional / leverage
+    cost: float  # entry fee + slip in USDT
+
+
+@dataclass
+class LedgerTrade:
+    """A closed layered position; duck-types what `cell_metrics` reads."""
+
+    side: str
+    entry_time: str
+    exit_time: str
+    exit_reason: str  # signal_exit | liquidation | end_of_data | <engine exit_* code>
+    bars_held: int
+    n_layers: int
+    layers: List[Dict[str, Any]]
+    avg_price: float
+    exit_price: float
+    qty: float
+    notional_max: float
+    exposure_max: float  # max notional / equity seen while open
+    invalidation: Optional[float]
+    pnl_gross_usdt: float
+    cost_usdt: float
+    funding_usdt: float
+    pnl_net_usdt: float
+    r_unit_usdt: Optional[float]
+    r_net: float
+    cost_r: float
+    funding_r: float
+    equity_after: float
+    block: str
+    cluster: str
+    confidence: Optional[float] = None
+    reasons: List[str] = field(default_factory=list)
+
+
+class PositionLedger:
+    """One book, one side at a time, N layers, cross margin, marked per bar.
+
+    Call order per closed bar: `mark(bar)` first (funding for the bar just
+    held, intrabar liquidation check at the adverse extreme, mark-to-market at
+    the close), then the bar's decision at its close (`open` / `add_layer` /
+    `close`). Costs are E16 per layer per side on the notional; funding is
+    charged on the total notional for the time held, whatever its sign.
+    """
+
+    def __init__(self, config: LedgerConfig = LedgerConfig(), *, split: Optional[datetime] = None,
+                 symbol: str = "") -> None:
+        self.cfg = config
+        self.split = utc(split) if split is not None else None
+        self.symbol = symbol
+        self.cash = float(config.initial_equity)  # realised equity
+        self.side: Optional[str] = None
+        self.layers: List[Layer] = []
+        self.trades: List[LedgerTrade] = []
+        self.equity_curve: List[Tuple[str, float]] = []
+        self.skipped_layers = 0
+        self._open: Dict[str, Any] = {}
+
+    # -- state -----------------------------------------------------------------
+    @property
+    def is_open(self) -> bool:
+        return self.side is not None
+
+    @property
+    def qty(self) -> float:
+        return sum(layer.qty for layer in self.layers)
+
+    @property
+    def avg_price(self) -> Optional[float]:
+        q = self.qty
+        return sum(layer.qty * layer.price for layer in self.layers) / q if q > 0 else None
+
+    def notional(self, price: float) -> float:
+        return self.qty * float(price)
+
+    def unrealized(self, price: float) -> float:
+        if not self.is_open or not self.layers:
+            return 0.0
+        sign = 1.0 if self.side == "long" else -1.0
+        return sign * self.qty * (float(price) - float(self.avg_price))
+
+    def equity(self, price: Optional[float] = None) -> float:
+        return self.cash + (self.unrealized(price) if price is not None and self.is_open else 0.0)
+
+    def exposure(self, price: float) -> float:
+        eq = self.equity(price)
+        return self.notional(price) / eq if eq > 0 else float("inf")
+
+    def liquidation_price(self) -> Optional[float]:
+        """Price where cash + uPnL == maintenance x notional (cross margin)."""
+        if not self.is_open:
+            return None
+        q, a, e, m = self.qty, float(self.avg_price), self.cash, self.cfg.maintenance_rate
+        if self.side == "long":
+            price = (q * a - e) / (q * (1.0 - m))
+            return price if price > 0 else None
+        return (e + q * a) / (q * (1.0 + m))
+
+    def _side_cost(self, notional: float) -> float:
+        return (self.cfg.fee + self.cfg.slip) * notional
+
+    # -- actions ----------------------------------------------------------------
+    def capacity(self, price: float) -> float:
+        """Notional that can still be added without exceeding `leverage` x equity
+        AFTER paying the layer's own entry cost."""
+        lev, c = self.cfg.leverage, self.cfg.fee + self.cfg.slip
+        return max(0.0, (lev * self.equity(price) - self.notional(price)) / (1.0 + lev * c))
+
+    def _add(self, bar: int, time_: str, price: float, notional: float) -> Optional[Layer]:
+        notional = min(float(notional), self.capacity(price))  # size DOWN, never over-lever
+        if not (notional > 0 and price > 0):
+            self.skipped_layers += 1
+            return None
+        cost = self._side_cost(notional)
+        layer = Layer(bar=bar, time=time_, price=float(price), qty=notional / float(price),
+                      notional=notional, margin=notional / self.cfg.leverage, cost=cost)
+        self.cash -= cost
+        self.layers.append(layer)
+        self._open["cost"] += cost
+        self._open["notional_max"] = max(self._open["notional_max"], self.notional(price))
+        self._open["exposure_max"] = max(self._open["exposure_max"], self.exposure(price))
+        return layer
+
+    def open(self, bar: int, time_: str, side: str, price: float, notional: float, *,
+             invalidation: Optional[float] = None, reasons: Optional[List[str]] = None,
+             confidence: Optional[float] = None) -> Optional[Layer]:
+        if self.is_open:
+            raise RuntimeError("position already open: use add_layer or close first")
+        if side not in ("long", "short"):
+            raise ValueError(f"unknown side {side!r}")
+        self.side = side
+        self._open = {"bar": bar, "time": time_, "cost": 0.0, "funding": 0.0, "notional_max": 0.0,
+                      "exposure_max": 0.0, "invalidation": invalidation, "reasons": list(reasons or []),
+                      "confidence": confidence, "equity_at_entry": self.cash}
+        layer = self._add(bar, time_, price, notional)
+        if layer is None:
+            self.side, self._open = None, {}
+        return layer
+
+    def add_layer(self, bar: int, time_: str, price: float, notional: float) -> Optional[Layer]:
+        if not self.is_open:
+            raise RuntimeError("no open position to add a layer to")
+        return self._add(bar, time_, price, notional)
+
+    def r_unit(self) -> Optional[float]:
+        if not self.layers:
+            return None
+        if self.cfg.r_basis == R_BASIS_EQUITY_PCT:
+            return self._open["equity_at_entry"] * self.cfg.r_equity_pct / 100.0
+        inv = self._open.get("invalidation")
+        if inv is None:
+            return None
+        first = self.layers[0]
+        risk = first.qty * abs(first.price - float(inv))
+        return risk if risk > 0 else None
+
+    def close(self, bar: int, time_: str, price: float, reason: str) -> LedgerTrade:
+        if not self.is_open:
+            raise RuntimeError("no open position to close")
+        price = float(price)
+        exit_cost = self._side_cost(self.notional(price))
+        gross = self.unrealized(price)
+        self.cash += gross - exit_cost
+        cost = self._open["cost"] + exit_cost
+        funding = self._open["funding"]
+        net = gross - cost - funding
+        r_unit = self.r_unit()
+        first_time = self._open["time"]
+        entry_dt = pd.Timestamp(first_time).to_pydatetime()
+        trade = LedgerTrade(
+            side=self.side, entry_time=first_time, exit_time=time_, exit_reason=reason,
+            bars_held=bar - self._open["bar"], n_layers=len(self.layers),
+            layers=[asdict(layer) for layer in self.layers],
+            avg_price=round(float(self.avg_price), 8), exit_price=round(price, 8),
+            qty=round(self.qty, 10), notional_max=round(self._open["notional_max"], 4),
+            exposure_max=round(self._open["exposure_max"], 4), invalidation=self._open["invalidation"],
+            pnl_gross_usdt=round(gross, 4), cost_usdt=round(cost, 4), funding_usdt=round(funding, 4),
+            pnl_net_usdt=round(net, 4), r_unit_usdt=round(r_unit, 4) if r_unit else None,
+            r_net=round(net / r_unit, 6) if r_unit else 0.0,
+            cost_r=round(cost / r_unit, 6) if r_unit else 0.0,
+            funding_r=round(funding / r_unit, 6) if r_unit else 0.0,
+            equity_after=round(self.cash, 4),
+            block=BLOCK_IS if self.split is None or utc(entry_dt) < self.split else BLOCK_OOS,
+            cluster=f"{self.symbol}|{utc(entry_dt):%Y-%m}",
+            confidence=self._open["confidence"], reasons=self._open["reasons"],
+        )
+        self.trades.append(trade)
+        self.side, self.layers, self._open = None, [], {}
+        return trade
+
+    def mark(self, bar: int, time_: str, *, high: float, low: float, close: float,
+             hours: float) -> Optional[LedgerTrade]:
+        """Funding for `hours` held, liquidation at the adverse extreme, then MTM at close."""
+        if self.is_open:
+            funding = self.cfg.funding_rate_per_8h * (hours / 8.0) * self.notional(close)
+            self.cash -= funding
+            self._open["funding"] += funding
+            liq = self.liquidation_price()
+            adverse = low if self.side == "long" else high
+            if liq is not None and ((self.side == "long" and adverse <= liq) or (self.side == "short" and adverse >= liq)):
+                trade = self.close(bar, time_, liq, "liquidation")
+                self.equity_curve.append((time_, self.cash))
+                return trade
+            self._open["exposure_max"] = max(self._open["exposure_max"], self.exposure(close))
+        self.equity_curve.append((time_, self.equity(close)))
+        return None
+
+
+@dataclass(frozen=True)
+class LayerSizing:
+    """How big each layer is (phase B binds it to the trading spec).
+
+    * layer 1: risk-based when the decision carries an invalidation
+      (`risk_pct` of equity / distance to it), else `first_notional_x` x equity;
+    * add_layer: `add_notional_x` x layer-1 notional; a decision field
+      `notional` (USDT) overrides both. The ledger caps every layer at the
+      leverage capacity (size down, never widen the stop).
+    """
+
+    risk_pct: float = 0.75
+    first_notional_x: float = 1.0
+    add_notional_x: float = 1.0
+
+
+def _decision_time(df: pd.DataFrame, i: int) -> str:
+    return df.index[i].isoformat()
+
+
+def simulate_ledger(
+    df: pd.DataFrame,
+    decisions: Sequence[Any],
+    *,
+    split: datetime,
+    start: datetime,
+    end: datetime,
+    timeframe: str,
+    symbol: str = "",
+    config: LedgerConfig = LedgerConfig(),
+    sizing: LayerSizing = LayerSizing(),
+    directions: Sequence[str] = ("long", "short"),
+) -> Dict[str, Any]:
+    """Drive a `PositionLedger` from per-bar decisions (`action` in LEDGER_ACTIONS).
+
+    Per bar: mark (funding, liquidation, MTM) -> decision at the close:
+    `enter` opens layer 1 when flat (side in `directions`, bar in
+    [start, end)); `add_layer` adds on the open side; `exit` closes all
+    layers at `exit_price` (engine fill, e.g. a gapped stop) or the close;
+    `hold` / `alert` / `none` do nothing. An `enter` of the opposite side
+    while open closes (no same-bar flip). Still open at the end ->
+    `end_of_data`. Decisions are matched to bars by their `timestamp` (open ms).
+    """
+    by_bar: Dict[int, Any] = {}
+    for d in decisions:
+        i = _bar_index_for(df, _field(d, "timestamp"), timeframe)
+        if i is not None:
+            by_bar[i] = d
+    ledger = PositionLedger(config, split=split, symbol=symbol)
+    start_ts, end_ts = pd.Timestamp(utc(start)), pd.Timestamp(utc(end))
+    highs, lows = df["high"].to_numpy(float), df["low"].to_numpy(float)
+    closes = df["close"].to_numpy(float)
+    hours = TIMEFRAME_MS[timeframe] / 3_600_000.0
+    actions: Dict[str, int] = {}
+    first_notional = 0.0
+    last = len(df) - 1
+
+    for i in range(len(df)):
+        t = _decision_time(df, i)
+        ledger.mark(i, t, high=highs[i], low=lows[i], close=closes[i], hours=hours)
+        d = by_bar.get(i)
+        if d is None:
+            continue
+        action = str(_field(d, "action", "") or "").lower()
+        actions[action] = actions.get(action, 0) + 1
+        side = normalise_side(_field(d, "side"))
+        price = float(closes[i])
+        override = _field(d, "notional")
+        if ledger.is_open:
+            reasons = [r for r in (_field(d, "reasons", []) or []) if str(r).startswith("exit_")]
+            if action == "exit" and side in (None, ledger.side):
+                fill = _field(d, "exit_price")
+                ledger.close(i, t, float(fill) if fill is not None else price,
+                             reasons[0] if reasons else "signal_exit")
+            elif action == "enter" and side is not None and side != ledger.side:
+                ledger.close(i, t, price, "opposite_signal")
+            elif action == "add_layer" and side in (None, ledger.side):
+                size = float(override) if override is not None else sizing.add_notional_x * first_notional
+                ledger.add_layer(i, t, price, size)
+            continue
+        if action != "enter" or side not in directions or i >= last:
+            continue
+        if not (start_ts <= df.index[i] < end_ts):
+            continue
+        inv = _field(d, "stop_price")
+        equity = ledger.equity()
+        if override is not None:
+            size = float(override)
+        elif inv is not None and abs(price - float(inv)) > 0:
+            size = equity * sizing.risk_pct / 100.0 / (abs(price - float(inv)) / price)
+        else:
+            size = sizing.first_notional_x * equity
+        conf = _field(d, "confidence")
+        layer = ledger.open(i, t, side, price, size, invalidation=float(inv) if inv is not None else None,
+                            reasons=list(_field(d, "reasons", []) or []),
+                            confidence=float(conf) if conf is not None else None)
+        first_notional = layer.notional if layer is not None else 0.0
+
+    if ledger.is_open:
+        ledger.close(last, _decision_time(df, last), float(closes[last]), "end_of_data")
+    return {"ledger": ledger, "trades": list(ledger.trades), "decisions": actions}
+
+
+# ----------------------------------------------------------------------
+# Round 2: sequential machine (impulse_sequential) driven bar by bar with the ledger
+# ----------------------------------------------------------------------
+
+def load_sequential_frames(params: Any, loader: Callable[[str], pd.DataFrame]) -> Tuple[Dict[str, pd.DataFrame], Dict[str, str]]:
+    """Trigger + context frames enriched with the TV indicators; a context TF that
+    cannot be loaded (e.g. 1M on bitget) degrades to NaN bias, as in the live path."""
+    frames: Dict[str, pd.DataFrame] = {params.trigger_tf: enrich_tv(loader(params.trigger_tf))}
+    status: Dict[str, str] = {params.trigger_tf: "ok"}
+    for tf in params.context_order():
+        try:
+            frames[tf] = enrich_tv(loader(tf))
+            status[tf] = "ok"
+        except Exception as exc:  # context only
+            status[tf] = f"failed:{type(exc).__name__}"
+    return frames, status
+
+
+def ledger_for(params: Any, *, split: datetime, symbol: str,
+               fee: float = DEFAULT_FEE_RATE_PER_SIDE, slip: float = DEFAULT_SLIPPAGE_PER_SIDE) -> PositionLedger:
+    cfg = LedgerConfig(initial_equity=float(params.equity_usdt), leverage=float(params.leverage),
+                       margin_mode=params.margin_mode, maintenance_rate=float(params.maintenance_margin_rate),
+                       fee=fee, slip=slip)
+    return PositionLedger(cfg, split=split, symbol=symbol)
+
+
+def drive_sequential(machine: Any, ledger: PositionLedger, trigger_df: pd.DataFrame, *, first: int,
+                     timeframe: str, forced: Optional[Tuple[int, str]] = None) -> Dict[str, Any]:
+    """Step the machine and the ledger together over closed candles `first..last`.
+
+    Per candle: `ledger.mark` (funding, intrabar liquidation -> `machine.force_flat`,
+    MTM) -> machine decision at the close with the ledger's realised equity as
+    sizing base -> ledger fill (`enter` opens layer 1 with the decision's
+    `notional` and invalidation, `add_layer` adds, `exit` closes all layers at
+    the close). `forced=(bar, side)` replaces the machine decision of that bar
+    by `force_enter` (§R2.g anchored replay). An `enter` on the very last
+    candle is not filled (no next bar). Still open at the end -> `end_of_data`,
+    with the open book snapshot returned in `open_at_end`.
+    """
+    highs, lows = trigger_df["high"].to_numpy(float), trigger_df["low"].to_numpy(float)
+    closes = trigger_df["close"].to_numpy(float)
+    hours = TIMEFRAME_MS[timeframe] / 3_600_000.0
+    last = len(trigger_df) - 1
+    decisions: List[Any] = []
+    actions: Dict[str, int] = {}
+    liquidations = 0
+    for i in range(first, len(trigger_df)):
+        t = trigger_df.index[i].isoformat()
+        liq = ledger.mark(i, t, high=highs[i], low=lows[i], close=closes[i], hours=hours)
+        if liq is not None:
+            liquidations += 1
+            machine.force_flat(i, "liquidation")
+        if forced is not None and i == forced[0]:
+            d = machine.force_enter(i, forced[1], equity=ledger.cash)
+        else:
+            d = machine.step(i, equity=ledger.cash)
+        decisions.append(d)
+        actions[d.action] = actions.get(d.action, 0) + 1
+        price = float(closes[i])
+        if d.action == "enter":
+            if i >= last:
+                machine.force_flat(i, "end_of_data")
+                d.reasons.append("entry_skipped_last_candle")
+                continue
+            ledger.open(i, t, d.side, price, float(d.notional), invalidation=d.invalidation_price,
+                        reasons=list(d.reasons), confidence=d.confidence)
+        elif d.action == "add_layer" and ledger.is_open:
+            ledger.add_layer(i, t, price, float(d.notional))
+        elif d.action == "exit" and ledger.is_open:
+            codes = [r for r in d.reasons if str(r).startswith("exit_")]
+            ledger.close(i, t, price, codes[0] if codes else "signal_exit")
+    open_at_end: Optional[Dict[str, Any]] = None
+    if ledger.is_open:
+        close_last = float(closes[last])
+        notional_now = ledger.notional(close_last)
+        open_at_end = {
+            "side": ledger.side, "qty": ledger.qty, "avg_price": ledger.avg_price, "n_layers": len(ledger.layers),
+            "layers": [asdict(l) for l in ledger.layers], "last_close": close_last,
+            "unrealized_gross_usdt": round(ledger.unrealized(close_last), 4),
+            "entry_costs_usdt": round(ledger._open["cost"], 4), "funding_usdt": round(ledger._open["funding"], 4),
+            "exit_cost_estimate_usdt": round(ledger._side_cost(notional_now), 4),
+            "r_unit_usdt": ledger.r_unit(), "invalidation": ledger._open.get("invalidation"),
+            "equity_mtm": round(ledger.equity(close_last), 4),
+        }
+        open_at_end["unrealized_net_usdt"] = round(
+            open_at_end["unrealized_gross_usdt"] - open_at_end["entry_costs_usdt"] - open_at_end["funding_usdt"]
+            - open_at_end["exit_cost_estimate_usdt"], 4)
+        ledger.close(last, trigger_df.index[last].isoformat(), close_last, "end_of_data")
+    return {"decisions": decisions, "actions": actions, "liquidations": liquidations, "open_at_end": open_at_end}
+
+
+def run_sequential(
+    *, profile: str, symbol: str, start: datetime, end: datetime, split: datetime,
+    directions: Sequence[str], loader: Callable[[str], pd.DataFrame], mlrsi_gate: bool = False,
+    overrides: Optional[Dict[str, Any]] = None, fee: float = DEFAULT_FEE_RATE_PER_SIDE,
+    slip: float = DEFAULT_SLIPPAGE_PER_SIDE,
+) -> Dict[str, Any]:
+    """Round-2 cell run: `ImpulseParams.sequential(profile)` (+ `mlrsi_gate` for H2) over
+    the cached frames, one book long-or-short, scored by the layered ledger
+    (1R = layer-1 risk to the invalidation = 2% E0 unless the exposure cap binds)."""
+    from .impulse_service import ImpulseParams
+    from .impulse_sequential import SequentialMachine
+
+    params = ImpulseParams.sequential(profile, mlrsi_gate=mlrsi_gate, **(overrides or {}))
+    frames, status = load_sequential_frames(params, loader)
+    trigger_df = frames[params.trigger_tf]
+    first = max(WARMUP_BARS, int(trigger_df.index.searchsorted(pd.Timestamp(utc(start)))))
+    machine = SequentialMachine(params, frames, equity=params.equity_usdt)
+    ledger = ledger_for(params, split=split, symbol=symbol, fee=fee, slip=slip)
+    run = drive_sequential(machine, ledger, trigger_df, first=first, timeframe=params.trigger_tf)
+    trades = [t for t in ledger.trades if t.side in directions]
+    return {
+        "profile": profile, "variant": "H2" if mlrsi_gate else "H1", "params": asdict(params),
+        "timeframes": {"trigger": params.trigger_tf, "confirm": params.confirm_tf, "context": list(params.context_order())},
+        "tf_status": status, "first_bar": trigger_df.index[first].isoformat(), "decisions": run["actions"],
+        "liquidations": run["liquidations"], "trades": trades, "ledger": ledger, "all_decisions": run["decisions"],
+        "frames": frames, "buy_and_hold_pct": buy_and_hold_pct(trigger_df, start, end),
+        "rule_version": params.rule_version,
+    }
+
+
+def run_anchored(
+    *, profile: str, frames: Mapping[str, pd.DataFrame], anchor_bar: int, side: str, symbol: str,
+    split: datetime, mlrsi_gate: bool = False, fee: float = DEFAULT_FEE_RATE_PER_SIDE,
+    slip: float = DEFAULT_SLIPPAGE_PER_SIDE,
+) -> Dict[str, Any]:
+    """§R2.g.4: force layer 1 at `anchor_bar` close, then the real re-buy / exit rules to the end."""
+    from .impulse_service import ImpulseParams
+    from .impulse_sequential import SequentialMachine
+
+    params = ImpulseParams.sequential(profile, mlrsi_gate=mlrsi_gate)
+    trigger_df = frames[params.trigger_tf]
+    machine = SequentialMachine(params, frames, equity=params.equity_usdt)
+    ledger = ledger_for(params, split=split, symbol=symbol, fee=fee, slip=slip)
+    run = drive_sequential(machine, ledger, trigger_df, first=anchor_bar, timeframe=params.trigger_tf,
+                           forced=(anchor_bar, side))
+    return {"decisions": run["decisions"], "actions": run["actions"], "trades": list(ledger.trades),
+            "open_at_end": run["open_at_end"], "liquidations": run["liquidations"]}
+
+
+def equity_drawdown_pct(curve: Sequence[Tuple[str, float]]) -> float:
+    peak, dd = None, 0.0
+    for _, eq in curve:
+        peak = eq if peak is None else max(peak, eq)
+        if peak and peak > 0:
+            dd = max(dd, (peak - eq) / peak * 100.0)
+    return round(dd, 2)
+
+
+def ledger_metrics(ledger: PositionLedger, trades: Optional[Sequence[LedgerTrade]] = None) -> Dict[str, Any]:
+    """USDT-level metrics of a ledger run (+ the R metrics of `cell_metrics`)."""
+    trades = list(ledger.trades if trades is None else trades)
+    reasons: Dict[str, int] = {}
+    for t in trades:
+        reasons[t.exit_reason] = reasons.get(t.exit_reason, 0) + 1
+    out: Dict[str, Any] = {
+        "n": len(trades),
+        "initial_equity": ledger.cfg.initial_equity,
+        "equity_final": round(ledger.cash, 2),
+        "pnl_total_usdt": round(sum(t.pnl_net_usdt for t in trades), 2),
+        "return_pct": round((ledger.cash / ledger.cfg.initial_equity - 1.0) * 100.0, 2),
+        "max_drawdown_equity_pct": equity_drawdown_pct(ledger.equity_curve),
+        "liquidations": reasons.get("liquidation", 0),
+        "avg_layers": round(sum(t.n_layers for t in trades) / len(trades), 2) if trades else 0.0,
+        "max_exposure_x": round(max((t.exposure_max for t in trades), default=0.0), 3),
+        "skipped_layers": ledger.skipped_layers,
+        "exit_reasons": reasons,
+        "cost_usdt": round(sum(t.cost_usdt for t in trades), 2),
+        "funding_usdt": round(sum(t.funding_usdt for t in trades), 2),
+    }
+    scored = [t for t in trades if t.r_unit_usdt]
+    out["r_metrics"] = cell_metrics(scored) if scored else {"n": 0}
+    return out

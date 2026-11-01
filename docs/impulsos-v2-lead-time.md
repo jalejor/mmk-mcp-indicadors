@@ -27,6 +27,25 @@ random bar; the lag table then describes co-occurrence, not a proven lead.
 
 Bars IS 2556 / OOS 1824; move starts IS {'long': 100, 'short': 98} / OOS {'long': 65, 'short': 71}.
 
+### 4h — follower windows per FAMILY (spec §R2.b: W_f = clamp(ceil(p75(lag_f)), 2, 8); default 4 if < 10 IS pairs) — **FITTED ON IS, FROZEN**
+
+lag_f(m) = first same-side event of family f - EARLIEST entry leader (Konkorde zero cross / turn, bbwp_ignition) matched to the same move m.
+
+| family | IS pairs | IS median lag | IS p25 | IS p75 | IS follower first % | **W_f** | fitted | OOS pairs | OOS median | OOS p75 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `ao` | 136 | 0.0 | -2.0 | 1.0 | 32.4 | **2** | yes | 93 | 0.0 | 1.0 |
+| `adx` | 24 | 2.5 | 2.0 | 4.0 | 4.2 | **4** | yes | 17 | 2.0 | 4.0 |
+| `macd` | 91 | 1.0 | 0.0 | 2.5 | 23.1 | **3** | yes | 51 | 1.0 | 2.0 |
+| `rsi` | 98 | 0.0 | -2.0 | 1.0 | 39.8 | **2** | yes | 79 | 0.0 | 4.0 |
+
+`alert_ttl_bars = max(W_f) = 4`. Moves with an entry leader (IS): 151.
+
+**Pre-declared test 'leaders lead' (IS 4h)**: leader median lead 3.0 vs follower family medians ao 5.0, adx 2.0, macd 5.0, rsi 4.0 -> **NOT SUPPORTED** (the machine runs unchanged either way).
+
+**Konkorde base rates (§R2.a)**: IS verde > 0 on 86.9% of bars, zero crosses 76 up / 76 down; OOS 84.6%, 58 up / 58 down.
+
+**ML RSI regime (informational)**: IS transitions 192 (green 17.2% / gray 51.3% / red 31.5%); OOS transitions 141 (green 24.3% / gray 47.7% / red 28.0%).
+
 ### 4h — lead time per event (lead = move start - event bar, in 4h candles)
 
 | event | role | side | IS n | IS hit rate | IS base rate | IS lead median | IS p25 | IS p75 | OOS n | OOS hit rate | OOS base rate | OOS lead median | OOS p75 |
@@ -54,7 +73,7 @@ Bars IS 2556 / OOS 1824; move starts IS {'long': 100, 'short': 98} / OOS {'long'
 
 ### 4h — lag follower - leader (candles) for pairs preceding the SAME move
 
-Negative = the follower fired first. `W proposal` = clamp(ceil(IS pooled p75), 2, 8) — **PROPOSAL, pending the trading spec**.
+Negative = the follower fired first. `W proposal` = clamp(ceil(IS pooled p75), 2, 8) per LEADER EVENT — informational; the engine windows are the per-FAMILY table above (§R2.b).
 
 | leader | follower | IS pairs | IS median | IS p75 | IS follower first % | OOS pairs | OOS median | OOS p75 |
 |---|---|---|---|---|---|---|---|---|
@@ -111,6 +130,25 @@ Negative = the follower fired first. `W proposal` = clamp(ceil(IS pooled p75), 2
 
 Bars IS 426 / OOS 304; move starts IS {'long': 17, 'short': 18} / OOS {'long': 12, 'short': 12}.
 
+### 1d — follower windows per FAMILY (spec §R2.b: W_f = clamp(ceil(p75(lag_f)), 2, 6); default 3 if < 10 IS pairs) — **FITTED ON IS, FROZEN**
+
+lag_f(m) = first same-side event of family f - EARLIEST entry leader (Konkorde zero cross / turn, bbwp_ignition) matched to the same move m.
+
+| family | IS pairs | IS median lag | IS p25 | IS p75 | IS follower first % | **W_f** | fitted | OOS pairs | OOS median | OOS p75 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `ao` | 28 | 0.0 | -2.2 | 3.0 | 35.7 | **3** | yes | 12 | 0.0 | 2.0 |
+| `adx` | 6 | 1.5 | 1.0 | 3.5 | 16.7 | **3** | no (default) | 4 | 1.0 | 1.8 |
+| `macd` | 17 | 1.0 | 0.0 | 2.0 | 11.8 | **2** | yes | 10 | 1.5 | 2.0 |
+| `rsi` | 19 | 0.0 | -1.5 | 4.5 | 36.8 | **5** | yes | 10 | 0.0 | 0.8 |
+
+`alert_ttl_bars = max(W_f) = 5`. Moves with an entry leader (IS): 31.
+
+**Pre-declared test 'leaders lead' (IS 1d)**: leader median lead 4.0 vs follower family medians ao 5.0, adx 3.0, macd 5.0, rsi 6.0 -> **NOT SUPPORTED** (the machine runs unchanged either way).
+
+**Konkorde base rates (§R2.a)**: IS verde > 0 on 86.9% of bars, zero crosses 13 up / 13 down; OOS 90.5%, 5 up / 6 down.
+
+**ML RSI regime (informational)**: IS transitions 32 (green 23.5% / gray 40.1% / red 36.4%); OOS transitions 22 (green 22.0% / gray 49.0% / red 28.9%).
+
 ### 1d — lead time per event (lead = move start - event bar, in 1d candles)
 
 | event | role | side | IS n | IS hit rate | IS base rate | IS lead median | IS p25 | IS p75 | OOS n | OOS hit rate | OOS base rate | OOS lead median | OOS p75 |
@@ -138,7 +176,7 @@ Bars IS 426 / OOS 304; move starts IS {'long': 17, 'short': 18} / OOS {'long': 1
 
 ### 1d — lag follower - leader (candles) for pairs preceding the SAME move
 
-Negative = the follower fired first. `W proposal` = clamp(ceil(IS pooled p75), 2, 6) — **PROPOSAL, pending the trading spec**.
+Negative = the follower fired first. `W proposal` = clamp(ceil(IS pooled p75), 2, 6) per LEADER EVENT — informational; the engine windows are the per-FAMILY table above (§R2.b).
 
 | leader | follower | IS pairs | IS median | IS p75 | IS follower first % | OOS pairs | OOS median | OOS p75 |
 |---|---|---|---|---|---|---|---|---|

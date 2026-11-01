@@ -42,13 +42,14 @@ from .market_data_service import (
     _month_candle_close_ms,
 )
 from .setup_service import LOW_TF_BAND
-from .trade_profiles import DEFAULT_PROFILE, get_trade_profile, profile_timeframes
+from .trade_profiles import DEFAULT_PROFILE, TRADE_PROFILES, get_trade_profile
 
 RULE_VERSION = "impulse-2.1.0"
 
 # verde = the TV "yellow area" crossing 0 (owner decision 3, 2026-11-01; check:
 # labs data/results/konkorde_verde_check.md). edge = marron - media (2.0.0).
 KONKORDE_LINES = ("verde", "edge", "azul", "oscp")
+MODELS = ("vote", "sequential")  # round 1 side vote | round 2 leader -> follower machine (§R2)
 SIDE_VALUES = {"long": 1, "short": -1}
 SIDE_LABELS = {1: "long", -1: "short", 0: "none"}
 PHASES = ("exhaustion", "ignition", "expansion", "compression", "contraction", "building", "unknown")
@@ -134,9 +135,53 @@ class ImpulseParams:
 
     rule_version: str = RULE_VERSION
 
+    # -- Round 2 (§R2): sequential leader -> follower machine with PRO re-buys.
+    # `model="vote"` stays the code default (round-1 path, API contract); the
+    # 2.1.0 sequential rule doc is built with `impulse_sequential.sequential_params`.
+    model: str = "vote"
+    follower_families: Tuple[str, ...] = ("ao", "adx", "macd", "rsi")
+    rsi_mid: float = 50.0
+    rsi_oversold: float = 30.0
+    rsi_overbought: float = 70.0
+    n_confirm: int = 2
+    confirm_window_bars: Mapping[str, int] = field(default_factory=dict)  # family -> W_f (fitted, frozen)
+    window_default: int = 4
+    alert_ttl_bars: Optional[int] = None  # None -> max(confirm_window_bars)
+    equity_usdt: float = 1300.0
+    leverage: float = 5.0
+    margin_mode: str = "cross"
+    layer1_risk_pct: float = 2.0
+    layer1_max_exposure_x: float = 1.5
+    layer_add_scale: float = 0.5
+    max_layers: int = 3
+    layer_min_gap_bars: int = 3
+    max_open_risk_pct: float = 6.0
+    max_exposure_x: float = 3.0
+    maintenance_margin_rate: float = 0.005
+    invalidation_atr_mult: float = 3.0
+    invalidation_range_back: int = 9
+    invalidation_on: str = "close"
+    phase_lost_requires_verde_against: bool = True
+    mlrsi_gate: bool = False  # H2 variant (§R2.e2)
+    mlrsi_rsi_period: int = 19
+    mlrsi_alma_window: int = 4
+    mlrsi_alma_sigma: float = 1.0
+    mlrsi_alma_offset: float = 0.0  # what the BackQuant Pine hard-codes (ml_rsi.py)
+    mlrsi_threshold_method: str = "percentile"  # what TradingView plots (ml_rsi.py)
+    mlrsi_max_points: int = 3000
+
     def __post_init__(self) -> None:
         if self.konkorde_line not in KONKORDE_LINES:
             raise ValueError(f"Unknown konkorde_line: {self.konkorde_line!r} (use one of {KONKORDE_LINES})")
+        if self.model not in MODELS:
+            raise ValueError(f"Unknown model: {self.model!r} (use one of {MODELS})")
+        if self.model == "sequential":
+            if int(self.n_confirm) < 1 or int(self.max_layers) < 1:
+                raise ValueError("n_confirm and max_layers must be >= 1")
+            for fam, w in self.confirm_window_bars.items():
+                if fam not in self.follower_families or int(w) < 1:
+                    raise ValueError(f"bad confirm window {fam}={w}")
+            object.__setattr__(self, "confirm_window_bars", dict(self.confirm_window_bars))
         for name in ("compression_lookback", "breakout_ttl", "exit_window_candles", "adx_slope_window",
                      "adx_turn_window", "adx_base_window", "ao_pivot_strength", "fresh_cross_bars"):
             if int(getattr(self, name)) < 1:
@@ -144,6 +189,14 @@ class ImpulseParams:
         if self.bbwp_compression_max >= self.bbwp_expansion_min:
             raise ValueError("bbwp_compression_max must be below bbwp_expansion_min")
         object.__setattr__(self, "context_tfs", tuple(self.context_tfs))
+        object.__setattr__(self, "follower_families", tuple(self.follower_families))
+
+    @classmethod
+    def sequential(cls, profile: str = "pro", **overrides: Any) -> "ImpulseParams":
+        """Round-2 rule doc (`model="sequential"`, PRO re-buys, fitted windows) — see impulse_sequential."""
+        from .impulse_sequential import sequential_params
+
+        return sequential_params(profile, **overrides)
 
     @classmethod
     def for_profile(cls, name: str, **overrides: Any) -> "ImpulseParams":
@@ -218,9 +271,26 @@ class ImpulseDecision:
     stop_price: Optional[float] = None
     exit_price: Optional[float] = None
     candle_close: Optional[str] = None  # ISO close instant of the trigger candle
+    # -- Round 2 (§R2.f "decision output adds"); None on the vote model.
+    state: Optional[str] = None  # flat | alert | in_position
+    alert_side: Optional[str] = None
+    alert_age: Optional[int] = None
+    confirmations: Optional[Dict[str, Any]] = None  # family -> {side, bar, event}
+    layers: Optional[List[Dict[str, Any]]] = None
+    avg_entry: Optional[float] = None
+    total_notional_usdt: Optional[float] = None
+    open_risk_usdt: Optional[float] = None
+    exposure_x: Optional[float] = None
+    invalidation_price: Optional[float] = None
+    invalidation_source: Optional[str] = None
+    one_r_usdt: Optional[float] = None
+    liquidation_price: Optional[float] = None
+    mlrsi_regime: Optional[str] = None
+    notional: Optional[float] = None  # USDT of the layer opened by THIS decision (enter / add_layer)
+    equity_usdt: Optional[float] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        out = {
             "timestamp": self.timestamp,
             "timeframe": self.timeframe,
             "trigger_tf": self.timeframe,
@@ -238,6 +308,17 @@ class ImpulseDecision:
             "context": _clean(self.context),
             "rule_version": self.rule_version,
         }
+        if self.state is not None:  # sequential model: additive keys only
+            out.update(_clean({
+                "state": self.state, "alert_side": self.alert_side, "alert_age": self.alert_age,
+                "confirmations": self.confirmations, "layers": self.layers, "avg_entry": self.avg_entry,
+                "total_notional_usdt": self.total_notional_usdt, "open_risk_usdt": self.open_risk_usdt,
+                "exposure_x": self.exposure_x, "invalidation_price": self.invalidation_price,
+                "invalidation_source": self.invalidation_source, "one_r_usdt": self.one_r_usdt,
+                "liquidation_price": self.liquidation_price, "mlrsi_regime": self.mlrsi_regime,
+                "notional": self.notional, "equity_usdt": self.equity_usdt,
+            }))
+        return out
 
 
 def _clean(value: Any) -> Any:
@@ -577,6 +658,13 @@ class ImpulseEngine:
         `stop_price` (initial stop; derived from `entry_price` and the current
         ATR when omitted) and `bars_held` enable the stop and time-stop exits.
         """
+        if self.params.model == "sequential":
+            # The machine derives its own state from the history (§R2.b); the
+            # position arguments of the vote path are not used.
+            decisions = self.replay(frames, warmup=0)
+            if not decisions:
+                raise ValueError(f"Empty trigger frame for {self.params.trigger_tf}")
+            return decisions[-1]
         position = self._check_position(position)
         trig, contexts = self._derive_all(frames)
         if trig.n == 0:
@@ -595,6 +683,10 @@ class ImpulseEngine:
         Every derived column is causal, so truncating the future never changes
         a past decision.
         """
+        if self.params.model == "sequential":
+            from .impulse_sequential import SequentialMachine
+
+            return SequentialMachine(self.params, frames).run(warmup=warmup)
         trig, contexts = self._derive_all(frames)
         if contexts and trig.close_ms is None:
             raise ValueError("replay needs timestamps on the trigger frame to align context frames")
@@ -919,6 +1011,7 @@ class ImpulseEvaluationService:
         stop_price: Optional[float] = None,
         bars_held: Optional[int] = None,
         limit: int = DEFAULT_LIMIT,
+        model: str = "vote",
     ) -> None:
         self.symbol = symbol
         self.profile = profile
@@ -928,7 +1021,9 @@ class ImpulseEvaluationService:
         self.stop_price = stop_price
         self.bars_held = bars_held
         self.limit = int(limit)
-        self.params = ImpulseParams.for_profile(profile)
+        # `model="sequential"` (§R2) is opt-in on the live path until a backtest
+        # cell passes; it replays the machine over the fetched history.
+        self.params = ImpulseParams.sequential(profile) if model == "sequential" else ImpulseParams.for_profile(profile)
 
     def _enriched_frame(self, timeframe: str) -> pd.DataFrame:
         from .indicators_service import IndicatorsService
@@ -944,7 +1039,8 @@ class ImpulseEvaluationService:
     def load_frames(self) -> Tuple[Dict[str, pd.DataFrame], Dict[str, str]]:
         frames: Dict[str, pd.DataFrame] = {}
         status: Dict[str, str] = {}
-        for tf in profile_timeframes(self.profile):
+        tfs = (self.params.trigger_tf, *self.params.context_order())
+        for tf in tfs:
             try:
                 frames[tf] = self._enriched_frame(tf)
                 status[tf] = "ok"
@@ -969,8 +1065,9 @@ class ImpulseEvaluationService:
                 "symbol": self.symbol,
                 "exchange": self.exchange,
                 "evaluated_at": datetime.now(tz=timezone.utc).isoformat(),
-                "trade_profile": _clean(dict(get_trade_profile(self.profile))),
+                "trade_profile": _clean(dict(get_trade_profile(self.profile))) if self.profile in TRADE_PROFILES else None,
                 "tf_status": status,
+                "model": self.params.model,
             }
         )
         return payload

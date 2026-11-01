@@ -18,17 +18,12 @@ FIXTURE = Path(__file__).parent / "fixtures" / "impulse_golden_cases.json"
 DATA = json.loads(FIXTURE.read_text())
 CASES = DATA["cases"]
 
-# TEMPORARY (round 2): the engine moved to impulse-2.1.0 (zero line = konkorde_verde)
-# while the fixture is still the analyst's 2.0.0 set (edge = marron - media, no
-# verde column, `konkorde_edge_*` reasons). Goldens are never edited by backend;
-# this marker clears itself once the analyst commits the 2.1.0 fixture.
-PENDING_ANALYST = DATA["rule_version"] != RULE_VERSION
-pending_analyst = pytest.mark.xfail(
-    PENDING_ANALYST,
-    reason=f"fixture pinned to {DATA['rule_version']}, engine is {RULE_VERSION}: "
-           "pending the trading analyst's corrected goldens (konkorde_verde zero line)",
-    strict=False,
-)
+# Round 2 (spec §R2.i): the 14 round-1 cases are the `model="vote"` REGRESSION
+# block. They were written with edge = marron - media as the zero line, so they
+# run with `konkorde_line` as the fixture declares (`vote_cases_konkorde_line`);
+# the expected values are untouched. The sequential goldens S01-S11 live in
+# tests/test_impulse_sequential.py (derived from the rule in each docstring).
+VOTE_LINE = DATA.get("vote_cases_konkorde_line", "edge")
 
 
 def _frame(rows) -> pd.DataFrame:
@@ -36,7 +31,7 @@ def _frame(rows) -> pd.DataFrame:
 
 
 def _evaluate(case):
-    params = ImpulseParams.for_profile(case["profile"])
+    params = ImpulseParams.for_profile(case["profile"], model="vote", konkorde_line=VOTE_LINE)
     assert params.trigger_tf == case["trigger_tf"]
     frames = {case["trigger_tf"]: _frame(case["trigger"])}
     for tf, rows in (case.get("context") or {}).items():
@@ -51,10 +46,10 @@ def _evaluate(case):
     )
 
 
-@pending_analyst
 def test_fixture_matches_engine_version_and_count():
     assert DATA["rule_version"] == RULE_VERSION
     assert len(CASES) == 14
+    assert VOTE_LINE == "edge"
 
 
 def test_default_params_match_the_spec():
@@ -96,7 +91,6 @@ def test_trade_profiles_match_the_spec(name):
         assert mine["default_leverage"] == spec["default_leverage"]
 
 
-@pending_analyst
 @pytest.mark.parametrize("case", CASES, ids=[c["id"] for c in CASES])
 def test_golden_case(case):
     expected = case["expected"]

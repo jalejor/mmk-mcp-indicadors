@@ -53,6 +53,7 @@ class IndicatorsService:
         self._calc_momentum_indicators(result)
         self._calc_volatility_indicators(result)
         self._calc_trend_speed(result)
+        self._calc_ml_rsi(result)
 
         return result
 
@@ -97,6 +98,28 @@ class IndicatorsService:
             rsi = pd.Series(np.nan, index=self.df.index)
         self.df["rsi14"] = rsi
         result["rsi14"] = self._safe_last(self.df["rsi14"])
+
+    def _calc_ml_rsi(self, result: Dict[str, Any]):
+        """ML RSI [BackQuant] regime filter (impulsos-v2 round 3, owner decision 4).
+
+        Additive: NEW keys only (`ml_rsi`, `ml_rsi_upper`, `ml_rsi_lower`,
+        `ml_rsi_regime`, `ml_rsi_points`); the legacy payload is untouched.
+        Thresholds are causal (only candles <= the current one) over the last
+        3000 values available: with `/v1/metrics/get` default `limit=500` the
+        thresholds are fitted on ~480 points, so they will not match a
+        TradingView chart with 3000 bars of history; `ml_rsi_points` says how
+        many values fed them. See `ml_rsi.py` for what TV really plots.
+        """
+        from .ml_rsi import MlRsiParams, ml_rsi_frame
+
+        frame = ml_rsi_frame(self.df["close"], MlRsiParams(), mode="causal")
+        for col in ("ml_rsi", "ml_rsi_upper", "ml_rsi_lower"):
+            self.df[col] = frame[col].to_numpy()
+            result[col] = self._safe_last(self.df[col])
+        self.df["ml_rsi_regime"] = frame["ml_rsi_regime"].to_numpy(dtype=object)
+        regimes = [r for r in frame["ml_rsi_regime"].tolist() if r is not None]
+        result["ml_rsi_regime"] = regimes[-1] if regimes else "unknown"
+        result["ml_rsi_points"] = int(np.isfinite(frame["ml_rsi"].to_numpy(dtype=float)).sum())
 
     def _calc_adx(self, result: Dict[str, Any]):
         """ADX(14) plus directional indicators (+DI / -DI).
