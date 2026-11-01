@@ -1231,14 +1231,17 @@ def load_sequential_frames(params: Any, loader: Callable[[str], pd.DataFrame]) -
 
 
 def _sequential_params(rule: str, profile: str, **overrides: Any) -> Any:
-    """`r2` -> `impulse-2.1.0` (`ImpulseParams.sequential`); `r4` -> `impulse-2.2.0` (`r4_params`)."""
-    from .impulse_sequential import r4_params, sequential_params
+    """`r2` -> `impulse-2.1.0` (`ImpulseParams.sequential`); `r4` -> `impulse-2.2.0` (`r4_params`);
+    `r5` -> `impulse-2.3.0` (`r5_params`, `entry_filter` via overrides)."""
+    from .impulse_sequential import r4_params, r5_params, sequential_params
 
     if rule == "r2":
         return sequential_params(profile, **overrides)
     if rule == "r4":
         return r4_params(profile, **overrides)
-    raise ValueError(f"unknown rule {rule!r} (use 'r2' or 'r4')")
+    if rule == "r5":
+        return r5_params(profile, **overrides)
+    raise ValueError(f"unknown rule {rule!r} (use 'r2', 'r4' or 'r5')")
 
 
 def ledger_for(params: Any, *, split: datetime, symbol: str,

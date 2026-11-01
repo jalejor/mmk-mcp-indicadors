@@ -46,6 +46,9 @@ from .trade_profiles import DEFAULT_PROFILE, TRADE_PROFILES, get_trade_profile
 
 RULE_VERSION = "impulse-2.1.0"
 RULE_VERSION_R4 = "impulse-2.2.0"  # round 4b exit chain (impulse_sequential.r4_params)
+RULE_VERSION_R5 = "impulse-2.3.0"  # round 5 entry filters on the 2.2.0 chain (impulse_sequential.r5_params)
+# Round 5 (§R5): ONE entry filter per rule doc, evaluated on the entry candle after every 2.2.0 gate.
+ENTRY_FILTERS = ("adx_turn", "adx_turn_origin", "ao_divergence", "ao_divergence_any_tf", "bbwp_fresh", "bbwp_fresh_blue")
 
 # verde = the TV "yellow area" crossing 0 (owner decision 3, 2026-11-01; check:
 # labs data/results/konkorde_verde_check.md). edge = marron - media (2.0.0).
@@ -189,6 +192,12 @@ class ImpulseParams:
     mlrsi_alma_offset: float = 0.0  # what the BackQuant Pine hard-codes (ml_rsi.py)
     mlrsi_threshold_method: str = "percentile"  # what TradingView plots (ml_rsi.py)
     mlrsi_max_points: int = 3000
+    # -- Round 5 (§R5, `impulse-2.3.0`): ENTRY-side hypothesis. One filter from ENTRY_FILTERS
+    # (None = 2.2.0 entry unchanged) checked on the entry candle after every §R2/§R4 gate; a
+    # failed filter keeps the alert alive (`entry_filter_blocked:<name>`) until its ttl.
+    # `adx_origin_band` = the owner's A-grade origin of the ADX turn (born near 16, spec E1 refinement).
+    entry_filter: Optional[str] = None
+    adx_origin_band: Tuple[float, float] = (12.0, 20.0)
 
     def __post_init__(self) -> None:
         if self.konkorde_line not in KONKORDE_LINES:
@@ -204,6 +213,12 @@ class ImpulseParams:
                 raise ValueError("ctx_swing_back must be >= 1")
             if self.target_r is not None and float(self.target_r) <= 0:
                 raise ValueError("target_r must be > 0 or None")
+            if self.entry_filter is not None and self.entry_filter not in ENTRY_FILTERS:
+                raise ValueError(f"Unknown entry_filter: {self.entry_filter!r} (use one of {ENTRY_FILTERS} or None)")
+            lo, hi = self.adx_origin_band
+            if not (float(lo) < float(hi)):
+                raise ValueError("adx_origin_band must be (low, high) with low < high")
+            object.__setattr__(self, "adx_origin_band", (float(lo), float(hi)))
             for fam, w in self.confirm_window_bars.items():
                 if fam not in self.follower_families or int(w) < 1:
                     raise ValueError(f"bad confirm window {fam}={w}")
@@ -624,7 +639,7 @@ def _derive(df: pd.DataFrame, timeframe: str, p: ImpulseParams) -> _Derived:
     open_ms = _open_ms(df)
     arrays = {
         "close": close, "high": high, "low": low, "open": open_, "bbwp": bbwp, "drop": drop,
-        "edge": edge, "azul": azul, "atr": atr, "ao": ao,
+        "edge": edge, "azul": azul, "atr": atr, "ao": ao, "adx": adx,
         "phase": pd.Series(phase),
         "breakout_age": breakout_age,
         "compression_recent": compression_recent, "blue_recent": blue_recent, "zone_jump": zone_jump,

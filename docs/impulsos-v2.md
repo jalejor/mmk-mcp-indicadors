@@ -9,6 +9,7 @@
 | **Scope** | NEW additive engine. `rules_service.py` (legacy vote engine) and its watcher output stay untouched. |
 | **Round 2 status** | BUILT and BACKTESTED 2026-11-01 (`ecd603b`): **no cell passes** — see "Round 2 results" at the end. |
 | **Round 4b status** | `impulse-2.2.0` (exits without `phase_lost`, SNIPPER 10x isolated) BUILT and BACKTESTED 2026-11-01 (`25071ba`): **PRO INCONCLUSIVE (n 14), SNIPPER NO-GO at every leverage, 1 liquidation at 10x** — see "Round 4b results". |
+| **Round 5 status** | `impulse-2.3.0` (ENTRY filters on the frozen 2.2.0 chain: ADX turn / A-grade origin, AO divergence trigger / any TF, BBWP fresh ignition / from blue) BUILT, pre-registered in `docs/PREREG_IMPULSOS_v2_r5.md` — see §R5; results in "Round 5 results" after the run. |
 
 > **SUPERSEDED where they conflict (2026-11-01).** Round 1 (sections a-h,
 > `impulse-2.0.0`) is kept as the record of what was tested and refuted.
@@ -941,3 +942,62 @@ would have been stopped on the 21-oct rally before the drop to 77.5k. The
 machine's own later short (2026-10-24 15:00, 3 layers) was still open at
 2026-10-31 with +0.49 R; the "still open" line of the generated report refers
 to that later trade, not to the anchored one.
+
+---
+
+## Round 5 — `impulse-2.3.0` (ENTRY filters on the frozen 2.2.0 chain)
+
+| | |
+|---|---|
+| **rule_version** | `impulse-2.3.0` (`model: "sequential"`, `impulse_sequential.r5_params(profile, entry_filter)`) |
+| **Status** | Spec for `backend`. NOT active. Backtest pre-registered in `docs/PREREG_IMPULSOS_v2_r5.md` (frozen 2026-11-01 before the first run). |
+| **Tests** | `tests/test_impulse_r5.py` (rule-derived: params freeze 2.2.0, baseline == 2.2.0 entry + six flags, each filter blocks / passes on S02-derived frames, guardian alignment without lookahead, `force_enter` bypass) |
+| **Binding input** | Round 4b finding: the exits were changed three times and the gross PnL is ≈ 0 — the ENTRY has no measured edge. Pre-registered follow-up: entry-side hypothesis, exits and books untouched. |
+
+### R5.a What changes (and what does not)
+
+Nothing of §R2 / §R4 is re-decided: machine, windows, re-buys, ML RSI gate,
+exit chain #0–#4, partial take, books (PRO 1300 5x cross; SNIPPER 1700 10x
+isolated), costs. `impulse-2.3.0` adds ONE optional gate on the ENTRY candle
+`j`, evaluated AFTER every existing gate (`bbwp` regime, exhaustion, guardian,
+trigger ML RSI, guardian ML RSI):
+
+| `entry_filter` | Passes iff | Owner element |
+|---|---|---|
+| `null` | always (the 2.2.0 entry; baseline of the round) | — |
+| `adx_turn` | the `adx` family is among the same-side confirmations of the alert (E1 onset with the dominant DI, inside `W_adx`) | ADX 90° turn |
+| `adx_turn_origin` | `adx_turn` AND `min(ADX[b−3..b]) ∈ adx_origin_band = [12, 20]` on the confirming candle `b` | turn born near 16 (A-grade) |
+| `ao_divergence` | E2 divergence of the side active on the trigger at `j` (`bull_div` / `bear_div`) | AO divergence |
+| `ao_divergence_any_tf` | the above on the trigger OR on the guardian candle aligned to `j` (last guardian candle closed at or before `j`'s close) | divergence read on 4h / 1d |
+| `bbwp_fresh` | `phase[j] == ignition` (50-cross within the last 3 candles after a compression ≤ 30 in the last 10) | the 50-cross as an EVENT |
+| `bbwp_fresh_blue` | `bbwp_fresh` AND `blue_recent[j]` (min BBWP of the last 10 ≤ 20) | azul→verde "resorte" |
+
+A failed gate emits `entry_filter_blocked:<name>` and keeps the alert alive
+(re-checked every candle until `alert_expired`); a passed gate emits
+`entry_filter_ok:<name>`. EVERY enter (any filter, or none) reports the six
+booleans in `context.entry_filters` and as reasons `entry_filter:<name>=0|1`,
+so a baseline run can be read as a classifier study without re-running
+(prereg §6b). `force_enter` (anchored replay) ignores the filter. Not tested in
+round 5: AO convergence; the order "Konkorde before ADX" is the machine's
+window logic, not an owner decision.
+
+### R5.b Parameters added to the rule doc (copy as-is; everything else = §R2.f + §R4.c)
+
+| Field | 2.2.0 | **2.3.0** |
+|---|---|---|
+| `rule_version` | `impulse-2.2.0` | `impulse-2.3.0` |
+| `entry_filter` | — | `null` \| `adx_turn` \| `adx_turn_origin` \| `ao_divergence` \| `ao_divergence_any_tf` \| `bbwp_fresh` \| `bbwp_fresh_blue` |
+| `adx_origin_band` | — | `[12, 20]` (owner's A-grade band, 2026-07-06; not fitted) |
+
+Decision output adds: `context.entry_filters` (six booleans), reasons
+`entry_filter_blocked:*` / `entry_filter_ok:*` / `entry_filter:*=0|1`.
+
+### R5.c Backtest (pre-registered in `PREREG_IMPULSOS_v2_r5.md`)
+
+Per profile (`pro` 4h BTC; `snipper` 1h BTC; `pro_1d` BTC + ETH + SOL pooled):
+baseline + the six filters, same window (IS 2024-11 → 2025-12, OOS 2026-01 →
+10), same costs. GO per cell = round-4b criterion unchanged. §6b classifier
+on the baseline trades (KEEP / DROP / INCONCLUSIVE, sides pooled, `n_pass ≥
+10`). Fallback: a SNIPPER cell failing ONLY the liquidation leg → 7x isolated.
+A single GO among 36 cells = candidate requiring replication, not a pass.
+Results: section "Round 5 results" below (after the run).

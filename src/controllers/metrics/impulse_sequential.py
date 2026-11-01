@@ -105,6 +105,17 @@ def r4_params(profile: str = "snipper", **overrides: Any) -> "base.ImpulseParams
     return sequential_params(profile, **{**R4_OVERRIDES, **overrides})
 
 
+# Round 5 (docs/impulsos-v2.md §R5, `impulse-2.3.0`): the 2.2.0 chain and books FROZEN,
+# plus ONE entry filter (base.ENTRY_FILTERS) on the entry candle. `entry_filter=None`
+# is the 2.2.0 entry under the 2.3.0 label (the baseline run of the round-5 harness).
+R5_OVERRIDES: Dict[str, Any] = {**R4_OVERRIDES, "rule_version": base.RULE_VERSION_R5}
+
+
+def r5_params(profile: str = "snipper", entry_filter: Optional[str] = None, **overrides: Any) -> "base.ImpulseParams":
+    """`impulse-2.3.0`: `r4_params(profile)` + `entry_filter` (one of `base.ENTRY_FILTERS`, or None)."""
+    return sequential_params(profile, **{**R5_OVERRIDES, "entry_filter": entry_filter, **overrides})
+
+
 # ---------------------------------------------------------------------------
 # Event derivation (vectorised, causal)
 # ---------------------------------------------------------------------------
@@ -614,10 +625,68 @@ class SequentialMachine:
                 reasons.append("ctx_mlrsi_against")
                 return
         confirms = {k: dict(v) for k, v in a.confirms.items() if v["side"] == a.side}
+        # §R5: every entry filter is evaluated and reported on the entry candle (classifier study);
+        # only `p.entry_filter` gates. A failed gate keeps the alert alive until its ttl.
+        flags = self.entry_filter_flags(i, a.side, confirms)
+        dec.context["entry_filters"] = flags
+        if p.entry_filter is not None and not flags[p.entry_filter]:
+            reasons.append(f"entry_filter_blocked:{p.entry_filter}")
+            return
         self.alert = None
         self._enter(i, a.side, dec, alert_bar=a.bar, confirms=confirms)
         dec.confidence = min(1.0, n_same / max(1, len(p.follower_families)))
         reasons.append("context_aligned" if guardian == a.side else "context_neutral")
+        if p.entry_filter is not None:
+            reasons.append(f"entry_filter_ok:{p.entry_filter}")
+        reasons += [f"entry_filter:{name}={int(ok)}" for name, ok in flags.items()]
+
+    # -- §R5 entry filters (impulse-2.3.0) ---------------------------------------------
+    def entry_filter_flags(self, i: int, side: int, confirms: Mapping[str, Any]) -> Dict[str, bool]:
+        """Pass / fail of EVERY `base.ENTRY_FILTERS` member at trigger candle i for `side`.
+
+        * `adx_turn`: the ADX family is among the same-side confirmations of the alert
+          (an E1 turn onset with the dominant DI on `side`, inside its fitted window).
+        * `adx_turn_origin`: `adx_turn` AND the turn was born inside `adx_origin_band`
+          (A-grade, owner: "nacen en ~16"): origin = min ADX over the turn window
+          `[b - adx_turn_window, b]` of the confirming candle b.
+        * `ao_divergence`: E2 AO divergence of the side (`bull_div` long / `bear_div`
+          short) ACTIVE on the trigger at i (confirmed pivot pair, inside its ttl, price
+          has not broken the second pivot).
+        * `ao_divergence_any_tf`: `ao_divergence` on the trigger OR on the guardian's
+          aligned candle.
+        * `bbwp_fresh`: phase at i is `ignition` (BBWP crossed above 50 within the last
+          `breakout_ttl` candles after a compression <= 30 in the last 10).
+        * `bbwp_fresh_blue`: `bbwp_fresh` AND the compression came from the blue zone
+          (min BBWP of the last 10 candles <= 20).
+        """
+        p, T = self.p, self.trig
+        adx_c = confirms.get("adx")
+        adx_turn = bool(adx_c) and int(adx_c.get("side", 0)) == side
+        adx_origin = False
+        if adx_turn:
+            b = int(adx_c["bar"])
+            window = T["adx"][max(0, b - int(p.adx_turn_window)): b + 1]
+            if len(window) and np.isfinite(window).any():
+                origin = float(np.nanmin(window))
+                lo, hi = p.adx_origin_band
+                adx_origin = lo <= origin <= hi
+        div_key = "bull_div" if side == 1 else "bear_div"
+        ao_div = bool(T[div_key][i])
+        ao_div_ctx = False
+        g = self.contexts.get(p.confirm_tf)
+        idx = self.ctx_idx.get(p.confirm_tf)
+        if g is not None and idx is not None and int(idx[i]) >= 0:
+            ao_div_ctx = bool(g[div_key][int(idx[i])])
+        fresh = str(T["phase"][i]) == "ignition"
+        blue = bool(T["blue_recent"][i])
+        return {
+            "adx_turn": adx_turn,
+            "adx_turn_origin": adx_origin,
+            "ao_divergence": ao_div,
+            "ao_divergence_any_tf": ao_div or ao_div_ctx,
+            "bbwp_fresh": fresh,
+            "bbwp_fresh_blue": fresh and blue,
+        }
 
     # -- ENTER ------------------------------------------------------------------------
     def _enter(self, i: int, side: int, dec: base.ImpulseDecision, *, alert_bar: int, confirms: Dict[str, Any]) -> None:
@@ -824,6 +893,6 @@ class SequentialMachine:
 
 
 __all__: Sequence[str] = (
-    "FAMILIES", "STATES", "ACTIONS", "SEQUENTIAL_PROFILES", "FITTED_WINDOWS", "R4_OVERRIDES",
-    "sequential_params", "r4_params", "derive_sequential", "Alert", "Layer", "Position", "SequentialMachine",
+    "FAMILIES", "STATES", "ACTIONS", "SEQUENTIAL_PROFILES", "FITTED_WINDOWS", "R4_OVERRIDES", "R5_OVERRIDES",
+    "sequential_params", "r4_params", "r5_params", "derive_sequential", "Alert", "Layer", "Position", "SequentialMachine",
 )
