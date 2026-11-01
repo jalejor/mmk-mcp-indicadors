@@ -71,7 +71,7 @@ def regime_series(df_1d: pd.DataFrame, timeframe: str = REGIME_TF) -> RegimeSeri
     if "timestamp" in df_1d.columns:
         open_ms = df_1d["timestamp"].to_numpy(dtype="int64")
     else:
-        open_ms = (df_1d.index.view("int64") // 1_000_000).astype("int64")
+        open_ms = (np.asarray(df_1d.index.asi8, dtype="int64") // 1_000_000).astype("int64")
     closes = pd.Series(df_1d["close"].to_numpy(dtype=float))
     e = ema(closes).to_numpy(dtype=float)
     c = closes.to_numpy(dtype=float)
