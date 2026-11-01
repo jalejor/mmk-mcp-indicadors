@@ -160,4 +160,10 @@ notional would be needed).
 
 ## 11. Result commit
 
-(filled after the run)
+Run `20261101T071222Z` after this file was committed (`ecd603b`). Results:
+`docs/impulsos-v2-backtest-r2.md` (+ §"Round 2 results" of `docs/impulsos-v2.md`).
+**No mandatory cell PASSES.** pro 4h long H1: NO-PASS (n 30, −0.403 R, every
+leg fails); pro 4h short H1: INCONCLUSIVE (n 27, +0.001 R); pro 4h H2:
+INCONCLUSIVE (long n 12 +0.086 R, short n 26 +0.048 R); pro 1d: INCONCLUSIVE
+(n 1–6). Liquidations 0. No amendment was made. Expected outcome (§10) held:
+NO-PASS / INCONCLUSIVE, re-buys did not change the sign; H2 traded less.

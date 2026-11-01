@@ -366,6 +366,31 @@ against the timeframe grid before trusting any multi-month series.
 
 ---
 
+## E19 ⚠️ "ML RSI [BackQuant]" on TradingView is NOT k-means; a value read on the forming candle is not reproducible — LOW
+
+**Symptom**: porting the indicator as its description says (3-cluster k-means
+over the last 3000 RSI values) gives thresholds 68.3 / 39.2 on BTC/USDT 1d
+while the owner's chart shows 59.74 / 44.30; and the port's value on the
+closed 2026-10-31 candle (42.37) misses the owner's 40.07 by > 2 pts.
+
+**Root cause**: (1) the Pine creates `distances` / `new_centroids` with
+`array.new_float(3)` (three `na`) and then `push`es, so the arrays grow,
+every value is assigned to "cluster 3", and the thresholds read from slots
+0 / 2 are the 25th / 75th percentiles that `array.set` writes every bar —
+the k-means is dead code. (2) The owner read the indicator on the FORMING
+daily candle of 1-nov (price below the 31-oct close); the RSI of a forming
+candle changes with every tick.
+
+**How to avoid**: port what TradingView PLOTS, not what the description
+says — `ml_rsi.py` defaults to `threshold_method="percentile"` (parity 0.02 /
+0.21 pts) and keeps `"kmeans"` only for the record. For a parity golden ask
+the owner for the value on a CLOSED candle (or the candle's open time) and
+record the exchange; with `/v1/metrics/get` default `limit=500` thresholds
+are fitted on ~480 points and will not match a 3000-bar chart
+(`ml_rsi_points` in the payload). The Pine also hard-codes ALMA offset 0.
+
+---
+
 ## Non-issues / verified-correct (for reassurance)
 
 - **MCP auth**: the mounted MCP transport *does* enforce the API key on both

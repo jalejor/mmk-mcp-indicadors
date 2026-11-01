@@ -5,8 +5,9 @@
 | **rule_version** | `impulse-2.0.0` (round 1, sections a-h) -> **`impulse-2.1.0`** (round 2, section "Round 2" at the end) |
 | **Status** | Spec for `backend`. NOT active. Paper-first gates in §h / §R2.k. |
 | **Author / date** | trading analyst, 2026-11-01 (branch `impulsos-v2`, after Konkorde audit `406b69c`) |
-| **Goldens** | `tests/fixtures/impulse_golden_cases.json` (14 cases) |
+| **Goldens** | `tests/fixtures/impulse_golden_cases.json` (14 vote cases, regression) + `tests/test_impulse_sequential.py` (S01-S11 sequential, rule-derived) |
 | **Scope** | NEW additive engine. `rules_service.py` (legacy vote engine) and its watcher output stay untouched. |
+| **Round 2 status** | BUILT and BACKTESTED 2026-11-01 (`ecd603b`): **no cell passes** — see "Round 2 results" at the end. |
 
 > **SUPERSEDED where they conflict (2026-11-01).** Round 1 (sections a-h,
 > `impulse-2.0.0`) is kept as the record of what was tested and refuted.
@@ -700,12 +701,108 @@ not from code. The 14 round-1 `cases` are now `model="vote"` regression with
 
 ### R2.k What is missing to activate it
 
-1. `backend`: rule doc `impulse-2.1.0` (§R2.f), sequential machine, layers,
-   exit chain, ML RSI (H2) with parity test; all goldens green (both blocks);
-   no golden edited to make code pass.
-2. Lead-time study (§R2.h) committed with the fitted windows BEFORE the
-   backtest; then the backtest per `PREREG_IMPULSOS_v2_r2.md`.
+1. ✅ `backend` (2026-11-01, `ecd603b`): rule doc `impulse-2.1.0` =
+   `ImpulseParams.sequential(profile)` (`impulse_sequential.py`), machine,
+   layers, exit chain, ML RSI (H2); goldens S01-S11 as rule-derived tests
+   (`tests/test_impulse_sequential.py`) + the 14 round-1 cases as the vote
+   regression block. Suite 391 passed, 2 xfailed. Code default stays
+   `model="vote"` for the API contract; the live path takes
+   `model=sequential` opt-in (`ImpulseEvaluationService(model=...)`).
+2. ✅ Lead-time study with the per-family windows committed BEFORE the run
+   (§R2.h results below); backtest run per `PREREG_IMPULSOS_v2_r2.md`
+   (results below). **No cell passes.**
 3. Only PASS cells go to paper: >= 30 days AND >= 30 closed paper trades,
-   with layers logged per `rule_version`.
+   with layers logged per `rule_version`. Nothing qualifies today.
 4. `/mmk-council` before any real money. Default until then: not yet.
+
+---
+
+## Round 2 results (run 2026-11-01 `20261101T071222Z`, prereg `ecd603b`)
+
+Full tables, book-level USDT metrics, repaint and the owner-short report:
+`docs/impulsos-v2-backtest-r2.md`. BTC/USDT bitget, same data as round 1,
+IS 2024-11 -> 2025-12, OOS 2026-01 -> 2026-10, costs E16 per layer + funding,
+1R = layer-1 risk (2 % E0 = 26 USDT).
+
+### Lead-time study (§R2.h, IS fit, frozen)
+
+| profile | `W_ao` | `W_adx` | `W_macd` | `W_rsi` | ttl | "leaders lead" |
+|---|---|---|---|---|---|---|
+| pro 4h | 2 | 4 | 3 | 2 | 4 | NOT supported (leader median lead 3.0 vs ao 5 / macd 5 / rsi 4 / adx 2) |
+| pro 1d | 3 | 3 (default, 6 pairs) | 2 | 5 | 5 | NOT supported (4.0 vs 5 / 5 / 6 / 3) |
+
+No event (leader or follower) beats the chance rate by 0.10 on IS and OOS
+(`docs/impulsos-v2-lead-time.md`). Konkorde base rate (§R2.a): verde > 0 on
+87 % of bars, 76 + 76 zero crosses on 4h IS -> no `konkorde_line_alarm`,
+but the asymmetry predicted in §R2.a is real.
+
+### Cells
+
+| Cell | n (IS/OOS) | exp. R net | CI95 | exp. IS | exp. OOS | PF | max DD R | Verdict |
+|---|---|---|---|---|---|---|---|---|
+| 4h long H1 | 30 (19/11) | −0.403 | [−0.878, 0.207] | −0.323 | −0.542 | 0.51 | 15.7 | **NO-PASS** (every leg) |
+| 4h short H1 | 27 (16/11) | +0.001 | [−0.358, 0.324] | +0.013 | −0.016 | 1.00 | 3.8 | INCONCLUSIVE (n < 30) |
+| 4h long H2 (+ML RSI) | 12 (8/4) | +0.086 | [−0.798, 1.109] | +0.262 | −0.266 | 1.14 | 4.5 | INCONCLUSIVE |
+| 4h short H2 | 26 (17/9) | +0.048 | [−0.269, 0.337] | +0.041 | +0.062 | 1.21 | 2.5 | INCONCLUSIVE |
+| 1d long H1 | 6 (4/2) | +0.220 | — | | | 1.33 | 2.6 | INCONCLUSIVE |
+| 1d short H1 | 2 | −0.076 | — | | | | | INCONCLUSIVE |
+| 1d long H2 | 1 | +1.690 | — | | | | | INCONCLUSIVE |
+| 1d short H2 | 2 | −0.208 | — | | | | | INCONCLUSIVE |
+
+Book level (1300 USDT, 5x cross, one ledger per run): H1 4h **−22.7 %**
+(equity 1005, max DD 31 %, 57 trades, 26 adds, max exposure 1.67x); H2 4h
++3.7 % (1348, DD 10.7 %, 38 trades, 10 adds); 1d H1 +1.9 %, H2 +2.5 %.
+Liquidations 0 everywhere. Exit mix 4h H1: phase_lost 36, invalidation 14,
+time stop 5, **Jeisson rule 2** (of 57). Round-1 reference: pro long +0.146
+R / short −0.374 R; legacy 4h long −0.141 R; buy-and-hold +11.8 %.
+
+**Verdict: no cell passes; nothing moves to paper.** Round 2 is WORSE than
+round 1 on 4h long (−0.403 vs +0.146 R) and better on 4h short (+0.001 vs
+−0.374 R), i.e. the sequential model mostly removed losing shorts and added
+losing longs; the owner's exit rule still almost never fires (2/57). The ML
+RSI gate (H2) cuts trades by a third and turns the book positive (+3.7 %),
+but with n 12 / 26 nothing is established (CI across 0). Pre-registered
+follow-ups, not loosening: ETH + SOL pooled for 1d; a new hypothesis
+(`impulse-2.2.0`) for the entry side before any further 4h run.
+
+### ML RSI (owner decision 4) — what was found
+
+* **Parity**: TradingView's "Machine Learning RSI [BackQuant]" plots the
+  **25th / 75th percentiles** of the last 3000 smoothed RSI values, not
+  k-means centroids: the Pine builds its arrays with `array.new_float(3)` +
+  `push`, so the clustering never updates the slots that are read. Percentile
+  port on the closed 2026-10-31 daily candle: upper **59.76** / lower
+  **44.09** vs the owner's 59.74 / 44.30 (✅). True k-means: 68.3 / 39.2 (❌).
+  Value: 42.37 on the closed candle vs the owner's 40.07 read on the forming
+  1-nov candle (gap 2.3 > 2, strict xfail in `tests/test_ml_rsi.py`). The
+  Pine hard-codes ALMA offset 0 (the owner's 0.85 is TV's generic default).
+* **No lookahead**: thresholds use the trailing 3001 values ending at the
+  decision candle. **Repaint vs TV** (window anchored to the chart's last
+  bar): 4h last 1500 bars mean |Δ| upper 0.41 / lower 1.02 pts (max 2.66),
+  regime label differs on **5.7 %** of bars, last bar identical; 1d: 0 (the
+  1d history is shorter than the window, so both windows coincide).
+* `/v1/metrics/get` now carries `ml_rsi`, `ml_rsi_upper`, `ml_rsi_lower`,
+  `ml_rsi_regime`, `ml_rsi_points` (additive). With the default `limit=500`
+  the thresholds are fitted on ~480 points, so they will NOT match a TV chart
+  with 3000 bars; `ml_rsi_points` says how many fed them.
+* Regime filter semantics as decision 4 (red = shorts only, green = longs
+  only, gray = nothing); it never forces an exit. Partial-take warning on a
+  red -> gray transition while short: the regime is reported on every
+  decision (`mlrsi_regime`), so the watcher can emit it; not a rule of the
+  backtest (not pre-registered, not scored).
+
+### The owner's short (§R2.g, one trade, validates nothing)
+
+`owner_bar` = 4h candle 2026-10-09 00:00-04:00 UTC, close 82418.88. The 4h
+machine was FLAT there (no leader; verde −10.9 under media 12.5, bbwp 75.8,
+1d/1w guardians bullish, ML RSI red). Model's own short: H1 entered short
+2026-10-22 08:00 at 82242.87 (inv 84900, AO turn + RSI 50 cross), added 2
+layers, exited `phase_lost` 2026-10-24 04:00; H2 entered 2026-10-15 04:00 at
+80925 (4 families), exited `phase_lost` 2026-10-16 16:00. Anchored replay
+(layer 1 forced at 82418.88, 828 USDT, inv 85007 by 3 ATR, 1R 26 USDT): the
+machine EXITS by `phase_lost` the next day (2026-10-10 at 82601.57, −4.57
+USDT = −0.18 R) — it would not have held the owner's short to 77551.91
+(+5.9 % on layer 1). Reading: the machine's `phase_lost` (bbwp <= 50 with
+verde against) is far more active than the owner's own exit rule and cuts
+trades that the owner would keep.
 5. (2026-11-01) Plan del owner: cerrar el short actual (objetivo ~70k) y DESPUES operar con el motor nuevo en perfil **SNIPPER 1h (ctx 4h) a 10x** con recompras. Condicion: ronda 4 (backtest snipper 1h 10x con recompras, OOS) debe pasar; si no pasa, no se activa. Alertas por un bot de Telegram NUEVO (no el de Hermes) que el owner crea y pone en .env.

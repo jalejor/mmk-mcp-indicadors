@@ -342,3 +342,50 @@ already causal).
 
 **Status**: implemented, NOT active. Paper-first gates in spec §h; backtest per
 spec §g by the backtest harness (`impulse_backtest.py`).
+
+## D20 — Round 2 sequential machine + ML RSI as what TradingView really plots (2026-11-01)
+
+Owner decisions 1-4 (`docs/impulsos-v2.md`): the strategy is not a vote —
+Konkorde (`konkorde_verde`, the TV yellow area) and BBWP LEAD, AO / ADX /
+MACD / RSI CONFIRM; PRO with re-buys (1300 USDT, 5x cross); ML RSI
+[BackQuant] as a regime filter. `impulse_sequential.py` implements §R2 as
+`model="sequential"` of the same `ImpulseEngine` (`ImpulseParams.sequential`,
+`rule_version impulse-2.1.0`); the round-1 vote path is untouched and stays
+the code default (API contract, `/v1/impulse/evaluate`); the live path takes
+`model=sequential` opt-in.
+
+Design choices:
+
+* **Machine driven bar by bar** (`SequentialMachine.step(i, equity)`) so the
+  backtest ledger feeds realised equity for sizing and can `force_flat` on an
+  intrabar liquidation; `force_enter` gives the anchored replay of the
+  owner's trade. `run()` is the constant-equity replay; `evaluate()` on the
+  live path replays the fetched history (the machine owns its state).
+* **Follower windows are the only IS-fitted parameters**, computed per FAMILY
+  by `impulse_lead_time.family_windows` (R2.b formula) and frozen in
+  `FITTED_WINDOWS` before the backtest (4h ao 2 / adx 4 / macd 3 / rsi 2; 1d
+  3 / 3 / 2 / 5).
+* **ML RSI port = percentiles, not k-means.** Reading the public Pine
+  (`PUB;5377b888…`): `array.new_float(3)` + `array.push` grows the working
+  arrays to 6 / 9 elements, every value lands in "cluster 3" and
+  `array.get(centroids, 0 | 2)` reads the slots that `array.set` refreshes
+  each bar with the 25th / 75th percentiles. The percentile port reproduces
+  the owner's chart (59.76 / 44.09 vs 59.74 / 44.30); the described k-means
+  does not (68.3 / 39.2). `threshold_method="percentile"` is therefore the
+  default and `"kmeans"` is kept only for the record. The engine uses the
+  CAUSAL trailing window (3001 values ending at the decision candle); the
+  TV-anchored window is only used to measure repaint (4h: regime label differs
+  on 5.7 % of bars).
+* **Layered ledger** (`PositionLedger`): E16 per layer per side, funding on
+  total notional, cross-margin liquidation checked intrabar, 1R = layer-1
+  risk in USDT (2 % E0). The engine computes notionals; the ledger scores.
+
+**Alternatives discarded**: making `sequential` the code default (breaks the
+round-1 endpoint tests and the watcher contract for no gain while nothing
+passes); porting the Pine's k-means "as described" (does not match the
+owner's chart); tuning the smoothing to hit the owner's 40.07 value (read on
+the forming candle — a parameter fit to a non-reproducible reading).
+
+**Status**: built, backtested (`PREREG_IMPULSOS_v2_r2.md`, results in
+`docs/impulsos-v2-backtest-r2.md`): **no cell passes** (4h long NO-PASS
+−0.403 R; the rest INCONCLUSIVE). NOT active; nothing in paper.
