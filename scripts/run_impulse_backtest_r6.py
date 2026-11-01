@@ -281,7 +281,7 @@ def main() -> int:
             cross = run(f"snipper:B_risk_cross5:{entry}", "snipper", entry, BOOKS["cross5"])
             part_b[f"risk:{entry}"] = verdict_b(iso, cross, window_days)
         for entry in MARGIN_ENTRIES:
-            iso = run(f"snipper:B_margin_iso10:{entry}", "snipper", entry, {**margin_sized(10.0)})
+            iso = run(f"snipper:B_margin_iso10:{entry}", "snipper", entry, {**BOOKS["iso10"], **margin_sized(10.0)})
             cross = run(f"snipper:B_margin_cross5:{entry}", "snipper", entry, {**BOOKS["cross5"], **margin_sized(5.0)})
             part_b[f"margin:{entry}"] = verdict_b(iso, cross, window_days)
 

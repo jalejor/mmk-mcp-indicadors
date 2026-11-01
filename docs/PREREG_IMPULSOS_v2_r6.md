@@ -170,4 +170,28 @@ docker compose --profile backtest run --rm backtest \
 
 ## 10. Result commit
 
-(filled after the run)
+Runs after this file was committed (`c34de99`): `20261101T155315Z` (DISCARDED:
+the margin-sized 10x book had been built without `AS_RUN`, i.e. with the
+trigger gate ON while its 5x twin ran with it OFF — a harness slip in
+`run_impulse_backtest_r6.py`, one line, fixed in the result commit; the JSON is
+kept for the record) and `20261101T160537Z` (the result). `A_on` reproduces the
+round-5 `base` cells trade for trade on pro and snipper. Results:
+`docs/impulsos-v2-backtest-r6.md` + §"Round 6 results" of `docs/impulsos-v2.md`;
+ML RSI audit `docs/impulsos-v2-ml-rsi-audit.md`.
+
+* **6 A**: INCONCLUSIVE on every pair (removing the exit collapses n: snipper
+  65 → 14/18, pro 14 → 5; `n_oos` 5-7). Paired on the common entries: snipper
+  −0.46 R (as run, 10 pairs) and −0.43 R (as written, 11 pairs) per trade
+  WITHOUT the exit; pro +0.57/+0.78 R on 4-5 pairs. The exit is KEPT (no
+  evidence to drop; the paired reading on the deciding profile favours it).
+* **6 B**: `CROSS5_SAFER` in all five comparisons. Risk-sized books are
+  identical trade for trade except the 10x liquidation (2026-03-02): same R,
+  same R per 30 days, same time in market. Margin-sized 10x doubles the loss
+  and the DD (−26.4 % / 47.8 % vs −10.4 % / 25.4 % on `base`). H6-B held as
+  stated in §8; the owner's "more in less time" is not supported.
+* **E20 reading (§1)**: the chain as written (trigger gate ON) on snipper gives
+  55 trades, +0.3 %, 2 liquidations, long 25 +0.23 R PF 1.37 INCONCLUSIVE,
+  short 30 −0.10 R NO-GO; pro 11 trades −9.3 %. No GO cell.
+
+Expected outcome (§8) held in full. No parameter touched after the run; the
+only post-run edit is the one-line harness fix described above.

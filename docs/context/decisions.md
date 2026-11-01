@@ -469,3 +469,43 @@ same label).
 **Status**: vigente. Tests: E3-G1..G6 (`test_setup_elements_golden.py`),
 C1-G1 real-candle golden passes again on verde (xfail removed); suite 417
 passed, 1 xfailed.
+
+## D23 — Round 6: the guardian ML RSI exit stays; leverage is not where the snipper edge is (2026-11-01)
+
+Two pre-registered ABLATIONS (`PREREG_IMPULSOS_v2_r6.md`, no new rule) on the
+frozen 2.3.0 baseline, for the owner's 1-nov decisions (f) and (b/c), plus the
+ML RSI port audit (`scripts/audit_ml_rsi.py`).
+
+* **Harness over rule doc (E20).** `run_sequential`'s `mlrsi_gate` default is
+  now `None` (the rule doc's value wins); the as-run chain of rounds 4b/5 is
+  reproduced only with an explicit `{"mlrsi_gate": False}`. Every multi-layer
+  `**overrides` runner must be checked against `asdict(params)` before a run.
+* **Ablation knob, not a rule.** `ImpulseParams.ctx_mlrsi_entry_block`
+  (default `None` = follows `ctx_mlrsi_exit`, byte-identical 2.2.0) lets the
+  guardian exit be removed while the entry block stays; ablation runs carry the
+  label `impulse-2.3.0-r6`, never a rule proposal.
+* **Guardian ML RSI exit KEPT.** Removing it collapses n (single-position book,
+  95 % of the time in the market) and, on the common entries of the deciding
+  profile (snipper), costs −0.43 / −0.46 R per trade. INCONCLUSIVE by the
+  pre-registered criterion; nothing licenses dropping it.
+* **Leverage is sizing, not signal.** With risk-based sizing (2 % E0 at the
+  invalidation) the 10x isolated and 5x cross books are the same trades; 10x
+  only adds the liquidation (1 in two years, 9.4 % distance). Margin-based
+  sizing doubles the loss and the DD at 10x. 5x cross is the safer equivalent
+  in all five comparisons; the snipper's missing piece is an ENTRY with
+  expectancy, not the margin mode.
+* **ML RSI port at parity** on the owner's exchange (Binance 1d thresholds
+  59.744 / 44.303 vs 59.74 / 44.30; his 40.07 implied by a forming close inside
+  the 1-nov morning range). Known residual: the engine reads the guardian's
+  last CLOSED candle, TradingView repaints the forming one.
+
+**Alternatives discarded**: re-opening the round-4b/5 verdicts because of E20
+(a stricter entry gate on a no-edge signal cannot create a pass; the as-written
+chain was run and still has no GO cell); proposing 7x or any leverage as a
+"pulido" (the comparison shows leverage does not change R per unit of time);
+dropping the guardian exit on the book-level "+2.2 %" (a different book of 14
+trades, not the same entries).
+
+**Status**: vigente. Nothing in paper. Next round, if any, starts from the
+chain as written (trigger gate ON) and changes UNIVERSE or LEADER, or
+replicates `bbwp_fresh_blue` on ETH/SOL 1h/4h (round-5 follow-up).

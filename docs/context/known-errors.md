@@ -400,6 +400,18 @@ record the exchange; with `/v1/metrics/get` default `limit=500` thresholds
 are fitted on ~480 points and will not match a 3000-bar chart
 (`ml_rsi_points` in the payload). The Pine also hard-codes ALMA offset 0.
 
+**Closed-candle parity (audit 2026-11-01, `scripts/audit_ml_rsi.py`,
+`docs/impulsos-v2-ml-rsi-audit.md`)**: on the owner's exchange (BINANCE
+BTC/USDT 1d, closed 2026-10-31) the percentile port gives upper 59.744 /
+lower 44.303 vs the owner's 59.74 / 44.30 (0.004 / 0.003 pts) and value 42.40;
+the forming close that reproduces his 40.07 is 78 015, inside the 2026-11-01
+range (77 517 – 78 285, hours 06:00–15:00 UTC = his morning). The Pine source
+confirms the mechanism (`array.new_float(3)` + `push`, `array.percentile_
+linear_interpolation`, `ta.alma(src, len, 0, sigma)`). The port is at parity;
+only the forming-candle reading is irreproducible by nature. Remaining gap
+for a live operator: the engine reads the guardian on its last CLOSED candle
+(1h→4h lag up to 3 h, 4h→1d up to 20 h), TradingView repaints the forming one.
+
 ---
 
 ## E20 🐞 Rounds 4b and 5 of impulsos-v2 ran WITHOUT the trigger ML RSI gate the rule docs declare — MEDIUM

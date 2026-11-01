@@ -10,7 +10,7 @@
 | **Round 2 status** | BUILT and BACKTESTED 2026-11-01 (`ecd603b`): **no cell passes** — see "Round 2 results" at the end. |
 | **Round 4b status** | `impulse-2.2.0` (exits without `phase_lost`, SNIPPER 10x isolated) BUILT and BACKTESTED 2026-11-01 (`25071ba`): **PRO INCONCLUSIVE (n 14), SNIPPER NO-GO at every leverage, 1 liquidation at 10x** — see "Round 4b results". |
 | **Round 5 status** | `impulse-2.3.0` (ENTRY filters on the frozen 2.2.0 chain: ADX turn / A-grade origin, AO divergence trigger / any TF, BBWP fresh ignition / from blue) BUILT and BACKTESTED 2026-11-01 (`978a246`): **no cell GO, every filtered cell INCONCLUSIVE by n; classifier on snipper: `adx_turn` DROP, `bbwp_fresh` DROP, `bbwp_fresh_blue` weak KEEP (passed ≈ 0 R, rejected −0.39 R)** — see "Round 5 results". |
-| **Round 6 status** | ABLATIONS on the frozen 2.3.0 baseline (no new rule): guardian ML RSI exit ON vs OFF (owner point f) and SNIPPER 1h 10x isolated vs 5x cross, risk- and margin-sized (owner points b/c). Pre-registered in `docs/PREREG_IMPULSOS_v2_r6.md`. ⚠️ **E20**: rounds 4b/5 ran with the TRIGGER ML RSI gate OFF (harness default); round 6 runs both readings. ML RSI port audit: `docs/impulsos-v2-ml-rsi-audit.md`. Results in "Round 6 results" after the run. |
+| **Round 6 status** | ABLATIONS on the frozen 2.3.0 baseline (no new rule) RUN 2026-11-01 (prereg `c34de99`): guardian ML RSI exit ON vs OFF → **INCONCLUSIVE by n everywhere, KEPT** (removing it leaves 5-18 trades per book; on the common entries snipper loses −0.43/−0.46 R per trade without it); SNIPPER 1h 10x isolated vs 5x cross → **5x cross SAFER in all 5 comparisons** (risk-sized: identical trades and R, 10x only adds the liquidation; margin-sized: 10x doubles the loss and the DD, 47.8 % vs 25.4 %). ⚠️ **E20**: rounds 4b/5 ran with the TRIGGER ML RSI gate OFF (harness default); with the gate ON snipper is +0.3 % / 2 liquidations, still no GO. ML RSI port audit at parity (`docs/impulsos-v2-ml-rsi-audit.md`). See "Round 6 results". |
 
 > **SUPERSEDED where they conflict (2026-11-01).** Round 1 (sections a-h,
 > `impulse-2.0.0`) is kept as the record of what was tested and refuted.
@@ -1064,3 +1064,80 @@ need a universe where they fire (they do not on BTC 1h/4h at the current E2
 parameters); (4) the entry side still shows no positive edge after five rounds —
 the next hypothesis, if any, should change the UNIVERSE or the LEADER, not add a
 seventh gate on the same BTC signal.
+
+---
+
+## Round 6 results (run 2026-11-01 `20261101T160537Z`, prereg `c34de99`) — ablations, no new rule
+
+Full tables: `docs/impulsos-v2-backtest-r6.md` (raw `r6_impulse_20261101T160537Z.json`;
+a first run `…155315Z` is kept but DISCARDED: its margin-sized 10x book ran with
+the trigger gate ON while its 5x twin ran with it OFF — harness slip, fixed and
+re-run, nothing else changed). Same BTC frames as rounds 4b/5; `A_on` reproduces
+the round-5 `base` cells trade for trade (pro and snipper).
+
+**E20 first.** Rounds 4b and 5 ran with `mlrsi_gate=False` (the harness default
+overrode the rule doc's `true`). Their verdicts stand (nothing passed), but
+the 2.2.0 / 2.3.0 chain as WRITTEN had never been run until now: snipper
+`A_spec_on` 55 trades, book **+0.3 %** (vs −25.7 % as run), long 25 +0.23 R PF
+1.37 (INCONCLUSIVE, n < 30), short 30 −0.10 R NO-GO, **2 liquidations** at 10x;
+pro `A_spec_on` 11 trades, −9.3 %. The trigger gate removes the worst third of
+the snipper entries and still produces no GO cell.
+
+**Part A — guardian ML RSI exit (owner point f): INCONCLUSIVE, KEPT.** The exit
+is the main exit of the chain (58 % of snipper exits, 71 % of pro exits).
+Removing it (entry block kept) turns the book into one almost permanently in
+the market (95 % of the window) and collapses n: snipper 65 → 14 trades, pro
+14 → 5; every ablated cell is INCONCLUSIVE by construction. Paired reading on
+the SAME entries: snipper as run, 10 common entries, **−0.46 R per trade
+without the exit** (sum −0.42 → −5.07 R); snipper as written, 11 common,
+**−0.43 R**; pro, 4-5 common, +0.57/+0.78 R (longer holds caught the 2025
+trend) — n too small to decide. The book-level "+2.2 % without the exit" of
+snipper is a different book (14 trades, 55 lost entries), not evidence the
+exit hurts. Decision: the guardian ML RSI exit stays in the rule doc; the
+only thing round 6 licenses is to stop calling it "new": it is the exit that
+closes most trades, and the data neither indicts nor vindicates it.
+
+**Part B — SNIPPER 1h 10x isolated vs 5x cross (owner points b/c): 5x cross
+SAFER in all five comparisons.**
+
+| sizing | entry | 10x isolated | 5x cross | reading |
+|---|---|---|---|---|
+| risk (model) | base | −12.32 R, −25.7 %, DD 33.7 %, **1 liq** | −12.28 R, −25.6 %, DD 33.6 %, 0 liq | identical trades except the liquidated one |
+| risk | `bbwp_fresh_blue` | −6.21 R, −15.4 %, DD 35.2 %, 1 liq | −6.17 R, −15.3 %, DD 35.2 %, 0 liq | identical |
+| risk | `adx_turn` | +19.16 R, +32.7 %, DD 30.5 %, 1 liq | +19.24 R, +32.9 %, DD 30.5 %, 0 liq | identical; n < 30, classifier DROP |
+| margin (owner-style, 10 % E0 per layer) | base | −11.45 R, **−26.4 %, DD 47.8 %**, 1 liq | −11.40 R, −10.4 %, DD 25.4 %, 0 liq | same R, double exposure → double loss and DD |
+| margin | `bbwp_fresh_blue` | −6.38 R, −10.6 %, DD 47.5 %, 1 liq | −6.34 R, −1.6 %, DD 25.8 %, 0 liq | same |
+
+R per unit of time is the SAME at both leverages (base −0.51 R / 30 d, −0.022 R
+per day held, 2.7 trades / 30 d, median hold 164 h, 78 % of the time in the
+market): with risk-based sizing the leverage does not change the position
+size, only the margin posted and the liquidation distance (~9.4 % at 10x,
+~33 % at 5x cross on a 3x-E0 exposure). "10x isolated sacaría más en menos
+tiempo" is therefore NOT supported by the model: it holds only under
+margin-based sizing, where 10x doubles both the P&L and the drawdown (DD 48 %
+on a 1700 USDT book) and adds the liquidation. The owner's experience (5x
+cross has done better) is what the model predicts.
+
+**ML RSI audit (owner point f, "revisarlo a fondo")**: `docs/impulsos-v2-ml-rsi-audit.md`.
+Port = what TradingView plots, confirmed from the Pine source: `centroids`
+percentiles 25/75 refreshed by `array.set` each bar, the k-means loop pushes
+onto `array.new_float(3)` arrays and never reaches slots 0-2;
+`array.percentile_linear_interpolation`; `ta.alma(src, len, 0, sigma)` (offset
+0 hard-coded). Closed-candle parity on the owner's exchange (Binance 1d,
+2026-10-31): thresholds 59.744 / 44.303 vs 59.74 / 44.30; value 42.40; his
+40.07 is reproduced by a forming close of 78 015, inside the 1-nov range
+(77 517 – 78 285, 06:00–15:00 UTC). Causal window: no lookahead (truncated ==
+full, 40 samples); trigger → guardian alignment always uses a guardian candle
+closed at or before the trigger close (lag ≤ 3 h on 1h→4h, ≤ 20 h on 4h→1d).
+Guardian regimes (bitget, 2 years): 4h green 20 % / red 30 % / gray 50 %, 13.7
+flips per 30 days, median colour run 8 candles (32 h); 1d 2.2 flips / 30 d,
+median colour run 11 days; a colour never jumps to the contrary colour without
+passing through gray.
+
+**Verdict: nothing moves to paper.** Open for the owner: (1) the snipper
+"súper pulido" is not a leverage question — at risk-based sizing 10x and 5x
+are the same trade; the missing piece is still an ENTRY with positive
+expectancy on 1h (five rounds, none); (2) replicate `bbwp_fresh_blue` on
+ETH/SOL 1h/4h or change universe/leader (round-5 follow-up, unchanged);
+(3) the 2.2.0 chain as written (trigger gate ON) should be the baseline of
+any next round (E20).
