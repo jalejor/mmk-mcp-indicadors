@@ -9,7 +9,7 @@
 | **Scope** | NEW additive engine. `rules_service.py` (legacy vote engine) and its watcher output stay untouched. |
 | **Round 2 status** | BUILT and BACKTESTED 2026-11-01 (`ecd603b`): **no cell passes** — see "Round 2 results" at the end. |
 | **Round 4b status** | `impulse-2.2.0` (exits without `phase_lost`, SNIPPER 10x isolated) BUILT and BACKTESTED 2026-11-01 (`25071ba`): **PRO INCONCLUSIVE (n 14), SNIPPER NO-GO at every leverage, 1 liquidation at 10x** — see "Round 4b results". |
-| **Round 5 status** | `impulse-2.3.0` (ENTRY filters on the frozen 2.2.0 chain: ADX turn / A-grade origin, AO divergence trigger / any TF, BBWP fresh ignition / from blue) BUILT, pre-registered in `docs/PREREG_IMPULSOS_v2_r5.md` — see §R5; results in "Round 5 results" after the run. |
+| **Round 5 status** | `impulse-2.3.0` (ENTRY filters on the frozen 2.2.0 chain: ADX turn / A-grade origin, AO divergence trigger / any TF, BBWP fresh ignition / from blue) BUILT and BACKTESTED 2026-11-01 (`978a246`): **no cell GO, every filtered cell INCONCLUSIVE by n; classifier on snipper: `adx_turn` DROP, `bbwp_fresh` DROP, `bbwp_fresh_blue` weak KEEP (passed ≈ 0 R, rejected −0.39 R)** — see "Round 5 results". |
 
 > **SUPERSEDED where they conflict (2026-11-01).** Round 1 (sections a-h,
 > `impulse-2.0.0`) is kept as the record of what was tested and refuted.
@@ -1001,3 +1001,65 @@ on the baseline trades (KEEP / DROP / INCONCLUSIVE, sides pooled, `n_pass ≥
 10`). Fallback: a SNIPPER cell failing ONLY the liquidation leg → 7x isolated.
 A single GO among 36 cells = candidate requiring replication, not a pass.
 Results: section "Round 5 results" below (after the run).
+
+---
+
+## Round 5 results (run 2026-11-01 `20261101T152827Z`, prereg `978a246`)
+
+Full tables (42 cells, books per symbol, classifier, owner candle):
+`docs/impulsos-v2-backtest-r5.md` (raw `r5_impulse_20261101T152827Z.json`).
+Same BTC frames as rounds 1–4b; ETH/USDT and SOL/USDT 1d / 1w / 1M fetched from
+the public bitget endpoint (manifest with sha256). Baseline cells reproduce round
+4b trade for trade (pro, snipper).
+
+**No cell is GO.** Every filter removes entries and every filtered cell lands
+under n 30 → INCONCLUSIVE; the baseline snipper cells stay NO-GO. Snipper 1h
+filtered RUNS (10x isolated, 1700 USDT; n long / short, expectancy R, book):
+`adx_turn` 25 / 28, +0.20 / +0.51 R, book **+32.7 %** but 1 liquidation and n < 30;
+`adx_turn_origin` 13 / 20, −0.06 / −0.58, −22.9 %; `ao_divergence` 9 / 8, +0.10 /
++1.09, +18.0 %; `ao_divergence_any_tf` 13 / 9, +0.01 / +0.94, +15.1 %; `bbwp_fresh`
+28 / 28, −0.20 / −0.24, −25.0 % (1 liq); `bbwp_fresh_blue` 29 / 22, −0.11 / −0.14,
+−15.4 % (1 liq). PRO 4h: 2–6 trades per side, books −3.1 % … +13.1 %. PRO 1d
+pooled BTC+ETH+SOL: baseline 7 / 7 (−0.43 / +0.21 R), filters 0–7 trades. H-lev
+(7x fallback) not triggered: the cells that keep the 2026-03-02 liquidation fail
+by n, not by the liquidation leg alone.
+
+**Classifier (§6b) on the snipper baseline (65 trades, sides pooled)** — the
+only profile with n to decide:
+
+| filter | pass / rej | exp. pass | exp. rej | IS pass vs rej | OOS pass vs rej | verdict |
+|---|---|---|---|---|---|---|
+| `adx_turn` | 19 / 46 | −0.677 | +0.012 | −0.58 vs −0.04 | −0.96 vs +0.08 | **DROP** |
+| `adx_turn_origin` | 9 / 56 | −0.589 | −0.125 | — | — | INCONCLUSIVE (n_pass 9) |
+| `ao_divergence` | 1 / 64 | — | −0.180 | — | — | INCONCLUSIVE (pass rate 1.5 %) |
+| `ao_divergence_any_tf` | 5 / 60 | +0.047 | −0.209 | — | — | INCONCLUSIVE (pass rate 7.7 %) |
+| `bbwp_fresh` | 39 / 26 | −0.053 | −0.395 | −0.07 vs −0.38 | −0.03 vs −0.45 | **DROP** (exp_pass_all <= 0) |
+| `bbwp_fresh_blue` | 32 / 33 | **+0.021** (PF 1.02, CI95 [−0.75, 0.85]) | −0.394 | +0.01 vs −0.36 | +0.03 vs −0.54 | **KEEP** (weak) |
+
+PRO 4h and PRO 1d: every filter INCONCLUSIVE (n_pass <= 8). Reading: the
+ADX-turn confirmation does NOT select better 1h entries (the trades it marks
+are the worst subset, consistently in IS and OOS); the divergence filters are
+too rare on 1h (1.5–7.7 % of entries) to be judged; the BBWP "fresh ignition
+from blue" splits the baseline into a ≈ 0 R half and a −0.39 R half in both
+blocks — it identifies the LOSING entries (late entries into an expansion that
+did not come from a blue compression), it does not create positive expectancy
+(passed PF 1.02, costs included). The pre-declared path caveat showed up: the
+`adx_turn` RUN is positive while its classifier reading is DROP, because
+blocking entries changes which trades a single-position book takes; a filtered
+run with n < 30 and one liquidation is not evidence.
+
+**Owner's short candle through the filters (one candle, validates nothing)**:
+on 1h (2026-10-12 18:00, 82 454.84) it passes `adx_turn` (short onset 14:00,
+origin 21.4 → not A-grade) and `ao_divergence` (bear divergence on the 1h
+trigger), fails `bbwp_fresh` / `_blue` (phase expansion, BBWP 86.7); on 4h
+(2026-10-09 00:00, 82 418.88) only `ao_divergence_any_tf` (1d bear divergence).
+
+**Verdict: nothing moves to paper.** Pre-registered follow-ups, not loosening:
+(1) `bbwp_fresh_blue` is a candidate requiring REPLICATION on new data (ETH/SOL
+on 1h / 4h, dedicated pre-registration) before anything else — the KEEP is a
+"the rest loses" signal with expectancy ≈ 0; (2) `adx_turn` as a mandatory
+confirmation is closed for this family on 1h (DROP); (3) the divergence filters
+need a universe where they fire (they do not on BTC 1h/4h at the current E2
+parameters); (4) the entry side still shows no positive edge after five rounds —
+the next hypothesis, if any, should change the UNIVERSE or the LEADER, not add a
+seventh gate on the same BTC signal.

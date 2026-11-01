@@ -246,4 +246,30 @@ docker compose --profile backtest run --rm -e TELEGRAM_BOT_TOKEN= backtest \
 
 ## 11. Result commit
 
-(filled after the run)
+Run `20261101T152827Z` after this file was committed (`978a246`). Results:
+`docs/impulsos-v2-backtest-r5.md` (+ §"Round 5 results" of `docs/impulsos-v2.md`),
+raw `r5_impulse_20261101T152827Z.json`. Baseline cells reproduce round 4b trade
+for trade on `pro` and `snipper` (pro_1d differs only because it now pools
+ETH + SOL; the BTC book is the same 2 trades). **No cell is GO.** Every filtered
+cell is INCONCLUSIVE by n (largest: snipper `bbwp_fresh_blue` long 29, `adx_turn`
+short 28); the baseline snipper cells stay NO-GO. H-lev not triggered (the
+10x liquidation of 2026-03-02 survives `adx_turn`, `bbwp_fresh`, `bbwp_fresh_blue`,
+but those cells fail by n, not by the liquidation leg alone). §6b on snipper
+(n 65): `adx_turn` **DROP** (passed −0.677 R vs rejected +0.012, worse in IS and
+OOS), `bbwp_fresh` **DROP** (passed beat rejected everywhere but
+expectancy_pass_all = −0.053 <= 0), `bbwp_fresh_blue` **KEEP** (passed +0.021 R
+PF 1.02 CI95 [−0.75, 0.85] vs rejected −0.394; IS +0.008 vs −0.355; OOS +0.032
+vs −0.539; n 32 / 33) — a KEEP that says the rejected trades lose, not that the
+passed ones win; `adx_turn_origin`, `ao_divergence`, `ao_divergence_any_tf`
+INCONCLUSIVE (pass rates 14 %, 1.5 %, 7.7 %). pro and pro_1d: all INCONCLUSIVE
+(n_pass <= 8). Pre-declared caveat observed in the data: the filtered RUN of
+snipper `adx_turn` (53 trades, book +32.7 %, OOS +0.95 / +2.00 R, 1 liquidation)
+disagrees with its §6b reading (DROP) because blocking entries changes which
+trades the single-position book takes; neither is a GO. Owner candle: on 1h
+the short passes `adx_turn` (onset 2026-10-12 14:00, origin 21.4 -> not A-grade)
+and `ao_divergence` (bear divergence on the trigger), fails both BBWP filters
+(phase expansion, bbwp 86.7); on 4h only `ao_divergence_any_tf` (1d bear
+divergence). Expected outcome (§8) held: H0 except the single weak KEEP, which
+§6a/§6b and the multiple-comparison rule classify as a candidate requiring
+replication, not a signal. No amendment was made; no parameter touched after the
+run.

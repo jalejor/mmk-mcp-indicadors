@@ -389,3 +389,40 @@ the forming candle — a parameter fit to a non-reproducible reading).
 **Status**: built, backtested (`PREREG_IMPULSOS_v2_r2.md`, results in
 `docs/impulsos-v2-backtest-r2.md`): **no cell passes** (4h long NO-PASS
 −0.403 R; the rest INCONCLUSIVE). NOT active; nothing in paper.
+
+## D21 — Round 5: entry filters are an opt-in gate on the frozen 2.2.0 chain, read twice (run + classifier) (2026-11-01)
+
+After four rounds that changed the side rule and the exit chain without any
+cell passing, round 5 (`impulse-2.3.0`, `impulse_sequential.r5_params`) tests
+the ENTRY side: ONE filter per rule doc (`ImpulseParams.entry_filter`, six
+members of `ENTRY_FILTERS`: ADX turn / A-grade origin `[12, 20]`, AO
+divergence trigger / any TF, BBWP fresh ignition / from blue), evaluated on the
+entry candle AFTER every 2.2.0 gate. `R5_OVERRIDES = R4_OVERRIDES + version`:
+exits, books, windows and costs are byte-identical to 2.2.0, so the baseline
+run reproduces round 4b trade for trade (checked mechanically by the harness).
+
+Design choices:
+
+* **Every ENTER reports all six flags** (`context.entry_filters`, reasons
+  `entry_filter:<name>=0|1`) whatever filter is active, so one baseline run
+  doubles as a classifier study (prereg §6b: KEEP / DROP / INCONCLUSIVE on the
+  passed-vs-rejected split, IS and OOS). This is what keeps a round readable
+  when every filtered cell falls under n 30 — which happened.
+* **A failed gate keeps the alert alive** until its ttl (same as the BBWP /
+  guardian / ML RSI gates), so a late ADX confirmation can still open inside its
+  fitted window; `force_enter` bypasses the filter (anchored replays).
+* **The two readings are expected to disagree** and both are reported: a
+  filtered RUN changes which trades a single-position book takes (snipper
+  `adx_turn` run +32.7 % vs its classifier DROP). Neither decides alone; §6a
+  decides GO, §6b decides what to study next.
+
+**Alternatives discarded**: stacking filters (a stacked rule is a new
+pre-registration); fitting the ADX band or the divergence parameters on IS
+(they are the owner's / spec constants); widening the window or pooling ETH/SOL
+on 1h/4h inside this round (universe change = replication round).
+
+**Status**: built, tested (`tests/test_impulse_r5.py`, suite 409 passed, 2
+xfailed), backtested (`PREREG_IMPULSOS_v2_r5.md`, results
+`docs/impulsos-v2-backtest-r5.md`): **no cell GO**; classifier on snipper 1h:
+`adx_turn` DROP, `bbwp_fresh` DROP, `bbwp_fresh_blue` weak KEEP (passed ≈ 0 R,
+rejected −0.39 R) = candidate requiring replication. NOT active; nothing in paper.
