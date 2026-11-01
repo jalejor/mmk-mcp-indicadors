@@ -220,5 +220,26 @@ State: `~/Documents/suideaweb/labs/mmk-signals/data/shadow-r8/` (`events.jsonl`,
 
 ## 10. Result commit
 
-(empty until the shadow closes; activation evidence is recorded in the first `AMENDMENT`
-block below once the first real run has happened)
+(empty until the shadow closes)
+
+### AMENDMENT 2026-11-01 — activation evidence (no change to §§1-9)
+
+* Prereg commit `583108b`; runner commit `e6be68a` (`impulse_shadow.py`, `run_impulse_shadow_r8.py`,
+  `shadow_r8_report.py`, `tests/test_impulse_shadow.py`). Tests in Docker, network none:
+  `test_impulse_regime.py` + `test_impulse_shadow.py` + `test_impulse_r7.py` + `test_impulse_r6.py`
+  = **29 passed**.
+* Lab (`~/Documents/suideaweb/labs/mmk-signals`, not a git repo): service `shadow` (profile
+  `shadow`, test image, only `NTFY_BASE` / `NTFY_TOPIC` interpolated from the `.env`, no
+  `depends_on`), wrapper `shadow-r8.sh`, state `data/shadow-r8/`. Live containers untouched.
+* Dry run 17:21Z: 9/9 assets, 27 machines, last closed candle 16:00Z open (closes 17:00Z),
+  events +0 (activation is 18:00Z), **11 open paper SHORTS replayed from before the
+  activation** (BTC ×3, SOL ×3, XRP ×2, ADA ×3; entries 2026-10-15 … 10-29) — their exits
+  will be logged as `carried` and excluded from every book. Initial cache fetch ≈ 15 s per
+  asset (4 061 × 1h, 3 490 × 4h, 451 × 1d rows).
+* Real runs 17:24Z and 17:26Z (`docker compose --profile shadow run --rm -T shadow`, the
+  wrapper's command): both `events +0 trades +0 open 11 ntfy sent 0 failed 0 ok`;
+  `state.json` counts `runs 2, events 0, trades 0`; second run appended nothing (idempotent).
+  First candle that can count: the 1h candle closing 2026-11-01T18:00Z.
+* NOT done in this session: the hourly crontab line (§9) was not installed (the session could
+  not run `crontab`); the wrapper itself was not executed here (`flock` blocked in the
+  sandbox) — it runs the same compose command shown above. The owner installs the cron.
