@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **rule_version** | `0.1.0-draft` |
+| **rule_version** | `0.1.0-draft` (pack labels in force since 2026-11-01: `0.1.1` setups / `0.2.2` monitors, §0.4) |
 | **Status** | Draft for backend implementation — pending owner confirmation of [§D Open Questions](#d-open-questions-for-the-owner) |
 | **Audience** | `backend` (implements `SetupService` + multi-TF backtest), reviewer: trading analyst |
 | **Date** | 2026-07-06 (includes the owner's same-night refinements: timeframe bands §0.3 and false-entry vetoes §B.3); owner addenda 2026-07-07 (§G, E5 zones) and 2026-07-11 (M1 monitor §B.3.1, E1/E3-E4/E5 addenda, investor profiles §H, Q13-Q17) |
@@ -13,7 +13,8 @@ elements and the 2 composite setups. Names are aligned to the **existing series
 produced by `IndicatorsService`** (`src/controllers/metrics/indicators_service.py`):
 `adx14`, `plus_di`, `minus_di`, `ao`, `konkorde_azul`, `konkorde_verde`,
 `konkorde_marron` (Blai5 port since 2026-11-01, NOT centred on zero — see
-`docs/context/decisions.md#D18`; `konkorde_positive`/E3 pend re-specification),
+`docs/context/decisions.md#D18`; E3 / `konkorde_positive` read `konkorde_verde`
+since rule_version `0.1.1` / `0.2.2`, §0.4 and E3),
 `bbwp` (rule packs: legacy definition, `RULE_PACK_BBWP_DEFINITION`, D18),
 `bbw`, `atr14`, `rsi14`, `sma50/200`, `ema50/200`.
 
@@ -92,6 +93,15 @@ Boundary interpretation chosen (provisional — see Open Question **Q6**): "belo
 | Date | Authority | Change | Version label |
 |---|---|---|---|
 | 2026-08-16 | re-council + owner approval | The three v0.2.x `p_false` priors (§I.1, `rule_v020.py`) and the v0.1.0 `p_false_prior` (§B.3.1, `setup_service.py`) become `not_established` (`None`). Detectors, state machines and thresholds untouched. | unchanged — `0.1.0` / `0.2.x` |
+| 2026-11-01 | owner decision (d) 2026-11-01 ("re-especificar E3: GO") + decision 3 of impulsos-v2 (`docs/impulsos-v2.md`) | E3 re-specified: every Konkorde SIGN / zero-CROSS read of the packs (E3 state + event, V1 freshness events, v0.2.x C1 high-band leg, M1 turn-ignition 4h leg) reads `konkorde_verde` instead of `konkorde_marron` (0-100 since D18, never crosses zero). Single pack constant `RULE_PACK_KONKORDE_LINE`; missing column fails closed. Semantics, params and windows unchanged; goldens E3-G1..G4 restated on verde + E3-G5/G6. `vol_turn` on `konkorde_marron` (E4) unchanged. | `0.1.0` → `0.1.1`, `0.2.1` → `0.2.2` |
+
+Why the 2026-11-01 labels DO move: a rule input changes (a different series
+feeds the same condition), so the same market can now adjudicate differently —
+the §0.4 bump case. The old labels `0.1.0` / `0.2.0` / `0.2.1` stay
+selectable (precedent of 0.2.0/0.2.1, §I.9) and execute the SAME code as the
+new ones; they are kept only so historical records keep a valid label. They
+are **not reproducible**: as shipped they read a re-centred marron (D6) that no
+longer exists since D18. The default becomes `0.1.1`.
 
 Why the labels do not move: the amendment **removes** rule data rather than
 replacing one value with a different one — nothing recomputes differently, an
@@ -313,26 +323,51 @@ fires at bar 10.
 **Owner's words**: Konkorde crossing the zero point = trend continuation; up =
 buy, down = sell.
 
-**Current code behaviour (documented, NOT the same thing)**: `RulesService`
-votes `konkorde_buy` whenever `konkorde_value > 0` and `konkorde_sell` whenever
-`< 0` (`rules_service.py:160-165`) — a **level/state** check on the latest
-candle. Since the re-centring fix (`65be83d`, decisions.md#D6) the level is
-unbiased, but a positive `marron` votes buy on *every* bar, not only at the
-cross. The owner's element is an **event**. The spec therefore defines both:
+**E3 line = `konkorde_verde`** (re-specified 2026-11-01, rule_version
+`0.1.1` / `0.2.2`, §0.4 amendments table). `verde = marron + oscp` is the
+TradingView Konkorde 2.0 "yellow area" — the line the owner validated against
+his own chart as the one that crosses zero (owner decision 3 of 2026-11-01,
+`docs/impulsos-v2.md` §"Decisiones del owner" / §R2.a). Up to `0.1.0` /
+`0.2.1` the packs read `konkorde_marron`, which was zero-centred only by the
+D6 re-centring; since the Blai5 bar-exact port (decisions.md#D18) `marron` is
+a 0-100 average (~+55 flat) that never crosses zero, so a `marron > 0` leg was
+a permanent bullish vote (known-errors.md#E17). Discarded: `marron - media`
+(Blai5's own signal, `edge` in the impulse engine) — it does cross zero, but
+the owner's element is "Konkorde crossing ZERO" and verde is the line he
+validated. The code reads the line through ONE pack constant,
+`setup_service.RULE_PACK_KONKORDE_LINE = "konkorde_verde"`; a frame without
+that column **fails closed** (never a Konkorde vote, bullish or bearish).
+
+**Legacy code behaviour (documented, NOT the same thing)**: `RulesService`
+votes marron vs media (D18) — a level/state check on the latest candle, not
+the owner's event. It is unchanged by this re-spec. The spec defines both
+state and event on verde:
 
 ```
 State (context use):
-konkorde_positive = konkorde_marron[-1] > 0
-konkorde_negative = konkorde_marron[-1] < 0
+konkorde_positive = konkorde_verde[-1] > 0
+konkorde_negative = konkorde_verde[-1] < 0
 
 Event (trigger use), with confirm_bars = N:
-konkorde_zero_cross_up   = konkorde_marron[-1-N .. -1] all > 0        (N most recent closed candles positive)
-                           AND konkorde_marron[-1-N] <= 0             (the candle before the run was at/below zero)
+konkorde_zero_cross_up   = konkorde_verde[-1-N .. -1] all > 0        (N most recent closed candles positive)
+                           AND konkorde_verde[-1-N] <= 0             (the candle before the run was at/below zero)
 konkorde_zero_cross_down = mirror with < 0 / >= 0
 ```
 
 With the default `confirm_bars = 1` this reduces to the plain cross:
-`marron[-2] <= 0 AND marron[-1] > 0`.
+`verde[-2] <= 0 AND verde[-1] > 0`. Semantics, parameters and veto windows are
+those of `0.1.0` — only the input line changes. `vol_turn` with
+`source: konkorde_marron` (E4 on the trend curve, scale-free percentile zone)
+is E4, not E3, and is unchanged.
+
+**Declared limitation (measured, not a reason to change the line)**: on
+bitget BTC/USDT 2024-11 → 2026-11 (lab note `konkorde_verde_check.md`) verde
+is `> 0` on **85.9 %** of 4h bars and **88.4 %** of 1d bars; zero crosses:
+**134 up / 134 down** on 4h in two years, **18 / 19** on 1d. Consequences:
+`konkorde_state positive` is a WEAK context filter (it only excludes deep
+weak-hands sell-offs) and `konkorde_negative` / short-side crosses are rare.
+What the owner ratified is the EVENT (E3 as trigger, E3/E4 addendum
+2026-07-11), and that is what the packs use it for.
 
 **Parameters**:
 
@@ -343,14 +378,17 @@ With the default `confirm_bars = 1` this reduces to the plain cross:
 
 **TFs**: **`high_tf` band only** (4h and above). Forbidden in `low_tf` (§0.3).
 
-**Golden cases** (input: `konkorde_marron` closed series, `confirm_bars=1`):
+**Golden cases** (input: `konkorde_verde` closed series, `confirm_bars=1`;
+G1-G4 keep the numbers of `0.1.0`, restated on verde):
 
-| # | `konkorde_marron` | Expected | Why |
+| # | `konkorde_verde` | Expected | Why |
 |---|---|---|---|
-| E3-G1 | `[-5.0, -2.0, -0.5, 1.2]` | `konkorde_zero_cross_up = true` | marron[-2]=−0.5 ≤ 0, marron[-1]=1.2 > 0 |
+| E3-G1 | `[-5.0, -2.0, -0.5, 1.2]` | `konkorde_zero_cross_up = true` | verde[-2]=−0.5 ≤ 0, verde[-1]=1.2 > 0 |
 | E3-G2 | `[-5.0, -2.0, 0.5, 1.2]` | `cross_up = false`, `konkorde_positive = true` | the cross happened one candle earlier (event ≠ state) |
 | E3-G3 | `[3.0, 2.0, 1.0, -0.8]` | `konkorde_zero_cross_down = true` | 1.0 ≥ 0 → −0.8 < 0 |
 | E3-G4 | `[-2.0, 0.5, 1.2]` with `confirm_bars=2` | `cross_up = true` | last 2 closes > 0 and the candle before the run (−2.0) ≤ 0 — fires one candle later than G1-style |
+| E3-G5 | `[-3.0, -1.0, 2.0]` with `konkorde_marron = [55.0, 55.0, 55.0]` in the same frame | `cross_up = true`, `konkorde_positive = true` | the packs read verde only: a flat +55 marron is irrelevant (it neither creates nor blocks the event) |
+| E3-G6 | frame WITHOUT a `konkorde_verde` column (`konkorde_marron = [55.0, 55.0, 55.0]` present) | the Konkorde condition fails closed: the setup evaluator raises `KeyError` naming `konkorde_verde` (no vote); the v0.2.x C1 leg and the M1 turn leg report `false` | a frame that lacks the E3 line must never produce a Konkorde vote, bullish or bearish |
 
 ---
 
@@ -427,7 +465,7 @@ ventas (abajo). Volumen en media ALTA con giros V/W = terminación del
 impulso. Salida de la media con giros abruptos desde volumen; entrada al
 punto 0 o cerca."
 
-1. **Zero cross RATIFIED (E3 unchanged)**: crossing 0 upward = start
+1. **Zero cross RATIFIED (E3 unchanged; its line is `konkorde_verde` since 0.1.1)**: crossing 0 upward = start
    building buys; downward = start building sells. "Empezar compras"
    confirms E3's **event** (campaign-start) semantics over the legacy
    level/state vote.
@@ -673,7 +711,7 @@ strict mirror (gated by Q8).
           { "element": "adx_level", "expr": "adx14 >= 25 AND plus_di > minus_di" },  // = adx_trend_bullish today
           { "element": "adx_turn", "variant": "up_bullish" }                          // E1: strength igniting
       ]},
-      { "element": "konkorde_state", "variant": "positive" },          // E3 state: marron > 0
+      { "element": "konkorde_state", "variant": "positive" },          // E3 state: verde > 0 (0.1.1+)
       { "element": "pullback_state", "params": { "pullback_window": 10 } }
       // pullback_state := min(low[-pullback_window..-1]) <= ema50 on the context TF
       //                   (price actually retraced to the dynamic mean) [calibrable]
@@ -687,7 +725,7 @@ strict mirror (gated by Q8).
     "logic": "reversal_evidence AND resumption",
     "conditions": {
       "reversal_evidence_any_of": [
-        { "element": "konkorde_zero_cross", "variant": "up", "params": { "confirm_bars": 1 } },   // E3 event
+        { "element": "konkorde_zero_cross", "variant": "up", "params": { "confirm_bars": 1 } },   // E3 event on verde (0.1.1+)
         { "element": "ao_divergence", "variant": "bullish", "params": { "active_within": 5 } }     // E2, fired ≤5 closed bars ago
       ],
       "resumption_all_of": [
@@ -734,7 +772,7 @@ Konkorde) applies.
     "timeframe": "4h",
     "logic": "all_of",
     "conditions": [
-      { "element": "konkorde_zero_cross", "variant": "up", "params": { "confirm_bars": 1 } },  // E3 continuation
+      { "element": "konkorde_zero_cross", "variant": "up", "params": { "confirm_bars": 1 } },  // E3 continuation, event on verde (0.1.1+)
       { "expr": "ao > 0" },                                                   // existing ao_positive condition
       { "expr": "ao[-1] > ao[-2]" }                                           // E2 cheap convergence: momentum rising
     ]
@@ -851,7 +889,7 @@ Evaluated at the last closed 4h candle, `IMP-4H-LONG`:
 ```
 ao              = [-0.4, 0.3, 0.9, 1.4, 1.8, 2.1, 2.3]
 adx14           = [24.6, 24.7, 24.8, 24.9, 25.0, 25.1, 25.2, 25.3, 25.4]   (plus_di > minus_di on every candle)
-konkorde_marron = [-1.0, 0.8, 1.5]
+konkorde_verde  = [-1.0, 0.8, 1.5]
 ```
 
 * `ao_zero_cross_up` fired at index 1 → `event_age = 5` > 3 → **stale** (the
@@ -870,7 +908,7 @@ Expected: **no entry signal**;
 ```
 ao              = [-1.2, -0.6, -0.1, 0.5, 1.1]
 adx14           = [18, 18, 18, 18, 18, 18, 18.5, 21.5, 24.5]   (plus_di = 28, minus_di = 15)
-konkorde_marron = [-0.5, 0.7, 1.3]
+konkorde_verde  = [-0.5, 0.7, 1.3]
 ```
 
 * `ao_zero_cross_up` at index 3 → age 1 ≤ 3 ✓; `ao_rising` ✓.
@@ -885,7 +923,7 @@ Expected: **entry signal fires**, `veto_reasons = []`.
 ```
 ao              = [-0.6, 0.4, 1.0]
 adx14           = [16, 17.2, 18.4, 19.6, 20.8, 22.0, 23.2, 24.4, 25.6]   (plus_di > minus_di)
-konkorde_marron = [-0.3, 0.9]
+konkorde_verde  = [-0.3, 0.9]
 ```
 
 * `ao_zero_cross_up` age 1 ✓ fresh; `konkorde_zero_cross_up` age 0 ✓ fresh.
@@ -1136,7 +1174,7 @@ correct (each maps to a **[calibrable]** default above):
 2. **AO divergence pivots (E2)**: fractal strength 2 (confirmed 2 bars late),
    pivots 5–40 bars apart, and the "regular divergence" requirement that both
    AO pivots sit on the same side of zero. OK?
-3. **Konkorde cross (E3)**: plain zero-cross of `marron` with 1-candle
+3. **Konkorde cross (E3)**: plain zero-cross of `marron` (since 0.1.1: of `verde`, §E3) with 1-candle
    confirmation, no extra filter. Should the `verde > azul` (strong hands)
    filter be ON?
 4. **Vol "high zone" (E4)**: turns are only meaningful at BBWP ≥ 70, while > 50
@@ -1851,8 +1889,8 @@ respects the §0.3 band ban on Konkorde below 4h):
      (strength building, §I.1 color).
   3. **BBWP expansion** — `bbwp[-1] > 50` (E5 regime) **OR** BBWP rising 2
      closed candles.
-* **High band (4h, 1d, 1w) — 4/4**: the three above **+** `sign(konkorde_marron) = d`
-  (E3 state; permitted on `high_tf` only).
+* **High band (4h, 1d, 1w) — 4/4**: the three above **+** `sign(konkorde_verde) = d`
+  (E3 state; permitted on `high_tf` only; read `konkorde_marron` up to 0.2.1, §E3).
 
 A TF is **aligned for `d`** when it scores full (3/3 low, 4/4 high). C1 fires
 when a defined **3-TF window** is fully aligned for the same `d`:
