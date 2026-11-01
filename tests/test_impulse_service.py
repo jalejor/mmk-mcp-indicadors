@@ -54,6 +54,10 @@ def _frame(tf: str, n: int, start: str, side: str = "long", **cols) -> pd.DataFr
         "atr14": 2.0,
     }
     base.update(cols)
+    if "konkorde_verde" not in cols:
+        # 2.1.0 zero line: same shape as the 2.0.0 edge (marron - media).
+        base["konkorde_verde"] = np.asarray(base["konkorde_marron"], dtype=float) - np.asarray(
+            base["konkorde_media"], dtype=float)
     return pd.DataFrame(base, index=index)
 
 
@@ -99,7 +103,9 @@ def test_params_for_profile_and_validation():
     assert (params.trigger_tf, params.confirm_tf) == ("1h", "4h")
     assert params.context_order() == ("4h", "1d")
     assert params.atr_mult_stop == 1.5 and params.time_stop_bars == 48
-    assert params.rule_version == RULE_VERSION == "impulse-2.0.0"
+    assert params.rule_version == RULE_VERSION == "impulse-2.1.0"
+    assert params.konkorde_line == "verde"
+    assert ImpulseParams(konkorde_line="edge").konkorde_line == "edge"
     with pytest.raises(ValueError):
         ImpulseParams(konkorde_line="marron")
     with pytest.raises(ValueError):
@@ -195,6 +201,34 @@ def test_replay_enters_then_exits_on_owner_rule():
     assert {"exit_rule_jeisson", "exit_bbwp_red_drop"} <= set(decisions[77 - 20].reasons)
     assert decisions[70 - 20].context["bars_held"] == 10
     assert list(actions.values()).count("enter") == 1
+
+
+def test_zero_line_is_verde_by_default_and_names_reasons():
+    n = 60
+    # verde crosses 0 two bars ago and keeps rising; marron - media stays negative.
+    verde = np.linspace(-20.0, -1.0, n)
+    verde[-3:] = [-1.0, 4.0, 9.0]
+    frames = _pro_frames(konkorde_verde=verde, konkorde_marron=np.linspace(45.0, 40.0, n))
+    decision = _pro().evaluate(frames)
+    assert (decision.action, decision.side) == ("enter", "long")
+    assert {"konkorde_verde_positive", "konkorde_verde_cross_up"} <= set(decision.reasons)
+    assert not any(r.startswith("konkorde_edge_") for r in decision.reasons)
+    assert decision.context["konkorde_line"] == "verde"
+    assert decision.context["values"]["edge"] == pytest.approx(9.0)
+
+    # Same frames on the 2.0.0 line: edge = marron - 50 < 0 and falling votes against the long.
+    edge = ImpulseEngine(ImpulseParams.for_profile("pro", konkorde_line="edge")).evaluate(frames)
+    assert edge.action == "none" and edge.context["votes"]["konkorde"] == -1
+    assert edge.context["konkorde_line"] == "edge"
+
+
+def test_owner_exit_reason_names_follow_the_zero_line():
+    frames = {"4h": _replay_frame(), "1d": _frame("1d", 60, "2025-11-15", "long")}
+    decisions = _pro().replay(frames, warmup=20)
+    exit_reasons = decisions[77 - 20].reasons
+    assert "exit_konkorde_cross_against" in exit_reasons  # unchanged across lines
+    hold_76 = decisions[76 - 20].reasons
+    assert not any(r.startswith("konkorde_edge_") for r in hold_76)
 
 
 def _random_frames(n_trigger: int, seed: int = 7):

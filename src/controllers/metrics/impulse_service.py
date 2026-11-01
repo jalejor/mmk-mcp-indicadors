@@ -1,4 +1,7 @@
-"""Impulse engine v2 (impulsos-v2) — spec: docs/impulsos-v2.md (impulse-2.0.0).
+"""Impulse engine v2 (impulsos-v2) — spec: docs/impulsos-v2.md (impulse-2.1.0).
+
+2.1.0: the Konkorde zero line is `konkorde_verde` (owner, validated against
+TradingView); `edge` = marron - media stays selectable via `konkorde_line`.
 
 Additive to the legacy `RulesService` vote (decisions.md D19): nothing here
 changes the `/v1/metrics/get` payload unless the caller opts in
@@ -41,9 +44,11 @@ from .market_data_service import (
 from .setup_service import LOW_TF_BAND
 from .trade_profiles import DEFAULT_PROFILE, get_trade_profile, profile_timeframes
 
-RULE_VERSION = "impulse-2.0.0"
+RULE_VERSION = "impulse-2.1.0"
 
-KONKORDE_LINES = ("edge", "azul", "oscp")
+# verde = the TV "yellow area" crossing 0 (owner decision 3, 2026-11-01; check:
+# labs data/results/konkorde_verde_check.md). edge = marron - media (2.0.0).
+KONKORDE_LINES = ("verde", "edge", "azul", "oscp")
 SIDE_VALUES = {"long": 1, "short": -1}
 SIDE_LABELS = {1: "long", -1: "short", 0: "none"}
 PHASES = ("exhaustion", "ignition", "expansion", "compression", "contraction", "building", "unknown")
@@ -89,7 +94,7 @@ class ImpulseParams:
     exit_window_candles: int = 3
 
     # §c side
-    konkorde_line: str = "edge"  # edge = marron - media (spec decision)
+    konkorde_line: str = "verde"  # zero line; "edge" (marron - media) kept as an option
     weight_konkorde: float = 3.0
     weight_adx: float = 2.0
     weight_ao: float = 2.0
@@ -178,6 +183,10 @@ class ImpulseParams:
             if tf and tf != self.trigger_tf and tf not in ordered:
                 ordered.append(tf)
         return tuple(ordered)
+
+    def konkorde_code(self, suffix: str) -> str:
+        """Reason code named after the zero line in use, e.g. `konkorde_verde_cross_up`."""
+        return f"konkorde_{self.konkorde_line}_{suffix}"
 
     def weights(self) -> Dict[str, float]:
         return {
@@ -300,6 +309,8 @@ def _close_ms(open_ms: Optional[np.ndarray], timeframe: str) -> Optional[np.ndar
 
 
 def _konkorde_line(df: pd.DataFrame, kind: str) -> pd.Series:
+    if kind == "verde":
+        return _col(df, "konkorde_verde")
     marron = _col(df, "konkorde_marron")
     if kind == "edge":
         media = _col(df, "konkorde_media")
@@ -684,6 +695,7 @@ class ImpulseEngine:
             context={
                 "band": "low_tf" if trig.low_band else "high_tf",
                 "guardian": p.confirm_tf,
+                "konkorde_line": p.konkorde_line,  # what `values.edge` holds
                 "votes": {
                     "konkorde": None if trig.low_band else int(trig["k_vote"][i]),
                     "adx": int(trig["adx_vote"][i]),
@@ -749,7 +761,7 @@ class ImpulseEngine:
         if zone_jump:
             reasons.append("bbwp_zone_jump")
         if not trig.low_band and int(trig["k_vote"][i]) == side:
-            reasons.append("konkorde_edge_positive" if bull else "konkorde_edge_negative")
+            reasons.append(p.konkorde_code("positive" if bull else "negative"))
         if int(trig["adx_vote"][i]) == side:
             reasons.append("adx_di_bullish" if bull else "adx_di_bearish")
         if int(trig["ao_vote"][i]) == side:
@@ -768,7 +780,7 @@ class ImpulseEngine:
         else:
             fresh = bool(trig["edge_cross_up_fresh" if bull else "edge_cross_down_fresh"][i])
             if fresh:
-                reasons.append("konkorde_edge_cross_up" if bull else "konkorde_edge_cross_down")
+                reasons.append(p.konkorde_code("cross_up" if bull else "cross_down"))
             azul = float(trig["azul"][i])
             strong = math.isfinite(azul) and int(np.sign(azul)) == side
             if strong:
@@ -875,7 +887,7 @@ class ImpulseEngine:
             if trig.low_band:
                 reasons.append("ao_zero_cross_down" if side == 1 else "ao_zero_cross_up")
             else:
-                reasons.append("konkorde_edge_cross_down" if side == 1 else "konkorde_edge_cross_up")
+                reasons.append(p.konkorde_code("cross_down" if side == 1 else "cross_up"))
         decision.action = "hold"
         decision.confidence = 0.5 * max(0.0, s_dir) + 0.5 * float(healthy_phase)
 
