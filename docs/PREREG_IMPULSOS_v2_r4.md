@@ -199,4 +199,19 @@ docker compose --profile backtest run --rm -e TELEGRAM_BOT_TOKEN= backtest \
 
 ## 11. Result commit
 
-_(filled after the run)_
+Run `20261101T074719Z` after this file was committed (`25071ba`). Results:
+`docs/impulsos-v2-backtest-r4.md` (+ §"Round 4b results" of `docs/impulsos-v2.md`).
+**No cell is GO.** PRO 4h: INCONCLUSIVE (long n 7, −0.140 R; short n 7,
+−0.201 R; book −5.0 %, 0 liquidations). PRO 1d: INCONCLUSIVE (n 1 / 1).
+SNIPPER 1h 10x isolated: NO-GO both cells (long n 31, OOS −0.097 R, PF 0.88;
+short n 34, OOS −0.166 R, PF 0.70; book −25.7 %, max DD 33.7 %, **1
+liquidation** on 2026-03-02 at 69 163 before the 4h close beyond the
+invalidation). H-lev sweep: 0 liquidations from 7x down, every cell still
+NO-GO -> **no leverage passes** (7x = highest with 0 liquidations, not a GO).
+Owner replay: 4h anchored short cut next candle by the guardian ML RSI
+(−0.10 R); 1h anchored short closed by the structural invalidation on
+2026-10-21 at −2.84 R (3 layers). No amendment was made. Expected outcome
+(§8) held except one detail: the liquidation at 10x that §8 called a
+flash-crash scenario did happen once (a 9.4 % 2-day move inside the guardian's
+wait). The only post-run change is a Python 3.10 f-string syntax fix in the
+runner's progress line (`25071ba` -> result commit), no parameter touched.

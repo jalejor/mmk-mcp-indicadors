@@ -8,6 +8,7 @@
 | **Goldens** | `tests/fixtures/impulse_golden_cases.json` (14 vote cases, regression) + `tests/test_impulse_sequential.py` (S01-S11 sequential, rule-derived) |
 | **Scope** | NEW additive engine. `rules_service.py` (legacy vote engine) and its watcher output stay untouched. |
 | **Round 2 status** | BUILT and BACKTESTED 2026-11-01 (`ecd603b`): **no cell passes** — see "Round 2 results" at the end. |
+| **Round 4b status** | `impulse-2.2.0` (exits without `phase_lost`, SNIPPER 10x isolated) BUILT and BACKTESTED 2026-11-01 (`25071ba`): **PRO INCONCLUSIVE (n 14), SNIPPER NO-GO at every leverage, 1 liquidation at 10x** — see "Round 4b results". |
 
 > **SUPERSEDED where they conflict (2026-11-01).** Round 1 (sections a-h,
 > `impulse-2.0.0`) is kept as the record of what was tested and refuted.
@@ -881,3 +882,62 @@ long and short, IS/OOS, costs E16. GO per cell iff n >= 30 AND n_oos >= 10 AND
 expectancy OOS > 0 AND PF >= 1.2 AND liquidations 0 AND max DD (cumulative net
 USDT of the cell) < 35 % of the start. Comparison vs round 2-3 `pro:H2` and
 buy-and-hold. Results: section "Round 4b results" below (after the run).
+
+---
+
+## Round 4b results (run 2026-11-01 `20261101T074719Z`, prereg `25071ba`)
+
+Full tables, sweep, repaint and the owner replay: `docs/impulsos-v2-backtest-r4.md`
+(raw `r4_impulse_20261101T074719Z.json`). Same data as rounds 1-3 plus the 1h
+cache (17 820 rows, sha `87e7dbf8ecdb`). Costs E16 per layer per side + funding.
+
+| Cell | n (IS/OOS) | exp. R net | CI95 | exp. OOS | PF | win | max DD % start | net USDT | r4 verdict |
+|---|---|---|---|---|---|---|---|---|---|
+| PRO 4h long (5x cross, 1300) | 7 (4/3) | −0.140 | [−0.858, 0.645] | −0.577 | 0.73 | 29 % | 5.9 % | −26.7 | INCONCLUSIVE (n < 30) |
+| PRO 4h short | 7 (5/2) | −0.201 | [−1.028, 0.808] | +0.612 | 0.69 | 29 % | 6.5 % | −38.6 | INCONCLUSIVE |
+| PRO 1d long / short | 1 / 1 | +1.056 / +0.069 | — | — | — | — | 0 % | +27.5 / +1.8 | INCONCLUSIVE |
+| SNIPPER 1h long (10x isolated, 1700) | 31 (20/11) | −0.099 | [−0.684, 0.566] | −0.097 | 0.88 | 29 % | 19.2 % | −127.7 | **NO-GO** (OOS <= 0, PF < 1.2, 1 liquidation) |
+| SNIPPER 1h short | 34 (21/13) | −0.273 | [−0.837, 0.412] | −0.166 | 0.70 | 24 % | 18.9 % | −308.4 | **NO-GO** (same legs) |
+
+Book level: PRO 4h **−5.0 %** (1234.78, max DD 14.3 %, 14 trades, 16 adds, 11
+partial takes, 0 liquidations; exits: guardian ML RSI 10, invalidation 2,
+Jeisson 2; median hold 254 candles = 42 days; funding 57.5 USDT vs gross
++12.9). SNIPPER 10x **−25.7 %** (1263.84, max DD 33.7 %, 65 trades, 89 adds, 59
+partial takes, **1 liquidation**; exits: guardian ML RSI 38, invalidation 19,
+Jeisson 6; median hold 164 h; gross +69.7 USDT vs costs 329.2 + funding 176.7).
+Buy-and-hold +11.8 % (4h window) / +10.5 % (1h window). Round-2 reference
+(`pro:H2`, phase_lost on): +3.7 %, 38 trades.
+
+**The liquidation**: short entered 2026-02-28 06:00 at 63 227.64, structural
+`inv` 68 292.64 (4h swing); on 2026-03-02 15:00 the 1h wick reached 69 163 (9.4 %
+over the average) BEFORE a 4h candle closed beyond `inv` -> liquidated at 10x,
+−25.6 USDT = −0.83 R (half the qty had already been taken). Pre-registered
+reading: the structural exit waits for the guardian close, and at 10x isolated
+the liquidation distance (~9.4 %) is inside what a 4h candle can travel.
+
+**Leverage sweep (H-lev)**: 7x / 5x / 3x / 2x / 1x -> liquidations 0 at every
+level, but every cell stays NO-GO (long OOS −0.097 R, PF 0.88; short OOS
+−0.163 R, PF 0.70; at 1x book −16.8 %, PF 1.00 / 0.74). **No leverage passes.**
+The highest leverage with 0 liquidations is **7x**; it is NOT a GO.
+
+**Verdict: nothing moves to paper.** Removing `phase_lost` made trades 5-10x
+longer (median 42 days on 4h, 7 days on 1h), cut PRO 4h to 14 trades (n too
+small to judge) and moved the exits to the guardian ML RSI flip (71 % on 4h,
+58 % on 1h). The signal side is unchanged from rounds 2-3 and still shows no
+edge: gross PnL is near zero in both books and the net is the cost of holding
+(funding + per-layer fees on 2.1-2.4 layers per trade). Pre-registered
+follow-ups, not loosening: the entry side (`impulse-2.3.0` hypothesis) before
+any further exit work; ETH + SOL pooled for the 1d cells.
+
+**Owner's short (82450) with the new chain, one trade, validates nothing**:
+on 4h (PRO) the 1d guardian ML RSI was GREEN at the owner bar, so the anchored
+short exits on the next candle by `exit_ctx_mlrsi_against` (−0.10 R) — the
+cut moved from `phase_lost` to the guardian regime rule. On 1h (SNIPPER,
+owner bar 2026-10-12 18:00 close 82 454.84) the short survives, adds a layer
+(10-13 00:00), takes 50 % on red -> gray (10-13 05:00) and is closed by the
+structural invalidation on 2026-10-21 15:00 at 84 545.78 (4h close over the
+swing 84 360.75): **−2.84 R / −96.6 USDT with 3 layers**, i.e. the model
+would have been stopped on the 21-oct rally before the drop to 77.5k. The
+machine's own later short (2026-10-24 15:00, 3 layers) was still open at
+2026-10-31 with +0.49 R; the "still open" line of the generated report refers
+to that later trade, not to the anchored one.

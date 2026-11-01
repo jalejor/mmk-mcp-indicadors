@@ -197,10 +197,11 @@ def run_one(key: str, profile: str, overrides: Dict[str, Any], args: Any, loader
             v6 = {"verdict": "NO-PASS", "failed": ["liquidations > 0"]}
         out["sides"][side] = {"metrics": metrics, "usdt": dd, "verdict_r4": v, "verdict_r2": v6, "trades": trade_dicts(st)}
     out["go"] = all(s["verdict_r4"]["verdict"] == "GO" for s in out["sides"].values())
+    verdicts = ", ".join(f"{s}: {o['verdict_r4']['verdict']}" for s, o in out["sides"].items())
     print(f"[run] {key}: {res['params']['trigger_tf']} lev {res['params']['leverage']:g}x {res['params']['margin_mode']}, "
           f"{book['n']} trades, equity {book['equity_final']} ({book['return_pct']}%), DD {book['max_drawdown_equity_pct']}%, "
           f"liq {res['liquidations']}, partial {out['partial_takes']}, exits {book['exit_reasons']}, {out['seconds']}s, "
-          f"verdicts {{{', '.join(f'{s}: {o['verdict_r4']['verdict']}' for s, o in out['sides'].items())}}}", flush=True)
+          f"verdicts {{{verdicts}}}", flush=True)
     out["_res"] = res
     return out
 
