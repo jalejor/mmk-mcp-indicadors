@@ -362,3 +362,8 @@ rules on ETH/USDT + SOL/USDT pooled, not a looser threshold. pro long beats
 legacy on the total (+0.146 vs -0.141 R, DD 8 vs 31 R) but its OOS half is
 negative and worse than legacy's, so the improvement is not established.
 Buy-and-hold over the window: +11.6%.
+
+## Decisiones del owner (Jeisson, 2026-11-01) — OBLIGATORIAS para la ronda 2
+1. Perfil en uso: **PRO**. Capital inicial 1300 USDT; con RECOMPRAS (escalar a favor/promediar) va en ~1700. El backtest debe modelar recompras, no una entrada unica con stop ATR.
+2. La estrategia NO es votacion: los indicadores son CONFIRMACION de entrada o salida. Algunos ADELANTAN a los otros: **Konkorde y BBWP son los lideres** (avisan primero); AO, ADX, MACD, RSI confirman despues. Modelo: aviso temprano (lideres) -> confirmacion (seguidores) -> accion.
+3. Konkorde validada contra TradingView (Konkorde 2.0, diario 01-nov): el AREA AMARILLA que cruza 0 = `konkorde_verde` de mmk (no marron-media; la marron es 0-100). Linea verde de TV = `konkorde_media`. BBWP diario cuadra (TV 59,77 vs mmk 57).
