@@ -327,7 +327,18 @@ the watcher's polling lag, not the open/close gap.
 
 ---
 
-## E17 ⚠️ v0.2.x rule packs read the SIGN of `konkorde_marron`, which is 0-100 since the Blai5 port — MEDIUM
+## E17 ✅ RESOLVED (2026-11-01) — v0.2.x rule packs read the SIGN of `konkorde_marron`, which is 0-100 since the Blai5 port — MEDIUM
+
+**Resolution (2026-11-01, D22)**: E3 re-specified by the owner and
+pre-registered in spec §0.4 before the code changed: every Konkorde sign /
+zero-cross read of the packs (E3 state + event, V1 freshness events, C1
+high-band leg, M1 turn 4h leg) now goes through
+`setup_service.RULE_PACK_KONKORDE_LINE = "konkorde_verde"`
+(`konkorde_line_series` raises `KeyError` on a frame without it: fail closed).
+rule_version bumped 0.1.0 → 0.1.1 and 0.2.1 → 0.2.2, goldens E3-G1..G6 on
+verde, and C1-G1 passes again on real candles (xfail removed). The text below
+is the original diagnosis, kept for the record. Remaining trap: any NEW rule
+that reads `konkorde_marron > 0` reintroduces this bug — read the pack line.
 
 **Symptom**: `tests/test_v020_real_goldens.py::test_c1_g1_bear_confluence...`
 fails since the 2026-11-01 Koncorde port (xfail `strict=True` on

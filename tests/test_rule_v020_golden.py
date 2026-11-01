@@ -433,7 +433,9 @@ def _c1_frame(n=30, *, ao, adx_shape, di, bbwp, konkorde=5.0):
             "plus_di": np.full(n, plus),
             "minus_di": np.full(n, minus),
             "bbwp": np.full(n, float(bbwp)),
-            "konkorde_marron": np.full(n, float(konkorde)),
+            # E3 line = konkorde_verde (0.2.2); marron is a flat 0-100 average.
+            "konkorde_verde": np.full(n, float(konkorde)),
+            "konkorde_marron": np.full(n, 55.0),
         }
     )
 

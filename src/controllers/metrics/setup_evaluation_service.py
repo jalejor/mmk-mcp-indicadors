@@ -40,6 +40,7 @@ from .setup_service import (
     FE_WATCHING,
     FE_WHIPSAW,
     RULE_PACK_BBWP_DEFINITION,
+    RULE_PACK_KONKORDE_LINE,
     TIMEFRAME_SECONDS,
     SetupEvaluation,
     SetupService,
@@ -53,18 +54,26 @@ from .setup_service import (
 _M1_OPERATIVE_TFS = ("30m", "1h", "4h", "1d", "1w")
 
 # Rule-version gate (spec §0.4 / §I): the engine's active rule_version comes
-# from the RULE_VERSION env (default 0.1.0 — today's behaviour, byte-identical)
-# or an explicit constructor/query override so the §I.6 replay can run the
-# versions side by side on the same code. 0.2.x is CANDIDATE: never the
-# default until the replay gate passes and /mmk-council ratifies the bump.
-RULE_VERSION_DEFAULT = "0.1.0"
-SUPPORTED_RULE_VERSIONS = ("0.1.0", "0.2.0", "0.2.1")
-# Versions that activate the v0.2.x monitor pack. Both labels execute the SAME
-# corrected module (no code fork): 0.2.1 = H1 freshness fix (P0) + measured
-# priors; "0.2.0" is kept selectable ONLY so the replay harness can label A/B
-# runs — 0.2.0-as-shipped is obsolete and replays compare against B2, the
-# fixed run (spec §I.9). The reported rule_version is the caller's label.
-V020_PACK_VERSIONS = ("0.2.0", "0.2.1")
+# from the RULE_VERSION env (default 0.1.1) or an explicit constructor/query
+# override so the §I.6 replay can run the versions side by side on the same
+# code. 0.2.x is CANDIDATE: never the default until the replay gate passes and
+# /mmk-council ratifies the bump.
+#
+# 0.1.1 / 0.2.2 (spec §0.4, 2026-11-01): the Konkorde sign/cross reads
+# `konkorde_verde` (RULE_PACK_KONKORDE_LINE). The old labels stay selectable
+# and execute the SAME code; as shipped they read a re-centred marron that no
+# longer exists since D18, so they are NOT reproducible (replay labels only).
+RULE_VERSION_DEFAULT = "0.1.1"
+SUPPORTED_RULE_VERSIONS = ("0.1.0", "0.1.1", "0.2.0", "0.2.1", "0.2.2")
+# v0.1 labels the caller may ask for explicitly; the reported rule_version is
+# the caller's label (same convention as the 0.2.x pack).
+V010_LEGACY_LABELS = ("0.1.0",)
+# Versions that activate the v0.2.x monitor pack. Every label executes the
+# SAME module (no code fork): 0.2.1 = H1 freshness fix (P0) + measured priors;
+# 0.2.2 = 0.2.1 + E3 on konkorde_verde. "0.2.0" / "0.2.1" are kept selectable
+# ONLY so the replay harness can label A/B runs (spec §I.9, §0.4). The
+# reported rule_version is the caller's label.
+V020_PACK_VERSIONS = ("0.2.0", "0.2.1", "0.2.2")
 # Keep a terminal monitor visible for a few candles after adjudication so the
 # 4h scheduler (max gap 4 candles on 1h) never misses it; the F1 watcher
 # dedups by cross_candle_ts, so re-emitting is harmless.
@@ -149,7 +158,11 @@ class SetupEvaluationService:
             reported_version = self.rule_version
         else:
             monitors = self._monitors(frames)
-            reported_version = setups[0].rule_version
+            reported_version = (
+                self.rule_version
+                if self.rule_version in V010_LEGACY_LABELS
+                else setups[0].rule_version
+            )
 
         return {
             "symbol": self.symbol,
@@ -316,7 +329,10 @@ class SetupEvaluationService:
                 "bbwp": _last(trigger_df, "bbwp"),
                 "ao": _last(trigger_df, "ao"),
                 "adx": _last(trigger_df, "adx14"),
+                # marron kept for backwards compatibility; verde is the E3
+                # line the packs read since 0.1.1 / 0.2.2 (ADDITIVE key).
                 "konkorde_marron": _last(trigger_df, "konkorde_marron"),
+                "konkorde_verde": _last(trigger_df, "konkorde_verde"),
             },
         }
 
@@ -444,7 +460,8 @@ def _condition_value(cond: Condition, df: pd.DataFrame) -> Optional[float]:
         if element in ("adx_level", "adx_turn"):
             return _last(df, "adx14")
         if element in ("konkorde_state", "konkorde_zero_cross"):
-            return _last(df, "konkorde_marron")
+            # The line the condition reads (E3, 0.1.1+), not the 0-100 marron.
+            return _last(df, RULE_PACK_KONKORDE_LINE)
         if element in ("ao_divergence", "ao_positive", "ao_negative", "ao_rising", "ao_falling"):
             return _last(df, "ao")
         if element == "bbwp_regime":

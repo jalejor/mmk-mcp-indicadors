@@ -9,17 +9,23 @@ import pandas as pd
 import pytest
 
 from controllers.metrics.setup_service import (
+    RULE_PACK_KONKORDE_LINE,
     AdxTurnParams,
+    SetupService,
     ao_divergence,
     adx_turn,
     adx_turn_fired_within,
     bbwp_regime_on,
+    konkorde_line_series,
     konkorde_positive,
     v_turn_high,
     vol_turn_high,
     w_turn_high,
     zero_cross_age,
 )
+from controllers.metrics.monitors_v020 import _turn_konkorde_condition
+from controllers.metrics.rule_v020 import confluence_alignment
+from controllers.metrics.setup_definitions import RULE_VERSION, Condition
 
 
 def _s(values):
@@ -132,31 +138,82 @@ def test_e2_ao_zero_cross_age_golden():
 
 
 # ---------------------------------------------------------------------------
-# E3 — konkorde_zero_cross (event) vs state
+# E3 — konkorde_zero_cross (event) vs state, on the pack line konkorde_verde
+# (rule_version 0.1.1 / 0.2.2, spec §0.4: marron is 0-100 since D18)
 # ---------------------------------------------------------------------------
 
+def _verde(values, *, marron=55.0):
+    """Pack line through the same accessor the evaluator uses."""
+    frame = pd.DataFrame({"konkorde_verde": values, "konkorde_marron": marron}, dtype=float)
+    return konkorde_line_series(frame)
+
+
+def test_e3_pack_line_is_konkorde_verde():
+    assert RULE_PACK_KONKORDE_LINE == "konkorde_verde"
+    assert RULE_VERSION == "0.1.1"
+
+
 def test_e3_g1_plain_cross_up():
-    marron = _s([-5.0, -2.0, -0.5, 1.2])
-    assert zero_cross_age(marron, direction="up", confirm_bars=1) == 0
+    verde = _verde([-5.0, -2.0, -0.5, 1.2])
+    assert zero_cross_age(verde, direction="up", confirm_bars=1) == 0
 
 
 def test_e3_g2_event_is_not_state():
-    marron = _s([-5.0, -2.0, 0.5, 1.2])
+    verde = _verde([-5.0, -2.0, 0.5, 1.2])
     # The cross happened one candle earlier: event age 1, but the state is on.
-    assert zero_cross_age(marron, direction="up", confirm_bars=1) == 1
-    assert konkorde_positive(marron) is True
+    assert zero_cross_age(verde, direction="up", confirm_bars=1) == 1
+    assert konkorde_positive(verde) is True
 
 
 def test_e3_g3_cross_down():
-    marron = _s([3.0, 2.0, 1.0, -0.8])
-    assert zero_cross_age(marron, direction="down", confirm_bars=1) == 0
+    verde = _verde([3.0, 2.0, 1.0, -0.8])
+    assert zero_cross_age(verde, direction="down", confirm_bars=1) == 0
 
 
 def test_e3_g4_confirm_bars_2_fires_one_candle_later():
-    marron = _s([-2.0, 0.5, 1.2])
-    assert zero_cross_age(marron, direction="up", confirm_bars=2) == 0
+    verde = _verde([-2.0, 0.5, 1.2])
+    assert zero_cross_age(verde, direction="up", confirm_bars=2) == 0
     # With confirm_bars=1 the same series fired one candle earlier (age 1).
-    assert zero_cross_age(marron, direction="up", confirm_bars=1) == 1
+    assert zero_cross_age(verde, direction="up", confirm_bars=1) == 1
+
+
+def test_e3_g5_flat_marron_is_irrelevant():
+    frame = pd.DataFrame(
+        {"konkorde_verde": [-3.0, -1.0, 2.0], "konkorde_marron": [55.0, 55.0, 55.0]}
+    )
+    cross, _ = SetupService._eval_condition(
+        Condition("konkorde_zero_cross", "up", params={"max_event_age": 0}), frame, "high_tf"
+    )
+    state, _ = SetupService._eval_condition(Condition("konkorde_state", "positive"), frame, "high_tf")
+    assert cross is True and state is True
+    # And a flat +55 marron does NOT make the state positive when verde is negative.
+    frame["konkorde_verde"] = [-3.0, -2.0, -1.0]
+    state, _ = SetupService._eval_condition(Condition("konkorde_state", "positive"), frame, "high_tf")
+    negative, _ = SetupService._eval_condition(Condition("konkorde_state", "negative"), frame, "high_tf")
+    assert state is False and negative is True
+
+
+def test_e3_g6_missing_verde_fails_closed():
+    frame = pd.DataFrame({"konkorde_marron": [55.0, 55.0, 55.0]})
+    for cond in (
+        Condition("konkorde_state", "positive"),
+        Condition("konkorde_state", "negative"),
+        Condition("konkorde_zero_cross", "up"),
+    ):
+        with pytest.raises(KeyError, match="konkorde_verde"):
+            SetupService._eval_condition(cond, frame, "high_tf")
+    # v0.2.x legs: no line -> never a Konkorde vote, either direction.
+    c1 = pd.DataFrame(
+        {"ao": [1.0] * 3, "adx14": [20.0] * 3, "plus_di": [28.0] * 3,
+         "minus_di": [15.0] * 3, "bbwp": [60.0] * 3, "konkorde_marron": [55.0] * 3}
+    )
+    for direction in ("bull", "bear"):
+        result = confluence_alignment(c1, direction=direction, mode="high")
+        assert result["components"]["konkorde"] is False
+        assert result["aligned"] is False
+    for direction in ("up", "down"):
+        leg = _turn_konkorde_condition(c1, len(c1), direction, "4h")
+        assert leg["applies"] is True and leg["met"] is False and leg["value"] is None
 
 
 # ---------------------------------------------------------------------------

@@ -6,8 +6,8 @@ per-TF M1 (v2, with the §I.1 color flip) and M1m watches, the H1 hierarchy
 E4.1 `vol_turn_rounded` states and the C1 confluence windows.
 
 Only `SetupEvaluationService` calls this, and only when the engine runs with
-rule_version "0.2.0" or "0.2.1" (both labels execute this same corrected code;
-spec §I.9) — the v0.1.0 monitor path is untouched. Every block is
+rule_version "0.2.0", "0.2.1" or "0.2.2" (every label executes this same code;
+spec §I.9 and §0.4) — the v0.1.0 monitor path is untouched. Every block is
 ADDITIVE: existing consumers (mmk-api watcher, dashboard) keep parsing
 `false_entry_watch` + `tf_status`; the new blocks are new keys.
 
@@ -53,6 +53,7 @@ from .setup_service import (
     FE_FALSE_ENTRY_PROBABLE,
     FE_WATCHING,
     FE_WHIPSAW,
+    RULE_PACK_KONKORDE_LINE,
     TIMEFRAME_SECONDS,
     adx_turn_fired_within,
 )
@@ -636,11 +637,12 @@ def _turn_bbwp_condition(frame: pd.DataFrame, end: int) -> Dict[str, Any]:
 def _turn_konkorde_condition(
     frame: pd.DataFrame, end: int, direction: str, tf: str
 ) -> Dict[str, Any]:
-    """(c) Konkorde marron on the side of the turn — the leg only APPLIES on
-    4h (band table: no Konkorde on the low band). On other TFs `met` is None
-    (never counts toward the confluence) and the value is still recorded."""
+    """(c) Konkorde E3 line (`konkorde_verde` since 0.2.2) on the side of the
+    turn — the leg only APPLIES on 4h (band table: no Konkorde on the low
+    band). On other TFs `met` is None (never counts toward the confluence) and
+    the value is still recorded. A missing line fails closed (`met` False)."""
     applies = tf in TURN_IGNITION_KONKORDE_TFS
-    tail = _turn_tail(frame, "konkorde_marron", end, 1)
+    tail = _turn_tail(frame, RULE_PACK_KONKORDE_LINE, end, 1)
     value = tail[-1] if tail else None
     met: Optional[bool] = None
     if applies:

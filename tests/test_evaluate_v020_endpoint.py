@@ -65,7 +65,8 @@ def _frame(tf, n=60, *, ao=1.0, adx=20.0, plus=25.0, minus=15.0, bbwp=40.0,
             "sma200": 90.0, "sma50": 95.0, "ema50": 96.0, "ema200": 92.0,
             "adx14": col(adx), "plus_di": col(plus), "minus_di": col(minus),
             "ao": col(ao), "bbwp": col(bbwp), "atr14": 2.0,
-            "konkorde_marron": col(konkorde),
+            # E3 line = konkorde_verde (0.2.2); marron is a flat 0-100 average.
+            "konkorde_verde": col(konkorde), "konkorde_marron": 55.0,
         },
         index=index,
     )
@@ -229,7 +230,7 @@ def test_rule_version_query_param_overrides_env_default(monkeypatch):
     client = _client(monkeypatch, _market_frames())
 
     default = _get(client).json()
-    assert default["rule_version"] == "0.1.0"
+    assert default["rule_version"] == "0.1.1"  # E3 on konkorde_verde (spec §0.4)
     assert set(default["monitors"].keys()) == {"false_entry_watch", "tf_status"}
 
     v020 = _get(client, rule_version="0.2.0").json()
@@ -250,6 +251,12 @@ def test_rule_version_021_runs_the_same_pack_and_reports_its_label(monkeypatch):
     v020 = _get(client, rule_version="0.2.0").json()
     assert v020["rule_version"] == "0.2.0"
     assert v020["monitors"] == v021["monitors"]  # no code fork
+
+    # 0.2.2 (E3 on konkorde_verde, spec §0.4) is the same module too: the
+    # legacy labels are replay labels only.
+    v022 = _get(client, rule_version="0.2.2").json()
+    assert v022["rule_version"] == "0.2.2"
+    assert v022["monitors"] == v021["monitors"]
 
 
 def test_unsupported_rule_version_is_a_400(monkeypatch):

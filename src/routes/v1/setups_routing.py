@@ -17,12 +17,13 @@ async def evaluate_setups(
     rule_version: str | None = Query(
         None,
         description=(
-            "Rule-version override for this evaluation (0.1.0 | 0.2.0 | "
-            "0.2.1). Default: RULE_VERSION env, itself defaulting to 0.1.0. "
-            "The 0.2.x pack is a CANDIDATE gated on the spec §I.6 replay — "
-            "additive monitor blocks only, the setups contract is unchanged. "
-            "0.2.0 and 0.2.1 run the same corrected code (0.2.0-as-shipped "
-            "is obsolete, spec §I.9); the label is echoed back verbatim."
+            "Rule-version override for this evaluation (0.1.1 | 0.2.2; "
+            "legacy labels 0.1.0 | 0.2.0 | 0.2.1). Default: RULE_VERSION env, "
+            "itself defaulting to 0.1.1. The 0.2.x pack is a CANDIDATE gated "
+            "on the spec §I.6 replay — additive monitor blocks only, the "
+            "setups contract is unchanged. Legacy labels run the same code as "
+            "0.1.1 / 0.2.2 (E3 on konkorde_verde, spec §0.4; as shipped they "
+            "are not reproducible); the label is echoed back verbatim."
         ),
     ),
 ):

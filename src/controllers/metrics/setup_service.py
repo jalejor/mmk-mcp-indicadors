@@ -9,7 +9,7 @@ elements as **pure functions over pandas Series of closed candles**, plus:
 * the declarative setup evaluator (spec §B.0 evaluation order:
   invalidation → context → trigger → vetoes).
 
-Spec: docs/STRATEGY_SETUPS_SPEC.md (rule_version 0.1.0). Every detector takes
+Spec: docs/STRATEGY_SETUPS_SPEC.md (rule_version 0.1.1). Every detector takes
 series whose **last element is the evaluation candle** and every candle is
 assumed CLOSED (the live path drops the forming candle in
 `MarketDataService.get_ohlcv`, spec §0.1).
@@ -37,6 +37,23 @@ HIGH_TF_BAND = ("4h", "6h", "8h", "12h", "1d", "3d", "1w")
 # flips its 1h BBWP component on the TV series). Switching this to "tv" is a
 # rule-input change: spec §0.4 requires a `rule_version` bump + new goldens.
 RULE_PACK_BBWP_DEFINITION = "legacy"
+
+# Konkorde line every SIGN / zero-CROSS read of the packs uses (E3 state and
+# event, V1 freshness events, v0.2.x C1 leg, M1 turn 4h leg). Since rule
+# 0.1.1 / 0.2.2 it is `konkorde_verde`, the TradingView yellow area (owner
+# decision 3, 2026-11-01): `konkorde_marron` is 0-100 since the Blai5 port
+# (D18) and never crosses zero (E17). `vol_turn` on marron is E4, not E3.
+RULE_PACK_KONKORDE_LINE = "konkorde_verde"
+
+
+def konkorde_line_series(df: pd.DataFrame) -> pd.Series:
+    """The packs' E3 line. Fails closed: a frame without it never votes."""
+    if RULE_PACK_KONKORDE_LINE not in df:
+        raise KeyError(
+            f"{RULE_PACK_KONKORDE_LINE!r} missing from the frame: the rule packs "
+            "read the Konkorde sign/cross on this line only (spec E3, 0.1.1)"
+        )
+    return df[RULE_PACK_KONKORDE_LINE]
 
 TIMEFRAME_SECONDS: Dict[str, int] = {
     "1m": 60,
@@ -444,13 +461,14 @@ def zero_cross_age(
     return None
 
 
-def konkorde_positive(marron: pd.Series) -> bool:
-    values = marron.dropna()
+def konkorde_positive(line: pd.Series) -> bool:
+    """E3 state on the pack line (`konkorde_line_series`)."""
+    values = line.dropna()
     return len(values) > 0 and float(values.iloc[-1]) > 0
 
 
-def konkorde_negative(marron: pd.Series) -> bool:
-    values = marron.dropna()
+def konkorde_negative(line: pd.Series) -> bool:
+    values = line.dropna()
     return len(values) > 0 and float(values.iloc[-1]) < 0
 
 
@@ -907,14 +925,14 @@ class SetupService:
             return fire is not None, label
         if element == "konkorde_state":
             if cond.variant == "positive":
-                return konkorde_positive(df["konkorde_marron"]), label
+                return konkorde_positive(konkorde_line_series(df)), label
             if cond.variant == "negative":
-                return konkorde_negative(df["konkorde_marron"]), label
+                return konkorde_negative(konkorde_line_series(df)), label
             raise ValueError(f"Unknown konkorde_state variant: {cond.variant}")
         if element == "konkorde_zero_cross":
             confirm_bars = int(params.get("confirm_bars", 1))
             max_age = int(params.get("max_event_age", 5))
-            age = zero_cross_age(df["konkorde_marron"], direction=cond.variant, confirm_bars=confirm_bars)
+            age = zero_cross_age(konkorde_line_series(df), direction=cond.variant, confirm_bars=confirm_bars)
             # As a trigger condition the cross is satisfied while fresh
             # (age <= max_event_age); V1 then re-checks freshness with its
             # own window. FE-G1 pins this: a cross of age 1 satisfies the
@@ -976,8 +994,8 @@ class SetupService:
 # ---------------------------------------------------------------------------
 
 _EVENT_SERIES = {
-    "konkorde_zero_cross_up": ("konkorde_marron", "up"),
-    "konkorde_zero_cross_down": ("konkorde_marron", "down"),
+    "konkorde_zero_cross_up": (RULE_PACK_KONKORDE_LINE, "up"),
+    "konkorde_zero_cross_down": (RULE_PACK_KONKORDE_LINE, "down"),
     "ao_zero_cross_up": ("ao", "up"),
     "ao_zero_cross_down": ("ao", "down"),
 }

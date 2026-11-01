@@ -16,12 +16,14 @@ Pure functions over pandas Series/DataFrames of CLOSED candles implementing:
 * M1m ADX-anchored false-ignition monitor for the micro band (addendum B.3.5).
 
 NOTHING in this module runs unless the engine is instantiated with
-rule_version "0.2.0" or "0.2.1" (`RULE_VERSION` env, default "0.1.0") — the
-v0.1.0 behaviour stays byte-identical. Both 0.2.x labels execute this SAME
-code: 0.2.1 = 0.2.0 + the H1 freshness fix (P0) + the measured priors below;
-0.2.0-as-shipped is obsolete and kept only as a replay label (spec §I.9).
+rule_version "0.2.0", "0.2.1" or "0.2.2" (`RULE_VERSION` env, default
+"0.1.1") — the v0.1.x setup path is not affected. Every 0.2.x label executes
+this SAME code: 0.2.1 = 0.2.0 + the H1 freshness fix (P0) + the measured
+priors below; 0.2.2 = 0.2.1 with the C1 Konkorde leg on `konkorde_verde`
+(E3 re-spec 2026-11-01, spec §0.4). 0.2.0 / 0.2.1 as shipped read a
+re-centred marron that no longer exists (D18): replay labels only.
 
-Every parameter default below is the versioned rule data of 0.2.1 (checked
+Every parameter default below is the versioned rule data of 0.2.2 (checked
 into the repo, never env vars — spec §0.4); changing any of them is a
 rule_version bump.
 
@@ -48,6 +50,7 @@ from .setup_service import (
     FE_FALSE_ENTRY_PROBABLE,
     FE_WATCHING,
     FE_WHIPSAW,
+    RULE_PACK_KONKORDE_LINE,
     _FE_DIRECTION,
     _ao_consecutive_run_after,
     AdxTurnFire,
@@ -817,8 +820,9 @@ def confluence_alignment(
     components: Dict[str, bool] = {"ao": ao_ok, "adx": adx_ok, "bbwp": bbwp_ok}
     score: Optional[int] = None
     if mode == "high":
-        marron = _series_last(frame, "konkorde_marron")
-        components["konkorde"] = marron is not None and sign * marron > 0
+        # E3 state on the pack line (0.2.2+); a missing column fails closed.
+        line = _series_last(frame, RULE_PACK_KONKORDE_LINE)
+        components["konkorde"] = line is not None and sign * line > 0
         aligned = all(components.values())
     elif mode == "low":
         aligned = ao_ok and adx_ok and bbwp_ok

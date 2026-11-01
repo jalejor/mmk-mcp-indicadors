@@ -34,7 +34,8 @@ def _frame_1d():
             "volume": 1000.0,
             "sma200": 90.0, "sma50": 95.0, "ema50": 96.0, "ema200": 92.0,
             "adx14": 20.0, "plus_di": 25.0, "minus_di": 15.0,
-            "ao": 1.0, "bbwp": 40.0, "atr14": 1.5, "konkorde_marron": 5.0,
+            "ao": 1.0, "bbwp": 40.0, "atr14": 1.5,
+            "konkorde_marron": 55.0, "konkorde_verde": 5.0,
         },
         index=index,
     )
@@ -56,7 +57,8 @@ def _frame_4h_color_flip():
             "volume": 1000.0,
             "sma200": 90.0, "sma50": 95.0, "ema50": 96.0, "ema200": 92.0,
             "adx14": 20.0, "plus_di": plus, "minus_di": minus,
-            "ao": ao, "bbwp": 60.0, "atr14": 2.0, "konkorde_marron": -0.5,
+            "ao": ao, "bbwp": 60.0, "atr14": 2.0,
+            "konkorde_marron": 55.0, "konkorde_verde": -0.5,
         },
         index=index,
     )
@@ -99,7 +101,9 @@ def test_v010_contract_is_untouched(monkeypatch, env_value):
     client = _client(monkeypatch)
     body = _get(client).json()
 
-    assert body["rule_version"] == "0.1.0"
+    # Unset -> the 0.1.1 default (E3 on verde, spec §0.4); an explicit legacy
+    # label is echoed back verbatim and runs the same code.
+    assert body["rule_version"] == (env_value or "0.1.1")
     # No new blocks, no 15m, no v2 keys, no v2 states.
     assert set(body["monitors"].keys()) == {"false_entry_watch", "tf_status"}
     assert set(body["monitors"]["tf_status"].keys()) == V1_TFS

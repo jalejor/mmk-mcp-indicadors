@@ -121,7 +121,7 @@ def test_setup_service_validates_at_load():
 
 def test_b0_g2_runtime_guard_konkorde_never_votes_in_low_tf():
     cond = Condition("konkorde_state", "positive")
-    frame = _df(konkorde_marron=[30.0, 35.0], close=[100.0, 101.0])
+    frame = _df(konkorde_verde=[30.0, 35.0], close=[100.0, 101.0])
     low_result, _ = SetupService._eval_condition(cond, frame, "low_tf")
     high_result, label = SetupService._eval_condition(cond, frame, "high_tf")
     assert low_result is None  # guarded: no vote, no support entry, score 0
@@ -139,7 +139,7 @@ def test_b0_g2_runtime_guard_in_full_evaluation():
     service = SetupService(setups=[])
     frame = _df(
         bbwp=[60.0, 65.0],
-        konkorde_marron=[30.0, 35.0],
+        konkorde_verde=[30.0, 35.0],
         ao=[0.5, 1.0],
         adx14=[20.0, 21.0],
         plus_di=[25.0, 25.0],
@@ -160,7 +160,7 @@ _FE_G1_FRAME = dict(
     adx14=[24.6, 24.7, 24.8, 24.9, 25.0, 25.1, 25.2, 25.3, 25.4],
     plus_di=[30.0] * 9,
     minus_di=[15.0] * 9,
-    konkorde_marron=[-1.0, 0.8, 1.5],
+    konkorde_verde=[-1.0, 0.8, 1.5],
 )
 
 
@@ -199,7 +199,7 @@ def test_fe_g2_fresh_and_confirmed_no_veto():
         adx14=[18, 18, 18, 18, 18, 18, 18.5, 21.5, 24.5],
         plus_di=[28.0] * 9,
         minus_di=[15.0] * 9,
-        konkorde_marron=[-0.5, 0.7, 1.3],
+        konkorde_verde=[-0.5, 0.7, 1.3],
     )
     reasons, grade = evaluate_vetoes(_spec_default_vetoes(), frame, band="high_tf")
     assert reasons == []
@@ -216,7 +216,7 @@ def test_fe_g3_steady_adx_vetoes_despite_fresh_crosses():
         adx14=[16, 17.2, 18.4, 19.6, 20.8, 22.0, 23.2, 24.4, 25.6],
         plus_di=[28.0] * 9,
         minus_di=[15.0] * 9,
-        konkorde_marron=[-0.3, 0.9],
+        konkorde_verde=[-0.3, 0.9],
     )
     reasons, _ = evaluate_vetoes(_spec_default_vetoes(), frame, band="high_tf")
     assert reasons == ["no_adx_turn_confirmation"]
@@ -230,7 +230,7 @@ def test_fe_v1_not_applied_to_unused_optional_evidence():
         adx14=[18, 18, 18, 18, 18, 18, 18.5, 21.5, 24.5],
         plus_di=[28.0] * 9,
         minus_di=[15.0] * 9,
-        konkorde_marron=[5.0] * 9,  # positive forever: cross is out of window
+        konkorde_verde=[5.0] * 9,  # positive forever: cross is out of window
     )
     vetoes = (
         VetoDefinition("freshness", event="konkorde_zero_cross_up", max_event_age=3),

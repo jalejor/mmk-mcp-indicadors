@@ -50,7 +50,8 @@ def _frame(tf, n=40, *, ao=1.0, adx=20.0, plus=25.0, minus=15.0, bbwp=40.0,
             "sma200": 90.0, "sma50": 95.0, "ema50": 96.0, "ema200": 92.0,
             "adx14": col(adx), "plus_di": col(plus), "minus_di": col(minus),
             "ao": col(ao), "bbwp": col(bbwp), "atr14": 2.0,
-            "konkorde_marron": col(konkorde),
+            # E3 line = konkorde_verde (0.2.2); marron is a flat 0-100 average.
+            "konkorde_verde": col(konkorde), "konkorde_marron": 55.0,
         },
         index=index,
     )

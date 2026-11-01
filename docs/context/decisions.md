@@ -291,14 +291,16 @@ Consequences:
   packs keep `RULE_PACK_BBWP_DEFINITION = "legacy"` because their goldens were
   pinned on it; moving them is a rule-input change (spec §0.4: bump + goldens).
 * `1M` now drops the forming candle (`_month_candle_close_ms`).
-* E3 (`konkorde_zero_cross`) is pending re-specification by the owner.
+* E3 (`konkorde_zero_cross`) was pending re-specification by the owner —
+  done in D22 (line = `konkorde_verde`).
 * D6 is superseded.
 
 **Known fallout (open)**: `test_konkorde_golden.py::test_marron_is_a_0_100_style_average_not_centred_on_zero`
 returns NaN (its fixture has a constant ohlc4, so BollOsc is `na` by Pine
 semantics) and `test_v020_real_goldens.py::test_c1_g1_bear_confluence...`
 fails on the 4h Konkorde leg (v0.2.x reads the marron sign). Both need an
-owner/analyst call, not a code tweak.
+owner/analyst call, not a code tweak. (C1-G1: resolved by D22, passes on
+verde.)
 
 **Status**: vigente.
 
@@ -426,3 +428,44 @@ xfailed), backtested (`PREREG_IMPULSOS_v2_r5.md`, results
 `docs/impulsos-v2-backtest-r5.md`): **no cell GO**; classifier on snipper 1h:
 `adx_turn` DROP, `bbwp_fresh` DROP, `bbwp_fresh_blue` weak KEEP (passed ≈ 0 R,
 rejected −0.39 R) = candidate requiring replication. NOT active; nothing in paper.
+
+## D22 — E3 re-specified: the rule packs read `konkorde_verde` (rule_version 0.1.1 / 0.2.2) (2026-11-01)
+
+Owner decision (d) of 2026-11-01 ("re-especificar E3: GO") on the line he
+validated in decision 3 of impulsos-v2: the "Konkorde crossing zero" of his
+chart is the yellow area = `konkorde_verde` (`marron + oscp`). Pre-registered
+in spec §0.4 + §E3 (docs commit) BEFORE the code changed.
+
+* **One pack constant.** `setup_service.RULE_PACK_KONKORDE_LINE =
+  "konkorde_verde"` next to `RULE_PACK_BBWP_DEFINITION` (same precedent);
+  every Konkorde SIGN / zero-CROSS read goes through it: E3 state
+  (`konkorde_positive/negative`) and event (`zero_cross_age`), the V1
+  freshness events, the v0.2.x C1 high-band leg and the M1 turn-ignition 4h
+  leg. Semantics, params and veto windows are unchanged — only the input line.
+* **Fail closed.** `konkorde_line_series(df)` raises `KeyError` on a frame
+  without verde (setups); the v0.2.x legs read it through `_series_last` /
+  `_turn_tail` and report `false`. A frame without the line never votes.
+* **Versioning.** `RULE_VERSION` 0.1.0 → 0.1.1 (new default), 0.2.2 added to
+  the v0.2 pack. 0.1.0 / 0.2.0 / 0.2.1 stay selectable, run the SAME code and
+  are echoed back verbatim; as shipped they read a re-centred marron (D6) that
+  no longer exists, so they are not reproducible.
+* **Unchanged on purpose.** `vol_turn` on `konkorde_marron` (E4, scale-free
+  percentile zone), `RulesService` (marron vs media), the impulse engine.
+* **API (additive).** `/v1/setups/evaluate` evidence gains `konkorde_verde`
+  (`konkorde_marron` kept); a Konkorde condition's `value` now reports verde;
+  the default `rule_version` reported is `0.1.1`.
+
+**Declared limitation**: on bitget BTC/USDT 2024-11 → 2026-11 verde > 0 on
+85.9 % of 4h and 88.4 % of 1d bars; 134/134 zero crosses on 4h, 18/19 on 1d
+in two years. The STATE is a weak filter; the EVENT is what the owner
+ratified (E3/E4 addendum 2026-07-11).
+
+**Alternatives discarded**: `marron - media` (`edge`, Blai5's own signal) —
+crosses zero but is not the line the owner validated as "crossing zero";
+keeping marron (permanent bullish vote, E17); swapping the column silently
+without a version bump (violates §0.4: same market, different adjudication,
+same label).
+
+**Status**: vigente. Tests: E3-G1..G6 (`test_setup_elements_golden.py`),
+C1-G1 real-candle golden passes again on verde (xfail removed); suite 417
+passed, 1 xfailed.

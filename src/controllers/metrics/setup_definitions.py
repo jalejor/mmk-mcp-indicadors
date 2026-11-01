@@ -1,4 +1,4 @@
-"""Declarative, versioned setup documents (spec §B, rule_version 0.1.0).
+"""Declarative, versioned setup documents (spec §B, rule_version 0.1.1).
 
 Setups are DATA (frozen dataclasses of plain values — never env vars). Any
 threshold/window/condition change bumps `rule_version` (spec §0.4). The two
@@ -23,7 +23,9 @@ from .setup_service import (
     _is_konkorde_condition,
 )
 
-RULE_VERSION = "0.1.0"
+# 0.1.1 (2026-11-01, spec §0.4): E3 reads `konkorde_verde`
+# (setup_service.RULE_PACK_KONKORDE_LINE); documents otherwise identical to 0.1.0.
+RULE_VERSION = "0.1.1"
 
 # Owner decision Q10 (spec §E): both veto windows relaxed from 3 to 5.
 MAX_EVENT_AGE = 5

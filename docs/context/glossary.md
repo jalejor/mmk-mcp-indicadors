@@ -43,14 +43,22 @@ Domain and code terms used across the service.
 
 ### Konkorde (by Blai5)
 
-A composite volume/flow indicator. Three lines, all re-centred on zero so a
-reading of 0 means neutral:
+A composite volume/flow indicator, ported bar-exact from Blai5's Pine on
+2026-11-01 ([decisions.md#D18](decisions.md#d18)). The lines are NOT all
+centred on zero (the old D6 re-centring is gone):
 
-- **`konkorde_azul`** (blue) — retail / weak-hands flow (PVI oscillator, `OscP`).
-- **`konkorde_verde`** (green) — trend / strong-hands flow.
-- **`konkorde_marron`** (brown) — net strong-hands position; the decisive line.
-- **`konkorde_value`** — **DEPRECATED** alias of `konkorde_marron`, still read by
-  `RulesService` for the buy/sell vote. Positive ⇒ buying pressure.
+- **`konkorde_azul`** (blue) — NVI oscillator; crosses zero.
+- **`konkorde_verde`** (green) — `marron + oscp`, the TradingView Konkorde 2.0
+  "yellow area"; crosses zero. **The E3 line of the rule packs** since
+  rule_version 0.1.1 / 0.2.2 (`setup_service.RULE_PACK_KONKORDE_LINE`, D22):
+  its sign is `konkorde_state`, its zero cross is `konkorde_zero_cross`.
+  Positive on ~86-88 % of 4h/1d bars, so its state is a weak filter.
+- **`konkorde_marron`** (brown) — trend average `(RSI + MFI + BollOsc + stoc/3) / 2`,
+  a 0-100 series (~+55 flat). **Never read its sign** (E17): it never crosses
+  zero. Still the `vol_turn` (E4) source and an evidence field.
+- **`konkorde_media`** — `EMA15(marron)`; `marron - media` (`edge`) is Blai5's
+  own signal, read by the impulse engine and by `RulesService` (marron vs media).
+- **`konkorde_value`** — **DEPRECATED** alias of `konkorde_marron`.
 - **`konkorde_signal`** — classification string. Emitted values are
   `bullish_strong`, `bullish_weak`, `bearish_strong`, `bearish_weak`,
   `neutral`. ⚠️ Older API docs show a bare `"bullish"`, which the code never

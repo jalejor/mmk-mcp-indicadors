@@ -28,7 +28,7 @@ SETUP_KEYS = {
 }
 CONDITION_KEYS = {"name", "passed", "value"}
 VETO_KEYS = {"name", "hit", "detail"}
-EVIDENCE_KEYS = {"price", "bbwp", "ao", "adx", "konkorde_marron"}
+EVIDENCE_KEYS = {"price", "bbwp", "ao", "adx", "konkorde_marron", "konkorde_verde"}
 STATUSES = {"no_context", "context_ok", "triggered", "vetoed", "invalidated"}
 MONITOR_KEYS = {
     "timeframe", "direction", "state", "early_warning", "event_age",
@@ -52,7 +52,9 @@ def _frame_1d() -> pd.DataFrame:
             "sma200": 90.0, "sma50": 95.0, "ema50": 96.0, "ema200": 92.0,
             "adx14": 20.0, "plus_di": 25.0, "minus_di": 15.0,
             "ao": 1.0, "bbwp": 40.0, "atr14": 1.5,
-            "konkorde_marron": 5.0,
+            # Real-shaped Konkorde: marron is a flat 0-100 average (D18),
+            # verde is the zero-crossing E3 line (0.1.1).
+            "konkorde_marron": 55.0, "konkorde_verde": 5.0,
         },
         index=index,
     )
@@ -88,7 +90,7 @@ def _frame_4h(*, stale_ao: bool) -> pd.DataFrame:
             "sma200": 90.0, "sma50": 95.0, "ema50": 96.0, "ema200": 92.0,
             "adx14": adx, "plus_di": 28.0, "minus_di": 15.0,
             "ao": ao, "bbwp": 60.0, "atr14": 2.0,
-            "konkorde_marron": konkorde,
+            "konkorde_marron": 55.0, "konkorde_verde": konkorde,
         },
         index=index,
     )
@@ -146,7 +148,7 @@ def test_contract_shape_is_complete(monkeypatch):
     body = _get(client).json()
 
     assert set(body.keys()) == TOP_LEVEL_KEYS
-    assert body["rule_version"] == "0.1.0"
+    assert body["rule_version"] == "0.1.1"  # E3 on konkorde_verde (spec §0.4, 2026-11-01)
     # evaluated_at must be parseable ISO-8601 UTC.
     evaluated_at = pd.Timestamp(body["evaluated_at"])
     assert evaluated_at.tzinfo is not None
@@ -205,7 +207,8 @@ def test_imp_4h_long_triggers_on_fresh_confirmed_market(monkeypatch):
     assert evidence["bbwp"] == pytest.approx(60.0)
     assert evidence["ao"] == pytest.approx(1.4)
     assert evidence["adx"] == pytest.approx(24.5)
-    assert evidence["konkorde_marron"] == pytest.approx(1.3)
+    assert evidence["konkorde_marron"] == pytest.approx(55.0)
+    assert evidence["konkorde_verde"] == pytest.approx(1.3)
 
     # Same market, other setups: daily uptrend without a pullback.
     assert setups["PB-1D-LONG"]["status"] == "no_context"
