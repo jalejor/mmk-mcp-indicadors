@@ -1321,17 +1321,24 @@ def drive_sequential(machine: Any, ledger: PositionLedger, trigger_df: pd.DataFr
 
 def run_sequential(
     *, profile: str, symbol: str, start: datetime, end: datetime, split: datetime,
-    directions: Sequence[str], loader: Callable[[str], pd.DataFrame], mlrsi_gate: bool = False,
+    directions: Sequence[str], loader: Callable[[str], pd.DataFrame], mlrsi_gate: Optional[bool] = None,
     overrides: Optional[Dict[str, Any]] = None, fee: float = DEFAULT_FEE_RATE_PER_SIDE,
     slip: float = DEFAULT_SLIPPAGE_PER_SIDE, rule: str = "r2",
 ) -> Dict[str, Any]:
     """Round-2 cell run: `ImpulseParams.sequential(profile)` (+ `mlrsi_gate` for H2) over
     the cached frames, one book long-or-short, scored by the layered ledger
     (1R = layer-1 risk to the invalidation = 2% E0 unless the exposure cap binds).
-    `rule="r4"` builds `impulse-2.2.0` params (`impulse_sequential.r4_params`) instead."""
+    `rule="r4"` builds `impulse-2.2.0` params (`impulse_sequential.r4_params`) instead.
+
+    `mlrsi_gate=None` (default) leaves the rule doc's own value in force. E20: until
+    2026-11-01 the default was `False` and it was forwarded as an override, so the
+    round-4b / round-5 runs executed 2.2.0 / 2.3.0 WITHOUT the trigger ML RSI gate the
+    rule docs declare (`mlrsi_gate: true`). Reproducing those runs now requires
+    `overrides={"mlrsi_gate": False}` explicitly (round-6 harness)."""
     from .impulse_sequential import SequentialMachine
 
-    params = _sequential_params(rule, profile, mlrsi_gate=mlrsi_gate, **(overrides or {}))
+    gate = {"mlrsi_gate": bool(mlrsi_gate)} if mlrsi_gate is not None else {}
+    params = _sequential_params(rule, profile, **gate, **(overrides or {}))
     frames, status = load_sequential_frames(params, loader)
     trigger_df = frames[params.trigger_tf]
     first = max(WARMUP_BARS, int(trigger_df.index.searchsorted(pd.Timestamp(utc(start)))))
@@ -1351,13 +1358,15 @@ def run_sequential(
 
 def run_anchored(
     *, profile: str, frames: Mapping[str, pd.DataFrame], anchor_bar: int, side: str, symbol: str,
-    split: datetime, mlrsi_gate: bool = False, fee: float = DEFAULT_FEE_RATE_PER_SIDE,
+    split: datetime, mlrsi_gate: Optional[bool] = None, fee: float = DEFAULT_FEE_RATE_PER_SIDE,
     slip: float = DEFAULT_SLIPPAGE_PER_SIDE, rule: str = "r2", overrides: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """§R2.g.4: force layer 1 at `anchor_bar` close, then the real re-buy / exit rules to the end."""
+    """§R2.g.4: force layer 1 at `anchor_bar` close, then the real re-buy / exit rules to the end.
+    `mlrsi_gate=None` keeps the rule doc's value (see `run_sequential`, E20)."""
     from .impulse_sequential import SequentialMachine
 
-    params = _sequential_params(rule, profile, mlrsi_gate=mlrsi_gate, **(overrides or {}))
+    gate = {"mlrsi_gate": bool(mlrsi_gate)} if mlrsi_gate is not None else {}
+    params = _sequential_params(rule, profile, **gate, **(overrides or {}))
     trigger_df = frames[params.trigger_tf]
     machine = SequentialMachine(params, frames, equity=params.equity_usdt)
     ledger = ledger_for(params, split=split, symbol=symbol, fee=fee, slip=slip)

@@ -184,6 +184,11 @@ class ImpulseParams:
     # Exit when the guardian's ML RSI regime (causal percentiles) is the position's
     # contrary colour (short: green; long: red). Gray never exits.
     ctx_mlrsi_exit: bool = False
+    # Round 6 ablation knob (owner point f, 2026-11-01): the ENTRY block on a contrary guardian
+    # regime (`ctx_mlrsi_against` at ENTER). None = follows `ctx_mlrsi_exit` (2.2.0 behaviour,
+    # byte-identical); True / False decouple the entry block from the exit so the exit alone can
+    # be ablated with the same entries.
+    ctx_mlrsi_entry_block: Optional[bool] = None
     # Optional target by levels, in R of layer 1 (None = no target; round 4b runs None).
     target_r: Optional[float] = None
     mlrsi_rsi_period: int = 19
@@ -269,6 +274,11 @@ class ImpulseParams:
         if profile is not None:
             return cls.for_profile(profile, **values)
         return cls(**values)
+
+    @property
+    def ctx_mlrsi_blocks_entry(self) -> bool:
+        """Whether a contrary guardian ML RSI regime blocks the ENTER (§R4.c; round-6 knob)."""
+        return bool(self.ctx_mlrsi_exit) if self.ctx_mlrsi_entry_block is None else bool(self.ctx_mlrsi_entry_block)
 
     def context_order(self) -> Tuple[str, ...]:
         """Guardian first, then the other context TFs; never the trigger TF."""

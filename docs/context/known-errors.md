@@ -391,6 +391,29 @@ are fitted on ~480 points and will not match a 3000-bar chart
 
 ---
 
+## E20 🐞 Rounds 4b and 5 of impulsos-v2 ran WITHOUT the trigger ML RSI gate the rule docs declare — MEDIUM
+
+**Symptom**: `r4_impulse_20261101T074719Z.json` → `params.mlrsi_gate = false`
+for every cell, and no `mlrsi_gate_*` reason ever appears in the round-4b /
+round-5 decisions, although `R4_OVERRIDES` (and the spec §R4.c) say
+`mlrsi_gate: true`.
+
+**Root cause**: `impulse_backtest.run_sequential(..., mlrsi_gate=False)` (the
+round-2 H1/H2 switch) forwarded its DEFAULT as an override to `r4_params` /
+`r5_params`, where `**overrides` wins over `R4_OVERRIDES`. The partial take
+and the guardian ML RSI exit were unaffected (they do not read `mlrsi_gate`).
+
+**How to avoid**: since 2026-11-01 the default is `mlrsi_gate=None` (= the rule
+doc's value); reproducing the as-run rounds needs an explicit
+`overrides={"mlrsi_gate": False}` (round-6 harness `AS_RUN`). Every round-4b /
+round-5 number carries this caveat (`docs/PREREG_IMPULSOS_v2_r6.md` §1); the
+verdicts (nothing passes) are not re-opened because a stricter entry gate
+removes entries from a no-edge signal. When a runner builds params through
+several layers of `**overrides`, assert the resulting `asdict(params)` against
+the rule doc before the run.
+
+---
+
 ## Non-issues / verified-correct (for reassurance)
 
 - **MCP auth**: the mounted MCP transport *does* enforce the API key on both

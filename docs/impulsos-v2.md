@@ -10,6 +10,7 @@
 | **Round 2 status** | BUILT and BACKTESTED 2026-11-01 (`ecd603b`): **no cell passes** — see "Round 2 results" at the end. |
 | **Round 4b status** | `impulse-2.2.0` (exits without `phase_lost`, SNIPPER 10x isolated) BUILT and BACKTESTED 2026-11-01 (`25071ba`): **PRO INCONCLUSIVE (n 14), SNIPPER NO-GO at every leverage, 1 liquidation at 10x** — see "Round 4b results". |
 | **Round 5 status** | `impulse-2.3.0` (ENTRY filters on the frozen 2.2.0 chain: ADX turn / A-grade origin, AO divergence trigger / any TF, BBWP fresh ignition / from blue) BUILT and BACKTESTED 2026-11-01 (`978a246`): **no cell GO, every filtered cell INCONCLUSIVE by n; classifier on snipper: `adx_turn` DROP, `bbwp_fresh` DROP, `bbwp_fresh_blue` weak KEEP (passed ≈ 0 R, rejected −0.39 R)** — see "Round 5 results". |
+| **Round 6 status** | ABLATIONS on the frozen 2.3.0 baseline (no new rule): guardian ML RSI exit ON vs OFF (owner point f) and SNIPPER 1h 10x isolated vs 5x cross, risk- and margin-sized (owner points b/c). Pre-registered in `docs/PREREG_IMPULSOS_v2_r6.md`. ⚠️ **E20**: rounds 4b/5 ran with the TRIGGER ML RSI gate OFF (harness default); round 6 runs both readings. ML RSI port audit: `docs/impulsos-v2-ml-rsi-audit.md`. Results in "Round 6 results" after the run. |
 
 > **SUPERSEDED where they conflict (2026-11-01).** Round 1 (sections a-h,
 > `impulse-2.0.0`) is kept as the record of what was tested and refuted.

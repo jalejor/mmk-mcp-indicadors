@@ -343,7 +343,7 @@ class SequentialMachine:
         # §R4.c: the guardian's own ML RSI regime (+1/-1/0/NaN per guardian candle), causal.
         self.ctx_mlrsi: Optional[np.ndarray] = None
         gdf = frames.get(params.confirm_tf)
-        if params.ctx_mlrsi_exit and gdf is not None and len(gdf):
+        if (params.ctx_mlrsi_exit or params.ctx_mlrsi_blocks_entry) and gdf is not None and len(gdf):
             if "ml_rsi_regime" in gdf.columns:
                 self.ctx_mlrsi = _regime_from_column(gdf["ml_rsi_regime"])
             elif "close" in gdf.columns:
@@ -619,7 +619,7 @@ class SequentialMachine:
             if int(regime) == -a.side:
                 reasons.append("mlrsi_gate_against")
                 return
-        if p.ctx_mlrsi_exit:  # §R4.c: a contrary guardian regime invalidates the trade before it exists
+        if p.ctx_mlrsi_blocks_entry:  # §R4.c: a contrary guardian regime invalidates the trade before it exists
             ctx_regime = self._ctx_regime(i)
             if ctx_regime is not None and ctx_regime == -a.side:
                 reasons.append("ctx_mlrsi_against")
