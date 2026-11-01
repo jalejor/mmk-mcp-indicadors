@@ -28,6 +28,7 @@ from controllers.metrics.rule_v020 import (
 from controllers.metrics.setup_service import (
     FE_CONFIRMED,
     FE_FALSE_ENTRY_PROBABLE,
+    RULE_PACK_BBWP_DEFINITION,
     false_entry_state,
 )
 
@@ -47,7 +48,10 @@ def frames():
         )
         df["datetime"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
         df = df.set_index("datetime")
-        service = IndicatorsService(df)
+        # Exact production enrichment of the rule packs: legacy BBWP (the
+        # series these goldens were pinned on; the TV BBWP flips the 1h
+        # component of C1-G1 — a rule_version decision, spec §0.4).
+        service = IndicatorsService(df, bbwp_definition=RULE_PACK_BBWP_DEFINITION)
         service.calculate_all()
         enriched[tf] = service.df
     return enriched

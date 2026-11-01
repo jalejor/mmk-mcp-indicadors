@@ -51,8 +51,12 @@ def test_indicators_calculation_not_empty():
         "konkorde_azul",
         "konkorde_verde",
         "konkorde_marron",
+        "konkorde_media",
         "konkorde_value",
         "konkorde_signal",
+        "bbwp_ma5",
+        "bbwp_legacy",
+        "bbw13",
         "atr",
         "volatility_20",
     ]
@@ -65,18 +69,51 @@ def test_indicators_calculation_not_empty():
 def test_konkorde_returns_all_lines():
     df = _dummy_df(n=300)
     indicators = IndicatorsService(df).calculate_all()
-    for key in ("konkorde_azul", "konkorde_verde", "konkorde_marron", "konkorde_signal"):
+    for key in ("konkorde_azul", "konkorde_verde", "konkorde_marron", "konkorde_media", "konkorde_signal"):
         assert key in indicators
     # `konkorde_value` keeps backwards compatibility as alias of marron.
     assert indicators["konkorde_value"] == pytest.approx(indicators["konkorde_marron"], nan_ok=True)
 
 
 def test_konkorde_signal_classification():
-    assert IndicatorsService._classify_konkorde(azul=10.0, verde=20.0, marron=15.0) == "bullish_strong"
-    assert IndicatorsService._classify_konkorde(azul=10.0, verde=2.0, marron=5.0) == "bullish_weak"
-    assert IndicatorsService._classify_konkorde(azul=-5.0, verde=-20.0, marron=-10.0) == "bearish_strong"
-    assert IndicatorsService._classify_konkorde(azul=-15.0, verde=-2.0, marron=-5.0) == "bearish_weak"
-    assert IndicatorsService._classify_konkorde(azul=0.0, verde=0.0, marron=0.0) == "neutral"
+    """Blai5 reading: trend = marron vs media, strength = strong hands (azul)."""
+    classify = IndicatorsService._classify_konkorde
+    assert classify(azul=10.0, verde=70.0, marron=60.0, media=50.0) == "bullish_strong"
+    assert classify(azul=-3.0, verde=70.0, marron=60.0, media=50.0) == "bullish_weak"
+    assert classify(azul=-5.0, verde=20.0, marron=30.0, media=45.0) == "bearish_strong"
+    assert classify(azul=4.0, verde=20.0, marron=30.0, media=45.0) == "bearish_weak"
+    assert classify(azul=0.0, verde=50.0, marron=50.0, media=50.0) == "neutral"
+    # A positive brown line alone is not bullish on the real indicator.
+    assert classify(azul=-1.0, verde=40.0, marron=55.0, media=60.0) == "bearish_strong"
+
+
+def test_bbwp_default_is_the_owner_tv_definition():
+    """`bbwp` == The_Caretaker port with the owner's settings (13/256/5)."""
+    df = _dummy_df(n=400, seed=42)
+    service = IndicatorsService(df)
+    indicators = service.calculate_all()
+    assert indicators["bbwp_definition"] == "tv"
+    assert indicators["bbwp"] == pytest.approx(indicators["bbwp_tv"])
+    assert indicators["bbwp"] == pytest.approx(indicators["bbwp_owner"])
+    assert indicators["bbwp_ma5"] == pytest.approx(indicators["bbwp_owner_ma5"])
+    pd.testing.assert_series_equal(service.df["bbwp"], service.df["bbwp_owner"], check_names=False)
+    # The old definition stays reachable for comparisons with recorded history.
+    assert service.df["bbwp_legacy"].notna().any()
+    assert indicators["bbwp_legacy"] != pytest.approx(indicators["bbwp"])
+
+
+def test_bbwp_legacy_definition_selectable_for_rule_packs():
+    """The versioned rule packs opt into the pre-2026-11-01 series."""
+    df = _dummy_df(n=400, seed=42)
+    service = IndicatorsService(df, bbwp_definition="legacy")
+    indicators = service.calculate_all()
+    assert indicators["bbwp_definition"] == "legacy"
+    assert indicators["bbwp"] == pytest.approx(indicators["bbwp_legacy"])
+    pd.testing.assert_series_equal(service.df["bbwp"], service.df["bbwp_legacy"], check_names=False)
+    # The TV series is still exposed alongside (aliases included).
+    pd.testing.assert_series_equal(service.df["bbwp_tv"], service.df["bbwp_owner"], check_names=False)
+    with pytest.raises(ValueError):
+        IndicatorsService(df, bbwp_definition="nope")
 
 
 def test_bbwp_in_range_0_100():

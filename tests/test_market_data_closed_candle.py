@@ -79,6 +79,41 @@ def test_cache_serves_both_modes():
     assert len(full) == 5
 
 
+def _month_open_ms(year: int, month: int) -> int:
+    from datetime import datetime, timezone
+
+    return int(datetime(year, month, 1, tzinfo=timezone.utc).timestamp() * 1000)
+
+
+def test_forming_monthly_candle_dropped(monkeypatch):
+    """Regression (audit 2026-11-01): `1M` has no fixed duration, so it was
+    not in `_TIMEFRAME_TO_SECONDS` and the forming month was never dropped —
+    the only timeframe where the "closed candles only" path repainted."""
+    from controllers.metrics import market_data_service as mds
+
+    # Frozen "now": 2026-11-01 05:00 UTC -> the November candle is forming.
+    monkeypatch.setattr(mds, "_now", lambda: _month_open_ms(2026, 11) / 1000.0 + 5 * 3600)
+    payload = [[_month_open_ms(2026, m), 1, 1, 1, 1, 1] for m in (7, 8, 9, 10, 11)]
+    svc = MarketDataService(exchange_name="bitget")
+    svc.exchange = _FakeExchange(payload)
+    dropped = svc.get_ohlcv("BTC/USDT", "1M", 5)
+    assert len(dropped) == 4
+    assert int(dropped["timestamp"].iloc[-1]) == _month_open_ms(2026, 10)
+    full = svc.get_ohlcv("BTC/USDT", "1M", 5, drop_forming=False)
+    assert len(full) == 5
+
+
+def test_closed_monthly_candle_kept_across_year_boundary(monkeypatch):
+    from controllers.metrics import market_data_service as mds
+
+    # Frozen "now": 2027-01-01 00:00 UTC exactly -> December 2026 just closed.
+    monkeypatch.setattr(mds, "_now", lambda: _month_open_ms(2027, 1) / 1000.0)
+    payload = [[_month_open_ms(2026, m), 1, 1, 1, 1, 1] for m in (9, 10, 11, 12)]
+    svc = MarketDataService(exchange_name="bitget")
+    svc.exchange = _FakeExchange(payload)
+    assert len(svc.get_ohlcv("BTC/USDT", "1M", 4)) == 4
+
+
 def test_unknown_timeframe_left_untouched():
     svc = MarketDataService(exchange_name="bitget")
     svc.exchange = _FakeExchange([[1, 1, 1, 1, 1, 1] for _ in range(3)])

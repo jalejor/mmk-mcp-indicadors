@@ -157,11 +157,19 @@ class RulesService:
         elif adx is not None and adx >= th["adx_trend"]:
             entry_support.append("adx_trend")
 
+        # Konkorde: Blai5's signal is the brown line (marron, alias
+        # `konkorde_value`) against its EMA(15) `konkorde_media`. The real
+        # marron is a 0-100-scaled average, so `marron > 0` would be a
+        # permanent buy vote (the D6 bug, re-surfaced by the 2026-11-01 port
+        # fix); payloads without `konkorde_media` (legacy callers) keep the
+        # old sign reading.
         konkorde_val = indicators.get("konkorde_value")
         if konkorde_val is not None:
-            if konkorde_val > 0:
+            konkorde_media = indicators.get("konkorde_media")
+            konkorde_edge = konkorde_val - konkorde_media if konkorde_media is not None else konkorde_val
+            if konkorde_edge > 0:
                 entry_support.append("konkorde_buy")
-            elif konkorde_val < 0:
+            elif konkorde_edge < 0:
                 exit_support.append("konkorde_sell")
 
         ao = indicators.get("ao")

@@ -91,14 +91,14 @@ def chart_result(monkeypatch):
 def test_charts_response_includes_konkorde_series(chart_result):
     result, _frame = chart_result
     assert "konkorde" in result
-    assert set(result["konkorde"].keys()) == {"marron", "verde", "azul"}
+    assert set(result["konkorde"].keys()) == {"marron", "verde", "azul", "media"}
 
 
 def test_konkorde_series_align_one_to_one_with_candles(chart_result):
     result, _frame = chart_result
     n = len(result["chart_data"])
     assert n == result["total_candles"]
-    for line in ("marron", "verde", "azul"):
+    for line in ("marron", "verde", "azul", "media"):
         values = result["konkorde"][line]
         assert len(values) == n
         assert all(v is None or isinstance(v, float) for v in values)
@@ -106,6 +106,7 @@ def test_konkorde_series_align_one_to_one_with_candles(chart_result):
     assert result["konkorde"]["marron"][-1] is not None
     assert result["konkorde"]["verde"][-1] is not None
     assert result["konkorde"]["azul"][-1] is not None
+    assert result["konkorde"]["media"][-1] is not None
 
 
 def test_konkorde_values_match_indicators_service_on_same_window(chart_result):

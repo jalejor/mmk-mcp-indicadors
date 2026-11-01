@@ -39,6 +39,7 @@ from .setup_service import (
     FE_CONFIRMED,
     FE_WATCHING,
     FE_WHIPSAW,
+    RULE_PACK_BBWP_DEFINITION,
     TIMEFRAME_SECONDS,
     SetupEvaluation,
     SetupService,
@@ -417,7 +418,8 @@ class SetupEvaluationService:
             if cached is not None:
                 return cached
 
-        service = IndicatorsService(raw)
+        # Rule packs read the BBWP their goldens were pinned on (spec §0.4).
+        service = IndicatorsService(raw, bbwp_definition=RULE_PACK_BBWP_DEFINITION)
         service.calculate_all()
         enriched = service.df
 

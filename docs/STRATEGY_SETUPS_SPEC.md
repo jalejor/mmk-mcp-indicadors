@@ -12,7 +12,9 @@ This document specifies, in implementable numeric terms, the owner's 5 strategy
 elements and the 2 composite setups. Names are aligned to the **existing series
 produced by `IndicatorsService`** (`src/controllers/metrics/indicators_service.py`):
 `adx14`, `plus_di`, `minus_di`, `ao`, `konkorde_azul`, `konkorde_verde`,
-`konkorde_marron` (re-centred, see `docs/context/decisions.md#D6`), `bbwp`,
+`konkorde_marron` (Blai5 port since 2026-11-01, NOT centred on zero — see
+`docs/context/decisions.md#D18`; `konkorde_positive`/E3 pend re-specification),
+`bbwp` (rule packs: legacy definition, `RULE_PACK_BBWP_DEFINITION`, D18),
 `bbw`, `atr14`, `rsi14`, `sma50/200`, `ema50/200`.
 
 Every parameter marked **[calibrable]** is a provisional number chosen by the

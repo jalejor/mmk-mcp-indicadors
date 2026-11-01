@@ -29,6 +29,15 @@ import pandas as pd
 LOW_TF_BAND = ("1m", "5m", "15m", "30m", "1h", "2h")
 HIGH_TF_BAND = ("4h", "6h", "8h", "12h", "1d", "3d", "1w")
 
+# BBWP series the versioned rule packs (setups v0.1.0, monitors v0.2.x and
+# their backtests) are enriched with. Since 2026-11-01 `IndicatorsService`
+# defaults to the owner's TradingView BBWP ("tv": The_Caretaker 13/256) for
+# /v1/metrics and /v1/charts; the packs keep the pre-existing definition their
+# real-candle goldens were pinned on (`tests/test_v020_real_goldens.py` C1-G1
+# flips its 1h BBWP component on the TV series). Switching this to "tv" is a
+# rule-input change: spec §0.4 requires a `rule_version` bump + new goldens.
+RULE_PACK_BBWP_DEFINITION = "legacy"
+
 TIMEFRAME_SECONDS: Dict[str, int] = {
     "1m": 60,
     "5m": 5 * 60,

@@ -35,7 +35,7 @@ from controllers.metrics.monitors_v020 import (
     _finalized_m1_records,
     _tf_snapshots,
 )
-from controllers.metrics.setup_service import TIMEFRAME_SECONDS
+from controllers.metrics.setup_service import RULE_PACK_BBWP_DEFINITION, TIMEFRAME_SECONDS
 
 FIXTURES = Path(__file__).parent / "fixtures"
 # The FULL M1 operative ladder. The 1w matters adversarially: a weekly
@@ -69,7 +69,8 @@ def enriched():
         )
         df["datetime"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
         df = df.set_index("datetime")
-        service = IndicatorsService(df)
+        # Same enrichment as the live rule packs (legacy BBWP, spec §0.4).
+        service = IndicatorsService(df, bbwp_definition=RULE_PACK_BBWP_DEFINITION)
         service.calculate_all()
         frames[tf] = service.df
     return frames

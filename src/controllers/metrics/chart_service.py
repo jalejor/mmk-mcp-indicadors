@@ -222,7 +222,7 @@ class ChartService:
 
     @staticmethod
     def _calculate_konkorde_series(df: pd.DataFrame) -> Dict[str, List[Optional[float]]]:
-        """Konkorde lines (marron/verde/azul) aligned 1:1 with `df`.
+        """Konkorde lines (marron/verde/azul/media) aligned 1:1 with `df`.
 
         Computed with `IndicatorsService` over the SAME window as the chart
         (warmup included: leading values may be null until the indicator's
@@ -230,7 +230,7 @@ class ChartService:
         the JSON strict.
         """
         if df.empty:
-            return {"marron": [], "verde": [], "azul": []}
+            return {"marron": [], "verde": [], "azul": [], "media": []}
         service = IndicatorsService(df)
         service.calculate_konkorde()
 
@@ -241,6 +241,8 @@ class ChartService:
             "marron": _clean("konkorde_marron"),
             "verde": _clean("konkorde_verde"),
             "azul": _clean("konkorde_azul"),
+            # Blai5's red signal line (EMA 15 of marron) — additive, 2026-11-01.
+            "media": _clean("konkorde_media"),
         }
 
     @staticmethod

@@ -161,21 +161,24 @@ def test_invalid_params_rejected():
 # ---------------------------------------------------------------------------
 
 @pytest.mark.parametrize("timeframe", ["4h", "1h"])
-def test_q19_engine_and_owner_bbwp_are_materially_different(timeframe):
+def test_q19_legacy_and_owner_bbwp_are_materially_different(timeframe):
     """Same candles, both 'BBWP', materially different series.
 
-    Engine: BBW from 20/2 bands, percentile = pct-rank INCLUDING the
-    current bar over a min_periods=1 rolling 252 window. Owner chart:
-    BBW from SMA(13) population stdev, percentile = share of the previous
-    <=256 buffered values <= current. This is Q19: comparisons between the
-    engine's readings and the owner's chart are invalid until made on the
-    SAME definition (`bbwp_owner`)."""
+    Legacy engine (`bbwp_legacy` since 2026-11-01, `bbwp` before): BBW from
+    20/2 bands, percentile = pct-rank INCLUDING the current bar over a
+    min_periods=1 rolling 252 window. Owner chart (now `bbwp`): BBW from
+    SMA(13) population stdev, percentile = share of the previous <=256
+    buffered values <= current. This is Q19: comparisons between the
+    engine's readings and the owner's chart were invalid until the engine
+    computed the SAME definition — which is why `bbwp` now IS the owner's."""
     df = _fixture_ohlcv(timeframe)
     service = IndicatorsService(df)
     service.calculate_oscillators()
 
-    engine = service.df["bbwp"]
-    owner = service.df["bbwp_owner"]
+    engine = service.df["bbwp_legacy"]
+    owner = service.df["bbwp"]
+    pd.testing.assert_series_equal(owner, service.df["bbwp_tv"], check_names=False)
+    pd.testing.assert_series_equal(owner, service.df["bbwp_owner"], check_names=False)
     tail = slice(-100, None)
     both_valid = engine.iloc[tail].notna() & owner.iloc[tail].notna()
     assert both_valid.any()

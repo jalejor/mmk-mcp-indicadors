@@ -36,7 +36,7 @@ import pandas as pd
 from .indicators_service import IndicatorsService
 from .market_data_service import DEFAULT_EXCHANGE, MarketDataService
 from .setup_definitions import DEFAULT_SETUPS, SetupDefinition, VetoDefinition, validate_setup
-from .setup_service import TIMEFRAME_SECONDS, SetupService
+from .setup_service import RULE_PACK_BBWP_DEFINITION, TIMEFRAME_SECONDS, SetupService
 from .sizing_profiles import RiskProfile, atr_sizing_for
 
 # Base fee model (owner Q9, under review — parameters, never constants in code
@@ -510,8 +510,12 @@ class SetupBacktestService:
 
     @staticmethod
     def enrich(df: pd.DataFrame) -> pd.DataFrame:
-        """Compute every indicator column once over the full (causal) series."""
-        service = IndicatorsService(df)
+        """Compute every indicator column once over the full (causal) series.
+
+        Same enrichment as the live rule packs: the BBWP definition their
+        goldens were pinned on (`RULE_PACK_BBWP_DEFINITION`, spec §0.4).
+        """
+        service = IndicatorsService(df, bbwp_definition=RULE_PACK_BBWP_DEFINITION)
         service.calculate_all()
         return service.df
 

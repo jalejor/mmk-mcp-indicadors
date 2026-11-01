@@ -5,6 +5,7 @@ import pandas as pd
 import pandas_ta_classic as ta
 
 from .bbwp_owner import bbwp_owner_series
+from .koncorde import koncorde_series
 from .trend_speed import trend_speed_analyzer
 
 
@@ -15,10 +16,18 @@ class IndicatorsService:
     (last candle) values is returned to the caller.
     """
 
-    def __init__(self, df: pd.DataFrame, *, bbwp_lookback: int = 252):
+    #: Which series the `bbwp` column/key carries (see `_calc_bbwp`):
+    #: "tv" = the owner's TradingView BBWP (The_Caretaker, 13/256/5);
+    #: "legacy" = the pre-2026-11-01 home-grown percentile (20/2, 252).
+    BBWP_DEFINITIONS = ("tv", "legacy")
+
+    def __init__(self, df: pd.DataFrame, *, bbwp_lookback: int = 252, bbwp_definition: str = "tv"):
         # Work on a copy to avoid mutating the caller's DataFrame.
         self.df = df.copy()
         self.bbwp_lookback = bbwp_lookback
+        if bbwp_definition not in self.BBWP_DEFINITIONS:
+            raise ValueError(f"Unknown bbwp_definition: {bbwp_definition!r} (use one of {self.BBWP_DEFINITIONS})")
+        self.bbwp_definition = bbwp_definition
 
     @staticmethod
     def _safe_last(series: pd.Series, default: float = 0.0) -> float:
@@ -51,8 +60,9 @@ class IndicatorsService:
         """Compute ONLY the Konkorde block (cheaper than `calculate_all`).
 
         The full series stay on `self.df` as the `konkorde_azul`,
-        `konkorde_verde` and `konkorde_marron` columns; the returned dict
-        carries the last-candle values (same keys as `calculate_all`).
+        `konkorde_verde`, `konkorde_marron` and `konkorde_media` columns;
+        the returned dict carries the last-candle values (same keys as
+        `calculate_all`).
         """
         result: Dict[str, Any] = {}
         self._calc_konkorde(result)
@@ -115,42 +125,63 @@ class IndicatorsService:
     def _calc_bbwp(self, result: Dict[str, Any]):
         """Bollinger Band Width (BBW) and Bollinger Band Width Percentile (BBWP).
 
-        BBW is the raw width: (Upper - Lower) / Middle * 100.
-        BBWP ranks each BBW reading against the previous `bbwp_lookback`
-        bars and returns a 0-100 percentile. A reading near 100 means the
-        bands are wider than they have been almost all of the lookback
-        window (volatility expansion); near 0 means historic compression.
-        Source: John A. Bollinger via the public TradingView indicator
-        "Bollinger Band Width Percentile".
+        Two definitions are always computed and exposed:
+
+        * `bbwp_tv` — the owner's TradingView reading: exact port of
+          The_Caretaker's `f_bbwp` with the owner's chart settings (close,
+          basis SMA 13, lookback 256, SMA 5 over the BBWP -> `bbwp_ma5`; see
+          `bbwp_owner.py`). `bbw13` is its raw width in % (2*stdev/basis).
+        * `bbwp_legacy` — the pre-2026-11-01 home-grown variant: BBands 20/2
+          width `bbw` (%), pct-rank INCLUDING the current bar over a
+          min_periods=1 rolling `bbwp_lookback` (252) window.
+
+        `bbwp` (and `bbwp_ma4`, its 4-bar SMA kept for backwards compat)
+        carries the one selected by `bbwp_definition`:
+
+        * default "tv": `/v1/metrics`, `/v1/charts`, `/v1/movements` and the
+          legacy `RulesService` read what the owner sees. The audit of
+          2026-11-01 found the legacy series at 85-92 on 4h BTC while the
+          chart said 15-19 — the "huge difference" the owner reported.
+        * "legacy": the VERSIONED rule packs (setups v0.1.0, monitors
+          v0.2.x, their backtests) keep the series their real-candle goldens
+          were pinned on (spec §0.4: a rule input change needs a
+          `rule_version` bump — the C1-G1 golden flips its 1h BBWP component
+          on the TV series). See `setup_service.RULE_PACK_BBWP_DEFINITION`.
         """
         bb = ta.bbands(self.df["close"], length=20, std=2)
         bbw = (bb["BBU_20_2.0"] - bb["BBL_20_2.0"]) / bb["BBM_20_2.0"] * 100
         self.df["bbw"] = bbw
-        # Percentile rank of the current BBW value within the rolling window.
-        self.df["bbwp"] = bbw.rolling(self.bbwp_lookback, min_periods=1).apply(
+        self.df["bbwp_legacy"] = bbw.rolling(self.bbwp_lookback, min_periods=1).apply(
             lambda x: x.rank(pct=True).iloc[-1] * 100,
             raw=False,
         )
-        # Smoothed BBWP for visual confirmation (kept for backwards compat).
+
+        owner = bbwp_owner_series(self.df["close"])
+        self.df["bbw13"] = owner["bbw"] * 100.0
+        self.df["bbwp_tv"] = owner["bbwp"]
+        self.df["bbwp_ma5"] = owner["bbwp_ma"]
+
+        selected = "bbwp_tv" if self.bbwp_definition == "tv" else "bbwp_legacy"
+        self.df["bbwp"] = self.df[selected]
         self.df["bbwp_ma4"] = self.df["bbwp"].rolling(4).mean()
 
+        result["bbwp_definition"] = self.bbwp_definition
         result["bbw"] = self._safe_last(self.df["bbw"])
+        result["bbw13"] = self._safe_last(self.df["bbw13"])
         result["bbwp"] = self._safe_last(self.df["bbwp"])
         result["bbwp_ma4"] = self._safe_last(self.df["bbwp_ma4"])
+        result["bbwp_ma5"] = self._safe_last(self.df["bbwp_ma5"])
+        result["bbwp_tv"] = self._safe_last(self.df["bbwp_tv"])
+        result["bbwp_legacy"] = self._safe_last(self.df["bbwp_legacy"])
 
     def _calc_bbwp_owner(self, result: Dict[str, Any]):
-        """Owner-calibrated BBWP (TradingView parity variant).
-
-        Exact port of The_Caretaker's `f_bbwp` with the owner's chart
-        settings (basis SMA 13, lookback 256, SMA 5 over the BBWP) — see
-        `bbwp_owner.py`. Exposed ALONGSIDE the legacy `bbwp` column, which
-        the active rules and the recorded history keep using; this variant
-        exists so the engine's readings can be compared 1:1 against the
-        owner's TradingView chart (Q19 calibration).
-        """
-        owner = bbwp_owner_series(self.df["close"])
-        self.df["bbwp_owner"] = owner["bbwp"]
-        self.df["bbwp_owner_ma5"] = owner["bbwp_ma"]
+        """`bbwp_owner` / `bbwp_owner_ma5`: ALIASES of `bbwp_tv` / `bbwp_ma5`
+        (the 2026-07-16 Q19 names) so the dashboard panels and the recorded
+        comparisons keep working unchanged."""
+        if "bbwp_tv" not in self.df.columns:
+            self._calc_bbwp(result)
+        self.df["bbwp_owner"] = self.df["bbwp_tv"]
+        self.df["bbwp_owner_ma5"] = self.df["bbwp_ma5"]
         result["bbwp_owner"] = self._safe_last(self.df["bbwp_owner"])
         result["bbwp_owner_ma5"] = self._safe_last(self.df["bbwp_owner_ma5"])
 
@@ -212,137 +243,61 @@ class IndicatorsService:
             result[ema_name] = float(last_ema)
 
     def _calc_konkorde(self, result: Dict[str, Any]):
-        """Konkorde indicator by Blai5.
+        """Koncorde by Blai5 — bar-exact port of the public Pine script.
 
-        Reference: public Pine Script "Konkorde by Blai5" on TradingView.
-        Three lines are produced:
-            * azul   (blue)   -> retail / weak hands flow (PVI oscillator).
-            * verde  (green)  -> trend / strong hands flow.
-            * marron (brown)  -> net strong hands position.
+        Formula and Pine semantics live in `koncorde.py`. Four lines:
+            * marron (brown)  -> trend: (RSI + MFI + BollOsc + Stoch/3) / 2
+                                 over ohlc4; NOT centred on zero (0-100
+                                 inputs), ~+55 in a flat market like the
+                                 TradingView plot.
+            * verde  (green)  -> weak hands: marron + PVI oscillator (the
+                                 area the owner reads as "yellow").
+            * azul   (blue)   -> strong hands: NVI oscillator.
+            * media  (red)    -> EMA(15) of marron; Blai5's signal is the
+                                 marron/media cross.
 
-        Formula:
-        1. tprice = OHLC4 typical price.
-        2. PVI / NVI: cumulative volume-weighted price change indices,
-           updated only when current volume rises (PVI) or falls (NVI)
-           against the previous bar. Both initialised to 1000.
-        3. For PVI and NVI compute their EMA(255), then the rolling 90-bar
-           max/min of that EMA; the oscillator is
-               OscX = (X - EMA_X) * 100 / (max90 - min90)
-        4. MFI(14) over tprice, B1 = bollinger oscillator over tprice,
-           RSI(14) over close.
-        5. Lines (Blai5 keeps every component centred on zero so the three
-           lines share the same axis and a reading of 0 means "neutral"):
-               azul   = OscP
-               verde  = ((MFI - 50) + B1 + OscP) / 3
-               marron = ((RSI - 50) + (MFI - 50) + B1 + OscP - OscN) / 4
+        History: until 2026-11-01 this method computed a different indicator
+        (EMA(255) of PVI/NVI, azul=PVI, no stochastic, RSI on close, half
+        Bollinger divisor, RSI/MFI "re-centred" by -50, see decisions.md
+        D6/D18). It disagreed with the owner's chart by sign on 4h and even
+        between exchanges for the same market (binance -128 vs bitget +32).
 
-        WHY the `- 50`: RSI and MFI are 0-100 oscillators centred on 50,
-        whereas B1/OscP/OscN are already centred on 0. Averaging the raw
-        0-100 series with the 0-centred ones used to leave the brown line
-        at ~+25 in a flat market, which the rules engine then read as a
-        permanent `konkorde_buy` vote (weight 3.0). Subtracting the 50
-        baseline re-centres the line so neutral markets score ~0, matching
-        Blai5's canonical Pine where the brown line crosses zero to signal.
-
-        DEPRECATED: `konkorde_value` is kept as an alias of
-        `konkorde_marron` so existing consumers keep working.
+        `konkorde_value` stays as the DEPRECATED alias of `konkorde_marron`;
+        `RulesService` now reads it against `konkorde_media`.
         """
-        df = self.df
-        close = df["close"]
-        high = df["high"]
-        low = df["low"]
-        open_ = df["open"]
-        volume = df["volume"]
+        lines = koncorde_series(self.df)
 
-        tprice = (open_ + high + low + close) / 4.0
+        self.df["konkorde_azul"] = lines["azul"]
+        self.df["konkorde_verde"] = lines["verde"]
+        self.df["konkorde_marron"] = lines["marron"]
+        self.df["konkorde_media"] = lines["media"]
 
-        # PVI and NVI -----------------------------------------------------
-        prev_close = close.shift(1)
-        prev_volume = volume.shift(1)
-        change_ratio = (close - prev_close) / prev_close.replace(0, np.nan)
-
-        pvi_factor = np.where(volume > prev_volume, 1.0 + change_ratio.fillna(0.0), 1.0)
-        nvi_factor = np.where(volume < prev_volume, 1.0 + change_ratio.fillna(0.0), 1.0)
-        pvi = pd.Series(pvi_factor, index=df.index).cumprod() * 1000.0
-        nvi = pd.Series(nvi_factor, index=df.index).cumprod() * 1000.0
-
-        # Oscillators -----------------------------------------------------
-        # `ta.ema` returns None when the series is shorter than `length`.
-        # Fall back to pandas' own EMA so the calculation never crashes
-        # on short windows (very common during warmup or unit tests).
-        ema_pvi = ta.ema(pvi, length=255)
-        if ema_pvi is None:
-            ema_pvi = pvi.ewm(span=min(255, max(2, len(pvi))), adjust=False).mean()
-        ema_nvi = ta.ema(nvi, length=255)
-        if ema_nvi is None:
-            ema_nvi = nvi.ewm(span=min(255, max(2, len(nvi))), adjust=False).mean()
-        max90_p = ema_pvi.rolling(90, min_periods=1).max()
-        min90_p = ema_pvi.rolling(90, min_periods=1).min()
-        max90_n = ema_nvi.rolling(90, min_periods=1).max()
-        min90_n = ema_nvi.rolling(90, min_periods=1).min()
-        # Use the wider span of either oscillator to avoid div-by-zero,
-        # mirroring Blai5's original Pine that uses the same denominator.
-        denom_p = (max90_p - min90_p).replace(0, np.nan)
-        denom_n = (max90_n - min90_n).replace(0, np.nan)
-        osc_p = (pvi - ema_pvi) * 100.0 / denom_p
-        osc_n = (nvi - ema_nvi) * 100.0 / denom_n
-
-        # Money Flow Index over tprice -----------------------------------
-        # pandas_ta.mfi expects high/low/close, but Blai5 uses tprice as the
-        # price series. We approximate using high=low=close=tprice.
-        try:
-            mfi = ta.mfi(tprice, tprice, tprice, volume, length=14)
-        except Exception:
-            mfi = pd.Series(np.nan, index=df.index)
-        if mfi is None:
-            mfi = pd.Series(np.nan, index=df.index)
-
-        # Bollinger oscillator over tprice -------------------------------
-        sma25 = tprice.rolling(25).mean()
-        std25 = tprice.rolling(25).std(ddof=0)
-        b1 = (tprice - sma25) / (2 * std25.replace(0, np.nan)) * 100.0
-
-        rsi14 = ta.rsi(close, length=14)
-        if rsi14 is None:
-            rsi14 = pd.Series(np.nan, index=df.index)
-
-        # Re-centre the 0-100 oscillators (RSI, MFI) on zero so they share
-        # the same axis as the already 0-centred B1/OscP/OscN. Without this
-        # the brown line floats at ~+25 in a neutral market (50/2) and the
-        # rules engine reads `marron > 0` as a permanent buy vote.
-        rsi_centered = rsi14 - 50.0
-        mfi_centered = mfi - 50.0
-
-        azul = osc_p
-        verde = (mfi_centered + b1 + osc_p) / 3.0
-        marron = (rsi_centered + mfi_centered + b1 + osc_p - osc_n) / 4.0
-
-        df["konkorde_azul"] = azul
-        df["konkorde_verde"] = verde
-        df["konkorde_marron"] = marron
-
-        last_azul = self._safe_last(azul)
-        last_verde = self._safe_last(verde)
-        last_marron = self._safe_last(marron)
+        last_azul = self._safe_last(lines["azul"])
+        last_verde = self._safe_last(lines["verde"])
+        last_marron = self._safe_last(lines["marron"])
+        last_media = self._safe_last(lines["media"])
 
         result["konkorde_azul"] = last_azul
         result["konkorde_verde"] = last_verde
         result["konkorde_marron"] = last_marron
+        result["konkorde_media"] = last_media
         # Backwards-compatible alias (DEPRECATED): equals the marron line.
         result["konkorde_value"] = last_marron
 
-        result["konkorde_signal"] = self._classify_konkorde(last_azul, last_verde, last_marron)
+        result["konkorde_signal"] = self._classify_konkorde(last_azul, last_verde, last_marron, last_media)
 
     @staticmethod
-    def _classify_konkorde(azul: float, verde: float, marron: float) -> str:
-        if marron > 0 and verde > azul:
-            return "bullish_strong"
-        if azul > marron and azul > 0:
-            return "bullish_weak"
-        if marron < 0 and verde < azul:
-            return "bearish_strong"
-        if azul < 0 and azul < marron:
-            return "bearish_weak"
+    def _classify_konkorde(azul: float, verde: float, marron: float, media: float) -> str:
+        """Blai5 reading: trend = marron vs its media; strong hands = azul sign.
+
+        `marron > 0` is NOT a usable condition on the real indicator (it is
+        almost always true), so the trend side is the marron/media relation
+        and the strength qualifier is whether strong hands (azul) agree.
+        """
+        if marron > media:
+            return "bullish_strong" if azul > 0 else "bullish_weak"
+        if marron < media:
+            return "bearish_strong" if azul < 0 else "bearish_weak"
         return "neutral"
 
     def _calc_momentum_indicators(self, result: Dict[str, Any]):

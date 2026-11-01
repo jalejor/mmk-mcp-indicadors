@@ -48,7 +48,10 @@ which breaks routing when served under a non-root prefix like `/v1`. The project
 pins the `am1ter/fastapi_mcp` fork (`requirements.txt` pins a specific commit)
 that fixes this and additionally applies auth to both MCP endpoints.
 
-## D6 — Konkorde lines re-centred on zero (bias fix)
+## D6 — Konkorde lines re-centred on zero (bias fix) — SUPERSEDED by D18
+
+> ⚠️ Superseded 2026-11-01: the "re-centring" fixed a symptom of an indicator
+> that was not Koncorde at all (see D18). Kept for the history of the rules.
 
 `_calc_konkorde` subtracts `50` from the RSI and MFI components before averaging
 them with the already 0-centred oscillators (B1, OscP, OscN). Before this fix

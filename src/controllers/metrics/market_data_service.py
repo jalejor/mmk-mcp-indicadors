@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import threading
 import time
+from datetime import datetime, timezone
 from os import getenv
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -70,6 +71,19 @@ _GRID_ANCHOR_OFFSET_MS: Dict[str, int] = {
 _EXCHANGE_GRID_ANCHOR_OFFSET_MS: Dict[Tuple[str, str], int] = {
     ("binance", "3d"): 24 * 60 * 60 * 1000,
 }
+
+
+def _month_candle_close_ms(open_ms: int) -> int:
+    """Close instant (ms) of the monthly candle opened at ``open_ms``.
+
+    Months have no fixed duration, so ``1M`` cannot live in
+    ``_TIMEFRAME_TO_SECONDS``; the candle closes at 00:00 UTC on the first
+    day of the next month (binance and bitget both open monthly candles on
+    the 1st at 00:00 UTC).
+    """
+    opened = datetime.fromtimestamp(open_ms / 1000.0, tz=timezone.utc)
+    year, month = (opened.year + 1, 1) if opened.month == 12 else (opened.year, opened.month + 1)
+    return int(datetime(year, month, 1, tzinfo=timezone.utc).timestamp() * 1000)
 
 
 def _grid_offset_ms(timeframe: str, exchange: Optional[str]) -> int:
@@ -244,17 +258,23 @@ class MarketDataService:
     def _drop_forming_candle(df: pd.DataFrame, timeframe: str) -> pd.DataFrame:
         """Drop the last row when its candle has not closed yet.
 
-        A candle is closed iff ``open_time + timeframe_duration <= now_utc``.
-        Only the last row can be forming (ccxt appends it), so a single
-        check is enough. Unknown timeframes are returned untouched.
+        A candle is closed iff ``open_time + timeframe_duration <= now_utc``
+        (for ``1M``: the 1st of the next month, see
+        :func:`_month_candle_close_ms` — until 2026-11-01 the monthly path
+        silently kept the forming candle). Only the last row can be forming
+        (ccxt appends it), so a single check is enough. Unknown timeframes
+        are returned untouched.
         """
         if df.empty:
             return df
-        duration_s = _TIMEFRAME_TO_SECONDS.get(timeframe)
-        if duration_s is None:
-            return df
         last_open_ms = int(df["timestamp"].iloc[-1])
-        close_ms = last_open_ms + duration_s * 1000
+        if timeframe == "1M":
+            close_ms = _month_candle_close_ms(last_open_ms)
+        else:
+            duration_s = _TIMEFRAME_TO_SECONDS.get(timeframe)
+            if duration_s is None:
+                return df
+            close_ms = last_open_ms + duration_s * 1000
         now_ms = _now() * 1000.0
         if close_ms > now_ms:
             return df.iloc[:-1]
