@@ -1141,3 +1141,61 @@ expectancy on 1h (five rounds, none); (2) replicate `bbwp_fresh_blue` on
 ETH/SOL 1h/4h or change universe/leader (round-5 follow-up, unchanged);
 (3) the 2.2.0 chain as written (trigger gate ON) should be the baseline of
 any next round (E20).
+
+## Round 7 results (run 2026-11-01 `20261101T163117Z`, prereg `7133e18`) — multi-asset replication, no new rule
+
+Full tables: `docs/impulsos-v2-backtest-r7.md` (raw `r7_impulse_20261101T163117Z.json`);
+protocol and §10 reading: `docs/PREREG_IMPULSOS_v2_r7.md`. Owner decision of
+2026-11-01: the strategy is for ANY asset where it applies. Universe fixed
+mechanically before the run (top 9 Bitget USDT-M perps by open interest with
+spot history before 2023): BTC, ETH, SOL, XRP, DOGE, NEAR, BNB, LINK, ADA.
+BTC chose the filters in rounds 1-6, so the **primary family is the pool of
+the 8 new assets** (gate as written, 5x cross books), 12 cells, Holm α 0.05;
+per-asset cells (96) under Benjamini-Hochberg q 0.10. BTC-only trades
+reproduce round 6 in all 9 continuity cells. Statistics in
+`controllers/metrics/impulse_multi.py` (`tests/test_impulse_r7.py`).
+
+**n is decidable for the first time** (pooled snipper 162–288 per side, pro
+30–47) and the picture is one-sided:
+
+| primary cell (new8, 5x cross) | long: n · exp OOS · PF · p OOS>0 | short: n · exp OOS · PF |
+|---|---|---|
+| pro 4h `base` | 47 · +0.58 R · 2.20 · 0.29 | 45 · −0.37 R · 0.50 |
+| pro 4h `adx_turn` | 39 · +0.43 R · 1.91 · 0.35 | 38 · −1.00 R · 0.42 |
+| pro 4h `bbwp_fresh_blue` | 30 · +1.09 R · 2.32 · 0.25 | 43 · −0.29 R · 0.77 |
+| snipper 1h `base` | 229 · +0.54 R · 1.76 · 0.30 | 288 · +0.12 R · 0.87 |
+| snipper 1h `adx_turn` | 162 · +1.39 R · 2.35 · **0.107** | 198 · +0.17 R · 1.06 |
+| snipper 1h `bbwp_fresh_blue` | 177 · +0.52 R · 2.49 · **0.137** | 215 · −0.17 R · 0.77 |
+
+**Verdict: NO-GO on all 12 primary cells; no ASSET-GO on 96.** The six LONG
+cells pass the round-4 mechanical gate (positive OOS expectancy, PF ≈ 2, 0
+liquidations, pooled DD 3–14 %), but no one-sided cluster-bootstrap p is below
+0.05 even raw, and Holm-adjusted p is 1.0 everywhere. The six SHORT cells fail
+the gate outright (PF 0.42–1.06). Three per-asset cells pass the gate on their
+own book (NEAR long `base`, ADA short ×3) with BH q 1.0.
+
+**Why the longs look good and are not demonstrated.** Win rate 21–25 % with
+PF ≈ 2 = a few outliers carry the book: NEAR (+19 R on 2–4 pro trades, +61 /
++78 / +21 R on snipper) and XRP (+13 / +11 / +19 R pro, +44 / +44 / +117 R
+snipper; one `bbwp_fresh_blue` long book +5 615 USDT over 26 trades). Without
+NEAR the three PRO long cells have negative OOS expectancy (−0.44 / −0.52 /
+−0.22) and snipper `base` long −0.25; snipper `adx_turn` / `bbwp_fresh_blue`
+long stay positive without NEAR (+0.27 / +0.30) and lean on XRP. ADA, SOL,
+LINK, ETH and DOGE subtract on the long side; on the short side only ADA adds.
+Buy-and-hold is mixed across the window (XRP +141 %, SOL −43 %, ADA −43 %,
+DOGE −53 %), so this is not a uniform bull-run artefact: it is tail dependence
+on two assets, which the pre-registered test does not separate from noise.
+
+**10x isolated on alts = liquidation machine.** `cross5` and `pro5`: 0
+liquidations in 27 books. `iso10`: 107 liquidations on `base` (118 as run), 54
+on `adx_turn`, 71 on `bbwp_fresh_blue` across 9 books — 2 on BTC, 6 to 20 on
+every other asset. Round 6 said "5x cross is safer"; round 7 says the 10x
+isolated snipper book is not usable outside BTC.
+
+**What this closes and what it opens.** Per prereg §6 E the three entries are
+closed as BACKTEST candidates on 1h/4h for this universe: seven rounds, no
+pre-registered edge. Nothing goes to paper. The only thing that could still add
+evidence not contaminated by seven rounds of looking is a FORWARD shadow
+(alerts only, 0 money) of the long-only snipper cells on the 5x cross book over
+this fixed universe, as a new pre-registration with its own sample-size gate —
+that is the owner's call.

@@ -238,4 +238,52 @@ flock /tmp/mmk-docker.lock docker compose --profile backtest run --rm backtest \
 
 ## 10. Result commit
 
-(filled after the run; nothing above this line changes)
+Runs after this file was committed (`7133e18`): tests 21/21 (Docker, network
+none); smoke `r7smoke_20261101T162945Z` (BTC only, no new number: 9/9
+continuity cells identical to round 6); the round `20261101T163117Z`
+(`docs/impulsos-v2-backtest-r7.md`, raw `r7_impulse_20261101T163117Z.json`).
+Data: 44 frames, 0 gaps; 8 new assets fetched from the public endpoint
+(1h ≈ 32 s each), every context TF `ok`. §6 D continuity: **9/9 identical**.
+Nothing in §§1-9 was touched; no parameter changed after the run.
+
+* **6 A / 6 B primary family (12 cells): NO GO.** All six LONG cells pass the
+  round-4 mechanical gate for the first time (n 30–229, OOS expectancy +0.43 to
+  +1.39 R, PF 1.76–2.49, 0 liquidations, pooled DD 3–14 %), but no one-sided
+  cluster-bootstrap p of the OOS expectancy is below 0.05 even before
+  correction (0.107 snipper `adx_turn`, 0.137 snipper `bbwp_fresh_blue`, 0.25–0.35
+  the rest); Holm-adjusted p = 1.0 on all twelve. All six SHORT cells fail the
+  gate (OOS expectancy ≤ 0 and/or PF 0.42–1.06). Verdict: **NO-GO on every
+  primary cell**; per §6 E the three entries are closed as backtest candidates
+  on 1h/4h for this universe.
+* **Per-asset family (96 cells): no ASSET-GO.** Three cells pass the r4 gate
+  on their own book (NEAR long `base` snipper n 31, OOS +6.1 R; ADA short
+  `base` / `adx_turn` / `bbwp_fresh_blue` snipper n 40 / 31 / 32); BH q-value
+  1.0 on all of them (smallest raw p 0.107). No asset replicates on its own.
+* **Which assets add / subtract (§5).** The long P&L is concentrated: NEAR
+  (+19 R on 2–4 pro trades; +61 / +78 / +21 R on 25–31 snipper trades) and XRP
+  (+13 / +11 / +19 R pro; +44 / +44 / +117 R snipper). Without NEAR the pooled
+  OOS expectancy of the three PRO long cells turns negative (−0.44 / −0.52 /
+  −0.22) and snipper `base` long goes to −0.25; snipper `adx_turn` /
+  `bbwp_fresh_blue` long stay positive without NEAR (+0.27 / +0.30) and lean
+  on XRP. Win rates 21–25 % with PF ≈ 2: a handful of outliers (single NEAR
+  trades of +516 USDT; XRP `bbwp_fresh_blue` long +5 615 USDT over 26 trades).
+  ADA, SOL, LINK, ETH and DOGE subtract on the long side; on the short side
+  only ADA adds (+13.4 / +13.7 / +5.0 R), everything else ≈ 0 or negative.
+  Buy-and-hold over the window is mixed (XRP +141 %, BNB +22 %, BTC +11 %, NEAR
+  +10 %, LINK +2 %, ETH −10 %, SOL −43 %, ADA −43 %, DOGE −53 %), so the long
+  result is not a uniform bull-market artefact; it is a tail-dependence on two
+  assets that the pre-registered test does not separate from noise.
+* **Snipper book (§6 C).** `cross5` and `pro5`: 0 liquidations in 27 books.
+  `iso10` (10x isolated, the owner's "súper pulido" book): **107 liquidations**
+  on `base` (118 as run), 54 on `adx_turn`, 71 on `bbwp_fresh_blue` across the 9
+  books (2 on BTC, 6–20 on every other asset). On alts the 10x isolated book is
+  not a leverage choice, it is a liquidation machine.
+* **Secondary families** (all9, `asrun`, `iso10`): same picture, longs positive
+  on the point estimate, shorts not, nothing GO-eligible by construction.
+
+Against §8: n became decidable (yes, first time); shorts ≈ 0 / negative (yes);
+longs did NOT regress to ≤ 0 on the point estimate (base, `adx_turn` and
+`bbwp_fresh_blue` all positive, PF ≈ 2) — but the pre-registered test (one-sided
+cluster bootstrap, Holm m = 12) does not separate them from zero, as §8
+anticipated for a cell passing 6 A on the point estimate. Liquidations at 10x
+far above what §8 expected. H0 holds under the pre-registered criterion.
