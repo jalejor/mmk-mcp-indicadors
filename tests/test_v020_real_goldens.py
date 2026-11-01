@@ -117,6 +117,14 @@ def test_h1_overrides_the_false_verdicts_with_the_4h_confirmation(frames):
 # C1 golden (C1-G1) — {30m,1h,4h} bear-aligned, 1d still retracing
 # ---------------------------------------------------------------------------
 
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "D18/E17: the v0.2.x Konkorde leg reads the SIGN of marron, which is "
+        "0-100 since the Blai5 port (2026-11-01); E3 pending owner "
+        "re-specification + rule_version bump"
+    ),
+)
 def test_c1_g1_bear_confluence_fires_with_1d_in_retracement(frames):
     for tf, mode in (("30m", "low"), ("1h", "low"), ("4h", "high")):
         alignment = confluence_alignment(frames[tf], direction="bear", mode=mode)

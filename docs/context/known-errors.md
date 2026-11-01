@@ -327,6 +327,27 @@ the watcher's polling lag, not the open/close gap.
 
 ---
 
+## E17 ⚠️ v0.2.x rule packs read the SIGN of `konkorde_marron`, which is 0-100 since the Blai5 port — MEDIUM
+
+**Symptom**: `tests/test_v020_real_goldens.py::test_c1_g1_bear_confluence...`
+fails since the 2026-11-01 Koncorde port (xfail `strict=True` on
+`impulsos-v2`); any v0.1.0/v0.2.x condition written as `marron > 0` /
+`marron < 0` (`konkorde_positive`, E3 zero-cross, M1 ignition leg, C1
+Konkorde leg) is now a permanent "bullish" vote.
+
+**Root cause**: the old `_calc_konkorde` re-centred RSI/MFI by −50 (D6), so
+`marron` crossed zero; the real Blai5 `marron` is a 0-100 average (~+55 flat)
+and never does (D18). The sign reading is therefore not a bug in the port but
+a rule input that changed under the packs.
+
+**How to avoid**: do NOT "fix" the packs by swapping the line silently — spec
+§0.4 makes it a `rule_version` bump with new goldens, and E3 needs the owner's
+re-specification (probably on `verde` or on `marron − media`, which do cross
+zero). The impulse engine (D19) already reads `marron − media` (`edge`).
+Until the packs are re-specified, treat their Konkorde leg as unreliable.
+
+---
+
 ## Non-issues / verified-correct (for reassurance)
 
 - **MCP auth**: the mounted MCP transport *does* enforce the API key on both

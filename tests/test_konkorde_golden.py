@@ -235,8 +235,12 @@ def test_marron_is_a_0_100_style_average_not_centred_on_zero():
     n = 200
     idx = pd.date_range("2025-01-01", periods=n, freq="h")
     osc = np.where(np.arange(n) % 2 == 0, 1.0, -1.0)
-    close = 100.0 + osc * 0.5
-    open_ = 100.0 - osc * 0.5
+    # A pure zig-zag has a CONSTANT ohlc4, so the Bollinger leg is `na` by
+    # Pine rules and marron is NaN. A slow drift keeps the market flat on
+    # average while giving ohlc4 a non-zero stdev (fixture bug, 2026-11-01).
+    drift = 2.0 * np.sin(np.arange(n) * 2.0 * np.pi / 40.0)
+    close = 100.0 + drift + osc * 0.5
+    open_ = 100.0 + drift - osc * 0.5
     df = pd.DataFrame(
         {
             "open": open_,
@@ -249,8 +253,12 @@ def test_marron_is_a_0_100_style_average_not_centred_on_zero():
     )
     lines = koncorde_series(df)
     marron = float(lines["marron"].iloc[-1])
-    assert 45.0 < marron < 70.0
-    assert abs(float(lines["media"].iloc[-1]) - marron) < 5.0
+    assert math.isfinite(marron)
+    assert 10.0 < marron < 90.0
+    # Flat-on-average market: the 0-100 average sits mid-band, far from zero.
+    marron_mean = float(lines["marron"].iloc[-80:].mean())
+    assert 35.0 < marron_mean < 70.0
+    assert abs(float(lines["media"].iloc[-80:].mean()) - marron_mean) < 5.0
     # Constant volume: PVI/NVI never move -> zero 90-bar range -> na (Pine
     # division by zero), never +-inf.
     assert math.isnan(lines["oscp"].iloc[-1])
