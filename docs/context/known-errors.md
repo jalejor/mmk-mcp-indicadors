@@ -348,6 +348,24 @@ Until the packs are re-specified, treat their Konkorde leg as unreliable.
 
 ---
 
+## E18 ⚠️ ccxt returns EMPTY bitget pages for ~25 days before the recent window — MEDIUM
+
+**Symptom**: a forward-paginated download (`limit=200`, `since` advancing)
+stops silently weeks before `end` — the 1h BTC/USDT series ended on
+2026-08-13 with no error, and every later candle was missing.
+
+**Root cause**: ccxt 4.2.97 routes old ranges to bitget's *history-candles*
+endpoint and recent ranges to *candles*; in the hand-over band (~25 days
+before the recent window) both return empty pages, and a loader that stops at
+the first empty page truncates there.
+
+**How to avoid**: never stop at an empty page before `end`; jump one page
+ahead and patch holes from bitget's raw endpoint
+(`impulse_backtest.load_ohlcv`, 2026-11-01). Verify "no missing candles"
+against the timeframe grid before trusting any multi-month series.
+
+---
+
 ## Non-issues / verified-correct (for reassurance)
 
 - **MCP auth**: the mounted MCP transport *does* enforce the API key on both
