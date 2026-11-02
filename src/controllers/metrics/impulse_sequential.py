@@ -22,7 +22,7 @@ Additive: `impulse_service.ImpulseEngine` dispatches here when
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
@@ -128,6 +128,14 @@ def _cross_up(a: pd.Series, b: Any) -> pd.Series:
 def _cross_down(a: pd.Series, b: Any) -> pd.Series:
     b_prev = b.shift(1) if isinstance(b, pd.Series) else b
     return ((a.shift(1) >= b_prev) & (a < b)).fillna(False)
+
+
+DERIVATION_FREE_FIELDS = ("entry_filter", "rule_version")  # read only by the state machine, never by the derivation
+
+
+def derivation_signature(p: "base.ImpulseParams") -> Dict[str, Any]:
+    """The params fields that `derive_sequential` / `_derive` / the guardian ML RSI can read."""
+    return {k: v for k, v in asdict(p).items() if k not in DERIVATION_FREE_FIELDS}
 
 
 def _regime_from_column(col: pd.Series) -> np.ndarray:
@@ -319,39 +327,50 @@ class SequentialMachine:
     """
 
     def __init__(self, params: "base.ImpulseParams", frames: Mapping[str, pd.DataFrame], *,
-                 equity: Optional[float] = None) -> None:
+                 equity: Optional[float] = None, derived_from: Optional["SequentialMachine"] = None) -> None:
         if params.model != "sequential":
             raise ValueError("SequentialMachine needs params.model == 'sequential'")
         self.p = params
         self.engine = base.ImpulseEngine(params)
         if frames.get(params.trigger_tf) is None or not len(frames[params.trigger_tf]):
             raise ValueError(f"Missing trigger frame {params.trigger_tf!r}")
-        self.trig = derive_sequential(frames[params.trigger_tf], params.trigger_tf, params)
-        self.contexts: Dict[str, base._Derived] = {}
-        for tf in params.context_order():
-            df = frames.get(tf)
-            if df is not None and len(df):
-                self.contexts[tf] = base._derive(df, tf, params)
-        self.ctx_idx: Dict[str, np.ndarray] = {}
-        for tf, d in self.contexts.items():
-            if self.trig.close_ms is not None and d.close_ms is not None:
-                self.ctx_idx[tf] = np.searchsorted(d.close_ms, self.trig.close_ms, side="right") - 1
-            else:  # goldens without timestamps: the caller aligned the last context row
-                self.ctx_idx[tf] = np.full(self.trig.n, d.n - 1, dtype=int)
         self.windows = {fam: int(params.confirm_window_bars.get(fam, params.window_default)) for fam in FAMILIES}
         self.ttl = int(params.alert_ttl_bars) if params.alert_ttl_bars else max(self.windows.values())
-        # §R4.c: the guardian's own ML RSI regime (+1/-1/0/NaN per guardian candle), causal.
-        self.ctx_mlrsi: Optional[np.ndarray] = None
-        gdf = frames.get(params.confirm_tf)
-        if (params.ctx_mlrsi_exit or params.ctx_mlrsi_blocks_entry) and gdf is not None and len(gdf):
-            if "ml_rsi_regime" in gdf.columns:
-                self.ctx_mlrsi = _regime_from_column(gdf["ml_rsi_regime"])
-            elif "close" in gdf.columns:
-                mp = MlRsiParams(rsi_period=params.mlrsi_rsi_period, alma_window=params.mlrsi_alma_window,
-                                 alma_sigma=params.mlrsi_alma_sigma, alma_offset=params.mlrsi_alma_offset,
-                                 threshold_method=params.mlrsi_threshold_method, max_points=params.mlrsi_max_points)
-                self.ctx_mlrsi = regime_series(
-                    ml_rsi_frame(pd.Series(gdf["close"].to_numpy(dtype=float)), mp, mode="causal")).to_numpy(dtype=float)
+        if derived_from is not None:
+            # Share the (read-only) derived arrays of a machine built on the SAME frames with
+            # params that differ only in what the derivation never reads (round-8 shadow: the
+            # three entry filters of one asset).
+            if derivation_signature(params) != derivation_signature(derived_from.p):
+                raise ValueError("derived_from: params differ in a field the derivation reads")
+            self.trig = derived_from.trig
+            self.contexts = derived_from.contexts
+            self.ctx_idx = derived_from.ctx_idx
+            self.ctx_mlrsi = derived_from.ctx_mlrsi
+        else:
+            self.trig = derive_sequential(frames[params.trigger_tf], params.trigger_tf, params)
+            self.contexts: Dict[str, base._Derived] = {}
+            for tf in params.context_order():
+                df = frames.get(tf)
+                if df is not None and len(df):
+                    self.contexts[tf] = base._derive(df, tf, params)
+            self.ctx_idx: Dict[str, np.ndarray] = {}
+            for tf, d in self.contexts.items():
+                if self.trig.close_ms is not None and d.close_ms is not None:
+                    self.ctx_idx[tf] = np.searchsorted(d.close_ms, self.trig.close_ms, side="right") - 1
+                else:  # goldens without timestamps: the caller aligned the last context row
+                    self.ctx_idx[tf] = np.full(self.trig.n, d.n - 1, dtype=int)
+            # §R4.c: the guardian's own ML RSI regime (+1/-1/0/NaN per guardian candle), causal.
+            self.ctx_mlrsi: Optional[np.ndarray] = None
+            gdf = frames.get(params.confirm_tf)
+            if (params.ctx_mlrsi_exit or params.ctx_mlrsi_blocks_entry) and gdf is not None and len(gdf):
+                if "ml_rsi_regime" in gdf.columns:
+                    self.ctx_mlrsi = _regime_from_column(gdf["ml_rsi_regime"])
+                elif "close" in gdf.columns:
+                    mp = MlRsiParams(rsi_period=params.mlrsi_rsi_period, alma_window=params.mlrsi_alma_window,
+                                     alma_sigma=params.mlrsi_alma_sigma, alma_offset=params.mlrsi_alma_offset,
+                                     threshold_method=params.mlrsi_threshold_method, max_points=params.mlrsi_max_points)
+                    self.ctx_mlrsi = regime_series(
+                        ml_rsi_frame(pd.Series(gdf["close"].to_numpy(dtype=float)), mp, mode="causal")).to_numpy(dtype=float)
         self.equity = float(equity if equity is not None else params.equity_usdt)
         self.alert: Optional[Alert] = None
         self.pos: Optional[Position] = None
@@ -894,5 +913,6 @@ class SequentialMachine:
 
 __all__: Sequence[str] = (
     "FAMILIES", "STATES", "ACTIONS", "SEQUENTIAL_PROFILES", "FITTED_WINDOWS", "R4_OVERRIDES", "R5_OVERRIDES",
-    "sequential_params", "r4_params", "r5_params", "derive_sequential", "Alert", "Layer", "Position", "SequentialMachine",
+    "sequential_params", "r4_params", "r5_params", "derive_sequential", "derivation_signature", "Alert", "Layer",
+    "Position", "SequentialMachine",
 )

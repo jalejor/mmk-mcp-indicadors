@@ -243,3 +243,43 @@ State: `~/Documents/suideaweb/labs/mmk-signals/data/shadow-r8/` (`events.jsonl`,
 * NOT done in this session: the hourly crontab line (§9) was not installed (the session could
   not run `crontab`); the wrapper itself was not executed here (`flock` blocked in the
   sandbox) — it runs the same compose command shown above. The owner installs the cron.
+
+### AMENDMENT 2026-11-02 — incremental runner (no change to §§1-9; every recorded result identical)
+
+* **Cause.** The cron (installed by the owner; `runs.log` hourly since 2026-11-01T17:29Z) heated
+  the laptop to 90 °C every hour: each run replayed everything from the anchor — 81
+  `IndicatorsService.calculate_all` (3 TFs × 9 assets × **3 entries**, the same frames three
+  times) and 27 machines over ~790 candles. cProfile in Docker (99 s under the profiler, ≈ 70 s
+  real, 100 % of one core at `cpus: 0.8`): `bbwp_legacy` (a per-bar `rank` over 252 rows that the
+  machine never reads) 38 s, ML RSI percentile thresholds (3000-bar window, every bar) 22 s,
+  **18 s of network** fetching the forming 4h / 1d candles that `closed_only` then drops, the
+  machines ≈ 7 s.
+* **Change** (`impulse_shadow.py`, same rule, same frames, same code paths for every number):
+  OHLCV cache fetches only candles that can already be closed; each asset is enriched ONCE with
+  `IndicatorsService.calculate_impulse()` (the columns the engines read, same functions and
+  parameters as `calculate_all`; `bbwp_legacy`, moving averages and Trend Speed skipped); the
+  3 entries share the derived arrays (`SequentialMachine(derived_from=)`); ML RSI thresholds
+  cached per asset / TF and computed only for new candles (`ml_rsi_cached`, prefix reused only
+  when its smoothed RSI is identical); machine + ledger saved per (entry, asset) at the candle
+  BEFORE the last one (`<state-dir>/cache/machine_*.json`) and resumed when the sha256 of the raw
+  candles they were built on (trigger and contexts) is unchanged — the last candle is always
+  re-driven because an `enter` there is not filled (`entry_skipped_last_candle`); any mismatch =
+  full replay from the anchor (same code: `SequentialDriver`, factored out of
+  `drive_sequential`). `--full` forces the full replay; a dry run reads the caches, writes nothing.
+* **Parity evidence (Docker, pristine COPY of the live state, never the live dir).**
+  `scripts/shadow_r8_parity.py` replays the recorded runs in order with the clock each one had
+  (the `recorded_at` of its events) serving the exchange from the pristine `ohlcv/` cache:
+  **32 runs → `events.jsonl`, `trades.jsonl`, `state.json` BYTE-IDENTICAL** to the live files
+  (15 events, 20 open paper positions, every float). Control with the pre-amendment code
+  (`git archive HEAD`, `--full --last-only`): identical modulo `recorded_at`, `counts.runs` and
+  the `entry_skipped_last_candle` marker of the run in which each entry candle was the last
+  one — i.e. the harness reproduces the live data path. Tests in Docker, network none:
+  **447 passed, 1 xfailed** (`test_impulse_shadow.py`: resume byte-identical to the full replay
+  with an open position across the resume, snapshot rejected when a candle in its prefix
+  changes, carried flag across a resume, `calculate_impulse` columns identical to
+  `calculate_all`, ML RSI cache identical and only extending, no fetch of forming candles).
+* **Time.** Before: ≈ 70 s wall per run at 100 % of one core (wrapper 04:00 → 05:0x in
+  `runs.log`). After, in the parity replay (container, `cpus 0.8`, no network): **2.8–3.0 s per
+  run**, cold run without cache 9.3 s. Live (cache swapped atomically into
+  `data/shadow-r8/cache/` at 22:40Z after the parity, compose `cpus: 0.5`, wrapper now appends
+  the runner's `[perf]` line to `runs.log`): see the `runs.log` lines from 2026-11-02T23:04Z.

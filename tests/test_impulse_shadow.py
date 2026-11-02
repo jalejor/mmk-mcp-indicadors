@@ -1,9 +1,11 @@
 """Round 8 shadow runner (`impulse_shadow`): replay from the anchor, activation cut, regime labels,
-idempotent JSONL, dry-run writes nothing, ntfy line never carries the topic, incremental cache merge.
+idempotent JSONL, dry-run writes nothing, ntfy line never carries the topic, incremental cache merge,
+and the incremental runner (machine snapshots, ML RSI cache, `calculate_impulse`) being byte-identical
+to the full replay.
 
 Frames are indicator COLUMNS (the S02 worked example of the round-2 goldens moved to a 1h
 trigger with a 4h guardian and a 1d context), injected by monkeypatching
-`impulse_shadow.load_sequential_frames` so no TV enrichment / market data is involved. Every
+`impulse_shadow.enriched_frames` so no TV enrichment / market data is involved. Every
 expected count below is derived from the rule: leader verde zero cross up at bar 10, AO at 11,
 MACD at 12 -> ENTER long at 12 (close 13:00Z); guardian ML RSI red from the 4h candle that
 closes at 20:00Z -> `exit_ctx_mlrsi_against` on the 1h candle closing at 20:00Z (bar 19)."""
@@ -16,6 +18,8 @@ import pytest
 
 from controllers.metrics import impulse_shadow as sh
 from controllers.metrics.impulse_regime import DOWN, UP
+from controllers.metrics.indicators_service import IndicatorsService
+from controllers.metrics.ml_rsi import MlRsiParams, ml_rsi_frame
 
 N = 30
 START = "2026-01-10T00:00:00Z"
@@ -50,14 +54,19 @@ def _ctx(freq, n, start, regime="gray"):
                          "atr14": 1500.0, "ml_rsi_regime": regime}, index=index)
 
 
-def _frames(red_from="2026-01-10T16:00:00Z"):
+def _frames(red_from="2026-01-10T16:00:00Z", n_trigger=N):
+    """Frames as the loaders would serve them when the trigger has `n_trigger` closed candles."""
     g = _ctx("4h", 12, "2026-01-09T00:00:00Z")
     regime = pd.Series("gray", index=g.index)
     regime[g.index >= pd.Timestamp(red_from)] = "red"
     g["ml_rsi_regime"] = regime
     d1 = _ctx("D", 12, "2025-12-30T00:00:00Z")
     d1["close"] = np.linspace(50000.0, 62000.0, 12)  # rising: the last closed daily candle is above its EMA -> up
-    return {"1h": _trigger_1h(), "4h": g, "1d": d1}
+    trig = _trigger_1h().iloc[:n_trigger]
+    last_close = trig.index[-1] + pd.Timedelta(hours=1)
+    g = g[g.index + pd.Timedelta(hours=4) <= last_close]
+    d1 = d1[d1.index + pd.Timedelta(days=1) <= last_close]
+    return {"1h": trig, "4h": g, "1d": d1}
 
 
 def _loaders(frames):
@@ -66,20 +75,24 @@ def _loaders(frames):
 
 @pytest.fixture
 def patched(monkeypatch):
-    monkeypatch.setattr(sh, "load_sequential_frames", lambda params, loader: ({tf: loader(tf) for tf in ("1h", "4h", "1d")},
-                                                                               {"1h": "ok", "4h": "ok", "1d": "ok"}))
+    monkeypatch.setattr(sh, "enriched_frames", lambda params, loader, **kw: ({tf: loader(tf) for tf in ("1h", "4h", "1d")},
+                                                                             {"1h": "ok", "4h": "ok", "1d": "ok"}))
 
 
-def _run(tmp_path, now, activation="2026-01-10T05:00:00Z", dry_run=False, sent=None, ok=True):
+def _run(tmp_path, now, activation="2026-01-10T05:00:00Z", dry_run=False, sent=None, ok=True, frames=None, resume=True):
     sent = [] if sent is None else sent
 
     def notify(line):
         sent.append(line)
         return ok
 
-    return sh.shadow_run(state_dir=tmp_path, loaders=_loaders(_frames()), now_ms=sh.ms_of(now), dry_run=dry_run,
+    return sh.shadow_run(state_dir=tmp_path, loaders=_loaders(frames or _frames()), now_ms=sh.ms_of(now), dry_run=dry_run,
                          anchor=START, activation=activation, symbols=("BTC/USDT", "NEAR/USDT"), entries=("base",),
-                         notify=notify, log=lambda _m: None, warmup=0), sent
+                         notify=notify, log=lambda _m: None, warmup=0, resume=resume), sent
+
+
+def _files(d):
+    return tuple((d / name).read_text() if (d / name).exists() else None for name in (sh.EVENTS_FILE, sh.TRADES_FILE, sh.STATE_FILE))
 
 
 def test_replay_records_enter_and_exit_with_regime_labels(patched, tmp_path):
@@ -103,6 +116,11 @@ def test_replay_records_enter_and_exit_with_regime_labels(patched, tmp_path):
     assert len(sent) == 4 and all(l.startswith("r8 ") for l in sent)
     state = json.loads((tmp_path / sh.STATE_FILE).read_text())
     assert state["counts"] == {"events": len(events), "trades": 2, "runs": 1} and state["ntfy_pending"] == []
+    # the machine snapshots land under <state-dir>/cache, one per (entry, symbol), at the candle before the last one
+    snaps = sorted((tmp_path / sh.CACHE_DIR).glob("machine_*.json"))
+    assert [p.name for p in snaps] == ["machine_base_BTC-USDT.json", "machine_base_NEAR-USDT.json"]
+    snap = json.loads(snaps[0].read_text())
+    assert snap["bar"] == N - 2 and snap["candle_open"] == "2026-01-11T04:00:00+00:00" and snap["machine"]["pos"] is None
 
 
 def test_second_run_on_the_same_candle_appends_nothing_and_notifies_nothing(patched, tmp_path):
@@ -112,6 +130,39 @@ def test_second_run_on_the_same_candle_appends_nothing_and_notifies_nothing(patc
     assert summary["events_new"] == 0 and summary["trades_new"] == 0 and sent == []
     assert ((tmp_path / sh.EVENTS_FILE).read_text(), (tmp_path / sh.TRADES_FILE).read_text()) == before
     assert json.loads((tmp_path / sh.STATE_FILE).read_text())["counts"]["runs"] == 2
+    assert summary["perf"]["resumed"] == 2 and summary["perf"]["bars_driven"] == 2  # only the last candle is re-driven
+
+
+def test_resume_from_snapshot_is_byte_identical_to_the_full_replay(patched, tmp_path):
+    """Run 1 with 15 closed candles (position OPEN at bar 12, snapshot at bar 13), run 2 with 30:
+    the resumed machine + ledger (funding / costs accumulated across the resume, exit at bar 19)
+    must leave exactly the files the full replay of both runs leaves."""
+    inc, full = tmp_path / "inc", tmp_path / "full"
+    s1, _ = _run(inc, "2026-01-10T15:30:00Z", frames=_frames(n_trigger=15))
+    snap = json.loads((inc / sh.CACHE_DIR / "machine_base_NEAR-USDT.json").read_text())
+    assert snap["bar"] == 13 and snap["machine"]["pos"]["entry_bar"] == 12 and snap["ledger"]["side"] == "long"
+    s2, _ = _run(inc, "2026-01-11T06:30:00Z", frames=_frames(n_trigger=30))
+    assert s2["perf"]["resumed"] == 2 and s2["perf"]["rebuilt"] == 0 and s2["perf"]["bars_driven"] == 2 * (30 - 14)
+    _run(full, "2026-01-10T15:30:00Z", frames=_frames(n_trigger=15), resume=False)
+    s2f, _ = _run(full, "2026-01-11T06:30:00Z", frames=_frames(n_trigger=30), resume=False)
+    assert s2f["perf"]["resumed"] == 0
+    assert _files(inc) == _files(full)
+    assert len(sh.read_jsonl(inc / sh.TRADES_FILE)) == 2 and sh.read_jsonl(inc / sh.TRADES_FILE)[0]["exit_reason"] == "exit_ctx_mlrsi_against"
+
+
+def test_snapshot_is_rejected_when_the_candles_it_was_built_on_change(patched, tmp_path):
+    inc, full = tmp_path / "inc", tmp_path / "full"
+    _run(inc, "2026-01-10T15:30:00Z", frames=_frames(n_trigger=15))
+    changed = _frames(n_trigger=30)
+    changed["1h"].iloc[5, changed["1h"].columns.get_loc("low")] = 59100.0  # inside the snapshot's prefix -> new invalidation
+    s2, _ = _run(inc, "2026-01-11T06:30:00Z", frames=changed)
+    assert s2["perf"]["resumed"] == 0 and s2["perf"]["rebuilt"] == 2
+    _run(full, "2026-01-10T15:30:00Z", frames=_frames(n_trigger=15), resume=False)
+    _run(full, "2026-01-11T06:30:00Z", frames=changed, resume=False)
+    assert _files(inc) == _files(full)
+    # the rebuilt snapshot carries the changed candle: the new invalidation shows in the state, the recorded enter stays
+    snap = json.loads((inc / sh.CACHE_DIR / "machine_base_NEAR-USDT.json").read_text())
+    assert snap["bar"] == 28 and snap["trigger_sha"] == sh.frame_prefix_sha(changed["1h"], 29)
 
 
 def test_activation_cut_excludes_earlier_decisions_and_flags_carried_exits(patched, tmp_path):
@@ -123,10 +174,21 @@ def test_activation_cut_excludes_earlier_decisions_and_flags_carried_exits(patch
     assert all(" carried " in l for l in sent)
 
 
+def test_carried_flag_survives_a_resume(patched, tmp_path):
+    inc, full = tmp_path / "inc", tmp_path / "full"
+    kw = {"activation": "2026-01-10T15:00:00Z"}
+    _run(inc, "2026-01-10T15:30:00Z", frames=_frames(n_trigger=15), **kw)
+    _run(inc, "2026-01-11T06:30:00Z", frames=_frames(n_trigger=30), **kw)
+    _run(full, "2026-01-11T06:30:00Z", frames=_frames(n_trigger=30), resume=False, **kw)
+    inc_events, full_events = sh.read_jsonl(inc / sh.EVENTS_FILE), sh.read_jsonl(full / sh.EVENTS_FILE)
+    assert [e["key"] for e in inc_events] == [e["key"] for e in full_events] and all(e["carried"] for e in inc_events)
+
+
 def test_dry_run_writes_nothing_and_does_not_notify(patched, tmp_path):
     summary, sent = _run(tmp_path, "2026-01-11T06:30:00Z", dry_run=True)
     assert summary["dry_run"] and summary["events_new"] > 0 and sent == []
     assert not (tmp_path / sh.EVENTS_FILE).exists() and not (tmp_path / sh.STATE_FILE).exists()
+    assert not (tmp_path / sh.CACHE_DIR).exists()
 
 
 def test_failed_notifications_are_kept_pending_and_retried(patched, tmp_path):
@@ -192,9 +254,79 @@ def test_load_incremental_extends_the_cache_from_its_last_row(tmp_path):
     df2, info2 = sh.load_incremental("BTC/USDT", "1h", since_ms=t0, end_ms=end + hour, cache_dir=tmp_path, fetch=fetch, now_ms=end + hour)
     assert info2["rows"] == 7 and info2["fetched"] == 1 and asked[-1] == t0 + 6 * hour
     assert list(df2["timestamp"]) == [t0 + i * hour for i in range(7)]
-    # the forming candle (closes after now) is never kept
+    # the forming candle (closes after now) is never kept — and not even fetched
     df3, _ = sh.load_incremental("BTC/USDT", "1h", since_ms=t0, end_ms=end + 2 * hour, cache_dir=tmp_path, fetch=fetch, now_ms=end + hour + 1)
-    assert len(df3) == 7
+    assert len(df3) == 7 and len(asked) == 2
+    # the same closed window again: nothing fetched, the file is not rewritten
+    stamp = sh.cache_path(tmp_path, "BTC/USDT", "1h").stat().st_mtime_ns
+    df4, info4 = sh.load_incremental("BTC/USDT", "1h", since_ms=t0, end_ms=end + hour, cache_dir=tmp_path, fetch=fetch, now_ms=end + hour)
+    assert len(df4) == 7 and info4["fetched"] == 0 and len(asked) == 2 and sh.cache_path(tmp_path, "BTC/USDT", "1h").stat().st_mtime_ns == stamp
+
+
+def _random_ohlcv(n=600, seed=7):
+    rng = np.random.default_rng(seed)
+    close = 100.0 * np.exp(np.cumsum(rng.normal(0.0, 0.01, n)))
+    high = close * (1.0 + rng.uniform(0.0, 0.01, n))
+    low = close * (1.0 - rng.uniform(0.0, 0.01, n))
+    open_ = np.r_[close[0], close[:-1]]
+    index = pd.date_range("2025-01-01", periods=n, freq="1h", tz="UTC")
+    return pd.DataFrame({"timestamp": (index.asi8 // 1_000_000).astype("int64"), "open": open_, "high": high, "low": low,
+                         "close": close, "volume": rng.uniform(10.0, 100.0, n)}, index=index)
+
+
+def _same_column(a: pd.Series, b: pd.Series) -> bool:
+    if a.dtype == object or b.dtype == object:
+        return a.tolist() == b.tolist()
+    return np.array_equal(a.to_numpy(dtype=float), b.to_numpy(dtype=float), equal_nan=True)
+
+
+def test_calculate_impulse_columns_are_identical_to_calculate_all():
+    df = _random_ohlcv()
+    impulse = IndicatorsService(df, bbwp_definition="tv")
+    impulse.calculate_impulse()
+    full = IndicatorsService(df, bbwp_definition="tv")
+    full.calculate_all()
+    needed = ("rsi14", "adx14", "plus_di", "minus_di", "bbwp", "ao", "konkorde_verde", "konkorde_media", "konkorde_azul",
+              "konkorde_marron", "macd", "macd_signal", "atr14", "ml_rsi_regime", "ml_rsi", "ml_rsi_upper", "ml_rsi_lower")
+    for col in needed:
+        assert col in impulse.df.columns, col
+    for col in impulse.df.columns:
+        assert _same_column(impulse.df[col], full.df[col]), col
+    assert "bbwp_legacy" not in impulse.df.columns and "tsa_trend_speed" not in impulse.df.columns
+    with pytest.raises(ValueError):
+        IndicatorsService(df, bbwp_definition="legacy").calculate_impulse()
+
+
+def test_ml_rsi_cached_is_identical_to_ml_rsi_frame_and_only_extends(tmp_path, monkeypatch):
+    close = _random_ohlcv(400)["close"]
+    p = MlRsiParams(max_points=50)
+    path = tmp_path / "mlrsi.npz"
+    want = ml_rsi_frame(close, p, mode="causal")
+
+    def same(frame):
+        return all(_same_column(frame[c], want[c]) for c in ("ml_rsi", "ml_rsi_upper", "ml_rsi_lower", "ml_rsi_regime"))
+
+    # cold: no cache -> full compute, cache written
+    assert same(sh.ml_rsi_cached(close, path, p, write=True)) and path.exists()
+    # a prefix cache (300 rows) must only compute the 100 new thresholds, with the same numbers
+    sh.ml_rsi_cached(close.iloc[:300], path, p, write=True)
+    calls = []
+    real = sh.thresholds
+    monkeypatch.setattr(sh, "thresholds", lambda w, pp: (calls.append(len(w)), real(w, pp))[1])
+    assert same(sh.ml_rsi_cached(close, path, p, write=True)) and len(calls) == 100
+    # a changed candle inside the cached prefix invalidates it: everything is recomputed
+    calls.clear()
+    bumped = close.copy()
+    bumped.iloc[10] *= 1.05
+    out = sh.ml_rsi_cached(bumped, path, p, write=False)
+    assert len(calls) == 400
+    assert all(_same_column(out[c], ml_rsi_frame(bumped, p, mode="causal")[c]) for c in ("ml_rsi", "ml_rsi_upper", "ml_rsi_lower", "ml_rsi_regime"))
+    # the ML RSI columns served from the cache are exactly what `_calc_ml_rsi` puts on the frame
+    df = _random_ohlcv(400)
+    via_cache = sh.enrich_impulse(df, mlrsi_cache=tmp_path / "x.npz", write=True)
+    direct = sh.enrich_impulse(df)
+    for col in ("ml_rsi", "ml_rsi_upper", "ml_rsi_lower", "ml_rsi_regime"):
+        assert _same_column(via_cache[col], direct[col]), col
 
 
 def test_floor_hour_and_report_closure(patched, tmp_path):

@@ -2,18 +2,21 @@
 """Impulsos-v2 ROUND 8 one-shot: forward SHADOW of the frozen 2.3.0 snipper chain, long + short.
 
 Protocol `docs/PREREG_IMPULSOS_v2_r8_shadow.md`. Evaluates the LAST CLOSED 1h candle of the 9
-assets (replay from the fixed anchor, see `controllers/metrics/impulse_shadow.py`), appends the
-new paper events / trades to JSONL under --state-dir and notifies entries / exits by ntfy
-(NTFY_BASE / NTFY_TOPIC from the environment; the topic is never printed). Idempotent:
-running it twice on the same candle records nothing the second time. Lab:
+assets (machine + ledger resumed from the saved state of the candle before, else replayed from
+the fixed anchor, see `controllers/metrics/impulse_shadow.py`), appends the new paper events /
+trades to JSONL under --state-dir and notifies entries / exits by ntfy (NTFY_BASE / NTFY_TOPIC
+from the environment; the topic is never printed). Idempotent: running it twice on the same
+candle records nothing the second time. Lab:
 
     docker compose --profile shadow run --rm -T shadow                       # real
     docker compose --profile shadow run --rm -T shadow python scripts/run_impulse_shadow_r8.py --dry-run
+    docker compose --profile shadow run --rm -T shadow python scripts/run_impulse_shadow_r8.py --full   # ignore snapshots
 """
 
 from __future__ import annotations
 
 import argparse
+import resource
 import sys
 import time
 import warnings
@@ -38,11 +41,13 @@ def main() -> int:
     p.add_argument("--state-dir", default="/data/shadow-r8")
     p.add_argument("--cache-dir", default=None, help="default: <state-dir>/ohlcv")
     p.add_argument("--dry-run", action="store_true", help="evaluate and print; write nothing, notify nothing")
+    p.add_argument("--full", action="store_true", help="ignore the saved machine snapshots: full replay from the anchor")
     p.add_argument("--now", default=None, help="ISO clock override (tests / replays); default = wall clock")
     p.add_argument("--only-symbols", nargs="*", default=None)
-    p.add_argument("--quiet", action="store_true", help="only the final one-line summary")
+    p.add_argument("--quiet", action="store_true", help="only the final one-line summary (+ the [perf] line)")
     args = p.parse_args()
 
+    t0 = time.perf_counter()
     now_ms = ms_of(args.now) if args.now else int(time.time() * 1000)
     end_ms = floor_hour_ms(now_ms)  # last closed 1h candle = the one that closed at this hour
     state_dir = Path(args.state_dir)
@@ -51,12 +56,18 @@ def main() -> int:
     log = (lambda _msg: None) if args.quiet else print
     loaders = make_loaders(symbols, cache_dir=cache_dir, anchor_ms=ms_of(ANCHOR), end_ms=end_ms, now_ms=now_ms, log=log)
     summary = shadow_run(state_dir=state_dir, loaders=loaders, now_ms=now_ms, dry_run=args.dry_run,
-                         anchor=ANCHOR, activation=ACTIVATION, symbols=symbols, log=print)
+                         anchor=ANCHOR, activation=ACTIVATION, symbols=symbols, log=print, resume=not args.full)
     if args.dry_run and not args.quiet:
         for sym, c in summary["last_candle"].items():
             print(f"[last candle] {sym}: {c}")
         for k, o in summary["open_positions"].items():
             print(f"[open] {k}: {o.get('side')} avg {o.get('avg_price')} layers {o.get('n_layers')} unrealized {o.get('unrealized_net_usdt')} USDT")
+    ru = resource.getrusage(resource.RUSAGE_SELF)
+    wall = time.perf_counter() - t0
+    cpu = ru.ru_utime + ru.ru_stime  # whole process, imports included
+    pf = summary["perf"]
+    print(f"[perf] wall {wall:.1f}s cpu {cpu:.1f}s ({100.0 * cpu / max(wall, 1e-9):.0f}%) load {pf['load_s']}s enrich {pf['enrich_s']}s "
+          f"machines {pf['machines_s']}s io {pf['io_s']}s resumed {pf['resumed']} rebuilt {pf['rebuilt']} bars {pf['bars_driven']}")
     return 1 if summary["assets_failed"] else 0
 
 

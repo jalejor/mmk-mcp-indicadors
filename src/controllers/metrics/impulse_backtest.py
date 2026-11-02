@@ -1265,31 +1265,54 @@ def drive_sequential(machine: Any, ledger: PositionLedger, trigger_df: pd.DataFr
     candle is not filled (no next bar). Still open at the end -> `end_of_data`,
     with the open book snapshot returned in `open_at_end`.
     """
-    highs, lows = trigger_df["high"].to_numpy(float), trigger_df["low"].to_numpy(float)
-    closes = trigger_df["close"].to_numpy(float)
-    hours = TIMEFRAME_MS[timeframe] / 3_600_000.0
-    last = len(trigger_df) - 1
+    driver = SequentialDriver(machine, ledger, trigger_df, timeframe=timeframe)
     decisions: List[Any] = []
     actions: Dict[str, int] = {}
     liquidations = 0
     for i in range(first, len(trigger_df)):
-        t = trigger_df.index[i].isoformat()
-        liq = ledger.mark(i, t, high=highs[i], low=lows[i], close=closes[i], hours=hours)
-        if liq is not None:
-            liquidations += 1
-            machine.force_flat(i, "liquidation")
-        if forced is not None and i == forced[0]:
-            d = machine.force_enter(i, forced[1], equity=ledger.cash)
-        else:
-            d = machine.step(i, equity=ledger.cash)
+        d, liq = driver.bar(i, forced_side=forced[1] if forced is not None and i == forced[0] else None)
+        liquidations += int(liq)
         decisions.append(d)
         actions[d.action] = actions.get(d.action, 0) + 1
-        price = float(closes[i])
+    open_at_end = driver.open_book()
+    if open_at_end is not None:
+        driver.close_end_of_data()
+    return {"decisions": decisions, "actions": actions, "liquidations": liquidations, "open_at_end": open_at_end}
+
+
+class SequentialDriver:
+    """The per-candle body of `drive_sequential` (mark -> decision -> fill), one candle per `bar()`.
+
+    Factored out so the round-8 shadow runner can resume a machine + ledger from a saved
+    state and drive only the new candles with exactly the same code. `last` is the index
+    of the last candle of the frame: an `enter` there is not filled
+    (`entry_skipped_last_candle`, machine forced flat) because there is no next bar.
+    """
+
+    def __init__(self, machine: Any, ledger: PositionLedger, trigger_df: pd.DataFrame, *, timeframe: str) -> None:
+        self.machine, self.ledger, self.df = machine, ledger, trigger_df
+        self.highs, self.lows = trigger_df["high"].to_numpy(float), trigger_df["low"].to_numpy(float)
+        self.closes = trigger_df["close"].to_numpy(float)
+        self.hours = TIMEFRAME_MS[timeframe] / 3_600_000.0
+        self.last = len(trigger_df) - 1
+
+    def bar(self, i: int, *, forced_side: Optional[str] = None) -> Tuple[Any, bool]:
+        """Drive candle `i`; returns (decision, liquidated_intrabar)."""
+        machine, ledger = self.machine, self.ledger
+        t = self.df.index[i].isoformat()
+        liq = ledger.mark(i, t, high=self.highs[i], low=self.lows[i], close=self.closes[i], hours=self.hours)
+        if liq is not None:
+            machine.force_flat(i, "liquidation")
+        if forced_side is not None:
+            d = machine.force_enter(i, forced_side, equity=ledger.cash)
+        else:
+            d = machine.step(i, equity=ledger.cash)
+        price = float(self.closes[i])
         if d.action == "enter":
-            if i >= last:
+            if i >= self.last:
                 machine.force_flat(i, "end_of_data")
                 d.reasons.append("entry_skipped_last_candle")
-                continue
+                return d, liq is not None
             ledger.open(i, t, d.side, price, float(d.notional), invalidation=d.invalidation_price,
                         reasons=list(d.reasons), confidence=d.confidence)
         elif d.action == "add_layer" and ledger.is_open:
@@ -1299,9 +1322,14 @@ def drive_sequential(machine: Any, ledger: PositionLedger, trigger_df: pd.DataFr
         elif d.action == "exit" and ledger.is_open:
             codes = [r for r in d.reasons if str(r).startswith("exit_")]
             ledger.close(i, t, price, codes[0] if codes else "signal_exit")
-    open_at_end: Optional[Dict[str, Any]] = None
-    if ledger.is_open:
-        close_last = float(closes[last])
+        return d, liq is not None
+
+    def open_book(self) -> Optional[Dict[str, Any]]:
+        """The open book marked at the last close (None when flat); the ledger is not touched."""
+        ledger = self.ledger
+        if not ledger.is_open:
+            return None
+        close_last = float(self.closes[self.last])
         notional_now = ledger.notional(close_last)
         open_at_end = {
             "side": ledger.side, "qty": ledger.qty, "avg_price": ledger.avg_price, "n_layers": len(ledger.layers),
@@ -1315,8 +1343,10 @@ def drive_sequential(machine: Any, ledger: PositionLedger, trigger_df: pd.DataFr
         open_at_end["unrealized_net_usdt"] = round(
             open_at_end["unrealized_gross_usdt"] - open_at_end["entry_costs_usdt"] - open_at_end["funding_usdt"]
             - open_at_end["exit_cost_estimate_usdt"], 4)
-        ledger.close(last, trigger_df.index[last].isoformat(), close_last, "end_of_data")
-    return {"decisions": decisions, "actions": actions, "liquidations": liquidations, "open_at_end": open_at_end}
+        return open_at_end
+
+    def close_end_of_data(self) -> None:
+        self.ledger.close(self.last, self.df.index[self.last].isoformat(), float(self.closes[self.last]), "end_of_data")
 
 
 def run_sequential(

@@ -57,6 +57,31 @@ class IndicatorsService:
 
         return result
 
+    def calculate_impulse(self, *, ml_rsi: bool = True) -> Dict[str, Any]:
+        """Compute ONLY what the impulse engines read (cheaper than `calculate_all`).
+
+        `impulse_service._derive` / `impulse_sequential.derive_sequential` consume
+        `rsi14`, `adx14` / `plus_di` / `minus_di`, `bbwp` (the selected definition),
+        `ao`, the `konkorde_*` lines, `macd` / `macd_signal`, `atr14` and
+        `ml_rsi_regime`. Every column computed here is the SAME series
+        `calculate_all` produces (same functions, same parameters, same order);
+        what is skipped — the legacy BBWP percentile, the moving averages, the
+        Trend Speed Analyzer and the `bbwp_owner` aliases — is never read by
+        those engines. `ml_rsi=False` leaves the ML RSI columns to the caller
+        (the shadow runner serves them from an incremental cache).
+        """
+        result: Dict[str, Any] = {}
+        self._calc_rsi(result)
+        self._calc_adx(result)
+        self._calc_bbwp(result, legacy=False)
+        self._calc_ao(result)
+        self._calc_konkorde(result)
+        self._calc_momentum_indicators(result)
+        self._calc_volatility_indicators(result)
+        if ml_rsi:
+            self._calc_ml_rsi(result)
+        return result
+
     def calculate_konkorde(self) -> Dict[str, Any]:
         """Compute ONLY the Konkorde block (cheaper than `calculate_all`).
 
@@ -145,8 +170,12 @@ class IndicatorsService:
         result["plus_di"] = self._safe_last(self.df["plus_di"])
         result["minus_di"] = self._safe_last(self.df["minus_di"])
 
-    def _calc_bbwp(self, result: Dict[str, Any]):
+    def _calc_bbwp(self, result: Dict[str, Any], *, legacy: bool = True):
         """Bollinger Band Width (BBW) and Bollinger Band Width Percentile (BBWP).
+
+        `legacy=False` (only `calculate_impulse`) skips the `bbwp_legacy`
+        series — a per-bar `rank` over 252 rows that dominates the cost — and
+        is only allowed with the "tv" definition, where nothing reads it.
 
         Two definitions are always computed and exposed:
 
@@ -171,13 +200,16 @@ class IndicatorsService:
           `rule_version` bump — the C1-G1 golden flips its 1h BBWP component
           on the TV series). See `setup_service.RULE_PACK_BBWP_DEFINITION`.
         """
+        if not legacy and self.bbwp_definition != "tv":
+            raise ValueError("legacy=False needs bbwp_definition='tv' (the legacy series would be the selected one)")
         bb = ta.bbands(self.df["close"], length=20, std=2)
         bbw = (bb["BBU_20_2.0"] - bb["BBL_20_2.0"]) / bb["BBM_20_2.0"] * 100
         self.df["bbw"] = bbw
-        self.df["bbwp_legacy"] = bbw.rolling(self.bbwp_lookback, min_periods=1).apply(
-            lambda x: x.rank(pct=True).iloc[-1] * 100,
-            raw=False,
-        )
+        if legacy:
+            self.df["bbwp_legacy"] = bbw.rolling(self.bbwp_lookback, min_periods=1).apply(
+                lambda x: x.rank(pct=True).iloc[-1] * 100,
+                raw=False,
+            )
 
         owner = bbwp_owner_series(self.df["close"])
         self.df["bbw13"] = owner["bbw"] * 100.0
@@ -195,7 +227,8 @@ class IndicatorsService:
         result["bbwp_ma4"] = self._safe_last(self.df["bbwp_ma4"])
         result["bbwp_ma5"] = self._safe_last(self.df["bbwp_ma5"])
         result["bbwp_tv"] = self._safe_last(self.df["bbwp_tv"])
-        result["bbwp_legacy"] = self._safe_last(self.df["bbwp_legacy"])
+        if legacy:
+            result["bbwp_legacy"] = self._safe_last(self.df["bbwp_legacy"])
 
     def _calc_bbwp_owner(self, result: Dict[str, Any]):
         """`bbwp_owner` / `bbwp_owner_ma5`: ALIASES of `bbwp_tv` / `bbwp_ma5`
